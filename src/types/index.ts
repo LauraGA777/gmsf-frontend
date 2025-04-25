@@ -9,6 +9,20 @@ export interface User {
   clientId?: string;
   trainerId?: string;
   avatar?: string;
+  contract?: {
+    id: string;
+    estado: string;
+    fecha_inicio: string;
+    fecha_fin: string;
+    membresia_nombre: string;
+  };
+  activeContract?: {
+    id: string;
+    status: string;
+    startDate: Date;
+    endDate: Date;
+    membershipType: string;
+  };
 }
 
 // Client related types
@@ -28,7 +42,7 @@ export interface Client {
   emergencyPhone?: string;
   membershipType?: string;
   membershipEndDate?: Date | null;
-  status: "Activo" | "Inactivo";
+  status: "Activo" | "Inactivo" | "Congelado" | "Pendiente de pago";
   isBeneficiary?: boolean;
   beneficiaryRelation?: string;
   beneficiaryName?: string;
@@ -70,7 +84,13 @@ export interface Contract {
   id_membresia: number;
   fecha_inicio: Date;
   fecha_fin: Date;
-  estado: "Activo" | "Cancelado" | "Vencido" | "Por vencer";
+  estado:
+    | "Activo"
+    | "Cancelado"
+    | "Vencido"
+    | "Por vencer"
+    | "Congelado"
+    | "Pendiente de pago";
   cliente_nombre: string;
   membresia_nombre: string;
   membresia_precio?: number;
@@ -84,6 +104,7 @@ export interface Contract {
 }
 
 // Search related types
+// Search related types
 export interface SearchFilters {
   client?: string;
   trainer?: string;
@@ -92,7 +113,7 @@ export interface SearchFilters {
     from?: Date;
     to?: Date;
   };
-  status?: string;
+  status?: string; // Added status field for estado column search
 }
 
 // Trainer related types
@@ -336,4 +357,14 @@ export const mapDbEnrollmentToUiEnrollment = (
       ? new Date(dbEnrollment.fecha_actualizacion)
       : undefined,
   };
+};
+
+// Actualizar la interfaz CalendarProps para incluir los nuevos props
+import type * as React from "react";
+import type { DayPicker } from "react-day-picker";
+
+export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
+  captionLayout?: "buttons" | "dropdown" | "dropdown-buttons";
+  fromYear?: number;
+  toYear?: number;
 };

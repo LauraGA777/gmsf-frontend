@@ -41,16 +41,18 @@ interface SearchBarProps {
   onSearch: (filters: SearchFilters) => void
   trainers: string[]
   services: string[]
+  includeContracts?: boolean // New prop to indicate if contracts should be included in search
 }
 
-export function SearchBar({ onSearch, trainers, services }: SearchBarProps) {
+export function SearchBar({ onSearch, trainers, services, includeContracts = false }: SearchBarProps) {
   const [isAdvancedSearch, setIsAdvancedSearch] = useState<boolean>(false)
-  const [searchType, setSearchType] = useState<"client" | "trainer">("client")
+  const [searchType, setSearchType] = useState<"client" | "trainer" | "contract">("client")
   const [filters, setFilters] = useState<SearchFilters>({
     client: "",
     trainer: "",
     service: "",
     dateRange: { from: null, to: null },
+    status: "", // Added status field for estado column
   })
   const [activeFilters, setActiveFilters] = useState<string[]>([])
 
@@ -70,6 +72,7 @@ export function SearchBar({ onSearch, trainers, services }: SearchBarProps) {
     if (filters.client) newActiveFilters.push(`Cliente: ${filters.client}`)
     if (filters.trainer && filters.trainer !== "all") newActiveFilters.push(`Entrenador: ${filters.trainer}`)
     if (filters.service && filters.service !== "all") newActiveFilters.push(`Servicio: ${filters.service}`)
+    if (filters.status && filters.status !== "all") newActiveFilters.push(`Estado: ${filters.status}`)
     if (filters.dateRange.from && filters.dateRange.to) {
       newActiveFilters.push(
         `Fechas: ${format(filters.dateRange.from, "dd/MM/yyyy")} - ${format(filters.dateRange.to, "dd/MM/yyyy")}`,
@@ -85,6 +88,7 @@ export function SearchBar({ onSearch, trainers, services }: SearchBarProps) {
       trainer: "",
       service: "",
       dateRange: { from: null, to: null },
+      status: "", // Clear status field
     })
     setActiveFilters([])
     onSearch({
@@ -92,6 +96,7 @@ export function SearchBar({ onSearch, trainers, services }: SearchBarProps) {
       trainer: "",
       service: "",
       dateRange: { from: null, to: null },
+      status: "", // Clear status field
     })
   }
 
@@ -102,6 +107,7 @@ export function SearchBar({ onSearch, trainers, services }: SearchBarProps) {
     if (filterType === "Cliente") newFilters.client = ""
     if (filterType === "Entrenador") newFilters.trainer = ""
     if (filterType === "Servicio") newFilters.service = ""
+    if (filterType === "Estado") newFilters.status = ""
     if (filterType === "Fechas") newFilters.dateRange = { from: null, to: null }
 
     setFilters(newFilters)
@@ -134,13 +140,23 @@ export function SearchBar({ onSearch, trainers, services }: SearchBarProps) {
           >
             Buscar por Entrenador
           </Button>
+          {includeContracts && (
+            <Button
+              type="button"
+              variant={searchType === "contract" ? "default" : "outline"}
+              onClick={() => setSearchType("contract")}
+              className="flex-1"
+            >
+              Buscar por Contrato
+            </Button>
+          )}
         </div>
 
         {searchType === "client" ? (
           <form onSubmit={handleSearch} className="space-y-4">
             <div className="flex gap-2">
               <Input
-                placeholder="Buscar por cliente"
+                placeholder="Buscar por nombre, documento, email, teléfono o estado"
                 value={filters.client}
                 onChange={(e) => setFilters({ ...filters, client: e.target.value })}
                 className="flex-1"
@@ -168,7 +184,7 @@ export function SearchBar({ onSearch, trainers, services }: SearchBarProps) {
 
             {isAdvancedSearch && renderAdvancedSearch()}
           </form>
-        ) : (
+        ) : searchType === "trainer" ? (
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Entrenador</label>
@@ -206,6 +222,39 @@ export function SearchBar({ onSearch, trainers, services }: SearchBarProps) {
 
             {isAdvancedSearch && renderAdvancedSearch()}
           </div>
+        ) : (
+          // Contract search form
+          <form onSubmit={handleSearch} className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Buscar por código, cliente, membresía, estado o precio"
+                value={filters.client}
+                onChange={(e) => setFilters({ ...filters, client: e.target.value })}
+                className="flex-1"
+              />
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsAdvancedSearch(!isAdvancedSearch)}
+                  className="flex items-center gap-2"
+                >
+                  <Filter className="h-4 w-4" />
+                  {isAdvancedSearch ? "Ocultar filtros" : "Más filtros"}
+                </Button>
+
+                <Button variant="default" onClick={clearFilters} className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4" />
+                  Limpiar
+                </Button>
+              </div>
+              <Button type="submit" variant="outline">
+                <Search className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {isAdvancedSearch && renderAdvancedSearch()}
+          </form>
         )}
       </div>
 
@@ -278,6 +327,29 @@ export function SearchBar({ onSearch, trainers, services }: SearchBarProps) {
                   {service}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Estado</label>
+          <Select value={filters.status || ""} onValueChange={(value) => setFilters({ ...filters, status: value })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Todos los estados" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los estados</SelectItem>
+              <SelectItem value="Activo">Activo</SelectItem>
+              <SelectItem value="Inactivo">Inactivo</SelectItem>
+              <SelectItem value="Congelado">Congelado</SelectItem>
+              <SelectItem value="Pendiente de pago">Pendiente de pago</SelectItem>
+              {searchType === "contract" && (
+                <>
+                  <SelectItem value="Vencido">Vencido</SelectItem>
+                  <SelectItem value="Por vencer">Por vencer</SelectItem>
+                  <SelectItem value="Cancelado">Cancelado</SelectItem>
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>

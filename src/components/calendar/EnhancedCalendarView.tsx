@@ -63,14 +63,6 @@ export function EnhancedCalendarView({
     }
   }
 
-  // Manejar edición de entrenamiento
-  const handleEditTraining = (updatedTraining: Partial<Training>) => {
-    if (selectedTraining && onEditTraining) {
-      onEditTraining(selectedTraining.id, updatedTraining)
-      setIsDetailsOpen(false)
-    }
-  }
-
   // Determinar si el usuario puede editar/eliminar entrenamientos
   const canModifyTrainings = user?.role === "admin" || user?.role === "trainer"
 
@@ -105,12 +97,12 @@ export function EnhancedCalendarView({
           locale={es}
           className="rounded-md border"
           components={{
-            Day: ({ day, ...props }) => (
+            Day: ({ date, ...props }) => (
               <button
                 {...props}
-                className={`relative w-9 h-9 p-0 font-normal aria-selected:opacity-100 ${props.className}`}
+                className="relative w-9 h-9 p-0 font-normal aria-selected:opacity-100"
               >
-                {renderDay(day)}
+                {renderDay(date)}
               </button>
             ),
           }}
@@ -203,7 +195,12 @@ export function EnhancedCalendarView({
           {selectedTraining && (
             <TrainingDetailsForm
               training={selectedTraining}
-              onSave={handleEditTraining}
+              onSave={(id, training) => {
+                if (onEditTraining) {
+                  onEditTraining(id, training)
+                  setIsDetailsOpen(false)
+                }
+              }}
               onDelete={handleDeleteTraining}
               onCancel={() => setIsDetailsOpen(false)}
             />

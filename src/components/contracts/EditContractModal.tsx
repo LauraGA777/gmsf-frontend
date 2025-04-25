@@ -200,13 +200,21 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
                         )}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <div className="p-3 border-b border-border">
+                        <h3 className="text-sm font-medium">Fecha de inicio</h3>
+                        <p className="text-xs text-muted-foreground mt-1">Seleccione la fecha de inicio del contrato</p>
+                      </div>
                       <Calendar
                         mode="single"
                         selected={startDate}
                         onSelect={(date) => date && setStartDate(date)}
                         initialFocus
                         locale={es}
+                        captionLayout="dropdown-buttons"
+                        fromYear={new Date().getFullYear() - 1}
+                        toYear={new Date().getFullYear() + 5}
+                        className="rounded-md border-0"
                       />
                     </PopoverContent>
                   </Popover>
@@ -239,4 +247,3 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
     </div>
   )
 }
-

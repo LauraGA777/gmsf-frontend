@@ -1,9 +1,10 @@
 import React from "react"
 import ReactDOM from "react-dom/client"
-import App from "@/App"
-import "@/index.css"
+import { RouterProvider } from "react-router-dom"
+import { router } from "./routes/router"
+import { ThemeProvider } from "./context/ThemeContext"
+import "./index.css"
 
-// Find the root element safely
 const rootElement = document.getElementById("root")
 
 if (!rootElement) {
@@ -12,7 +13,9 @@ if (!rootElement) {
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <App />
+    <ThemeProvider>
+      <RouterProvider router={router} />
+    </ThemeProvider>
   </React.StrictMode>,
 )
 

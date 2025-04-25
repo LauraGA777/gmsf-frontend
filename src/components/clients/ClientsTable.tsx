@@ -8,19 +8,18 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import {
   Eye,
   Edit,
+  RefreshCw,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Power,
   Search,
   ChevronLeft,
   ChevronRight,
-  Filter,
-  X,
-  RefreshCw,
-  CheckCircle,
-  AlertTriangle,
-  Clock,
-  Power,
+  Snowflake,
+  AlertCircle,
+  CreditCard,
 } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { ClientDetails } from "./ClientDetails"
 import { EditClientModal } from "./EditClientModal"
@@ -39,16 +38,13 @@ interface ClientsTableProps {
 
 export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTableProps) {
   const { user } = useAuth()
-  const [filteredClients, setFilteredClients] = useState<Client[]>([])
+  const [displayedClients, setDisplayedClients] = useState<Client[]>([])
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isRenewModalOpen, setIsRenewModalOpen] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("")
-  const [membershipFilter, setMembershipFilter] = useState("")
-  const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false)
 
   const clientsPerPage = 10
 
@@ -61,32 +57,54 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
       filtered = filtered.filter((client) => client.id === user.clientId)
     }
 
-    // Aplicar filtros de búsqueda
+    // Aplicar filtro de búsqueda global
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        (client) =>
+      filtered = filtered.filter((client) => {
+        // Búsqueda por estado específico (verificar primero)
+        if (
+          (term === "activo" && client.status === "Activo") ||
+          (term === "inactivo" && client.status === "Inactivo") ||
+          (term === "congelado" && client.status === "Congelado") ||
+          (term === "pendiente de pago" && client.status === "Pendiente de pago") ||
+          (term === "vencido" && client.membershipEndDate && new Date(client.membershipEndDate) < new Date()) ||
+          (term === "por vencer" &&
+            client.membershipEndDate &&
+            daysRemaining(client.membershipEndDate) <= 7 &&
+            daysRemaining(client.membershipEndDate) > 0) ||
+          (term === "sin membresía" && !client.membershipEndDate)
+        ) {
+          return true
+        }
+
+        // Buscar en todos los campos posibles
+        return (
+          // Información básica
+          (client.codigo && client.codigo.toLowerCase().includes(term)) ||
+          (client.name && client.name.toLowerCase().includes(term)) ||
           (client.firstName && client.firstName.toLowerCase().includes(term)) ||
           (client.lastName && client.lastName.toLowerCase().includes(term)) ||
-          (client.name && client.name.toLowerCase().includes(term)) ||
-          client.email.toLowerCase().includes(term) ||
+          (client.documentType && client.documentType.toLowerCase().includes(term)) ||
           (client.documentNumber && client.documentNumber.toLowerCase().includes(term)) ||
+          (client.email && client.email.toLowerCase().includes(term)) ||
           (client.phone && client.phone.toLowerCase().includes(term)) ||
-          (client.codigo && client.codigo.toLowerCase().includes(term)),
-      )
+          (client.address && client.address.toLowerCase().includes(term)) ||
+          // Membresía
+          (client.membershipType && client.membershipType.toLowerCase().includes(term)) ||
+          (client.status && client.status.toLowerCase().includes(term)) ||
+          // Beneficiario
+          (client.beneficiaryName && client.beneficiaryName.toLowerCase().includes(term)) ||
+          (client.beneficiaryRelation && client.beneficiaryRelation.toLowerCase().includes(term)) ||
+          (client.beneficiaryDocumentNumber && client.beneficiaryDocumentNumber.toLowerCase().includes(term)) ||
+          (client.beneficiaryEmail && client.beneficiaryEmail.toLowerCase().includes(term)) ||
+          (client.beneficiaryPhone && client.beneficiaryPhone.toLowerCase().includes(term))
+        )
+      })
     }
 
-    if (statusFilter && statusFilter !== "all") {
-      filtered = filtered.filter((client) => client.status === statusFilter)
-    }
-
-    if (membershipFilter && membershipFilter !== "all") {
-      filtered = filtered.filter((client) => client.membershipType === membershipFilter)
-    }
-
-    setFilteredClients(filtered)
+    setDisplayedClients(filtered)
     setCurrentPage(1) // Reset to first page on filter change
-  }, [clients, user, searchTerm, statusFilter, membershipFilter])
+  }, [clients, user, searchTerm])
 
   const handleViewClient = (client: Client) => {
     setSelectedClient(client)
@@ -104,22 +122,39 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
   }
 
   const handleToggleClientStatus = (client: Client) => {
-    const newStatus = client.status === "Activo" ? "Inactivo" : "Activo"
-    const action = newStatus === "Activo" ? "activar" : "desactivar"
+    // Crear un array con los posibles estados
+    const statusOptions = ["Activo", "Inactivo", "Congelado", "Pendiente de pago"]
 
+    // Mostrar un diálogo para seleccionar el nuevo estado
     Swal.fire({
-      title: `¿Estás seguro?`,
-      text: `¿Deseas ${action} a este cliente? ${newStatus === "Inactivo" ? "Esto afectará sus contratos activos." : ""}`,
-      icon: "warning",
+      title: "Cambiar estado del cliente",
+      text: `Selecciona el nuevo estado para ${client.name}`,
+      input: "select",
+      inputOptions: {
+        Activo: "Activo",
+        Inactivo: "Inactivo",
+        Congelado: "Congelado",
+        "Pendiente de pago": "Pendiente de pago",
+      },
+      inputValue: client.status,
       showCancelButton: true,
-      confirmButtonColor: newStatus === "Activo" ? "#10b981" : "#d33",
+      confirmButtonColor: "#000",
       cancelButtonColor: "#6b7280",
-      confirmButtonText: `Sí, ${action}`,
+      confirmButtonText: "Cambiar estado",
       cancelButtonText: "Cancelar",
-      timer: 15000,
-      timerProgressBar: true,
+      inputValidator: (value) => {
+        if (!value) {
+          return "Debes seleccionar un estado"
+        }
+        if (value === client.status) {
+          return "El cliente ya tiene este estado"
+        }
+        return null
+      },
     }).then((result) => {
       if (result.isConfirmed) {
+        const newStatus = result.value as "Activo" | "Inactivo" | "Congelado" | "Pendiente de pago"
+
         const updatedClient = {
           ...client,
           status: newStatus,
@@ -127,8 +162,8 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
         onUpdateClient(updatedClient)
 
         Swal.fire({
-          title: `Cliente ${newStatus === "Activo" ? "activado" : "desactivado"}`,
-          text: `El cliente ha sido ${newStatus === "Activo" ? "activado" : "desactivado"} exitosamente.`,
+          title: `Estado actualizado`,
+          text: `El cliente ahora está en estado: ${newStatus}`,
           icon: "success",
           confirmButtonColor: "#000",
           timer: 5000,
@@ -166,24 +201,39 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
   const getPaginatedClients = () => {
     const startIndex = (currentPage - 1) * clientsPerPage
     const endIndex = startIndex + clientsPerPage
-    return filteredClients.slice(startIndex, endIndex)
+    return displayedClients.slice(startIndex, endIndex)
   }
 
-  // Actualizar la función getClientStatus para usar los estados correctos de la base de datos
+  // Actualizar la función getClientStatus para incluir los nuevos estados
   const getClientStatus = (client: Client) => {
-    if (client.status === "Inactivo") {
-      return {
-        label: "Inactivo",
-        color: "bg-red-100 text-red-800",
-        icon: <AlertTriangle className="h-3.5 w-3.5 mr-1" aria-hidden="true" />,
-      }
+    // Primero verificamos el estado explícito del cliente
+    switch (client.status) {
+      case "Inactivo":
+        return {
+          label: "Inactivo",
+          color: "bg-red-50 text-red-800 border-red-100",
+          icon: <AlertTriangle className="h-3.5 w-3.5 mr-1" aria-hidden="true" />,
+        }
+      case "Congelado":
+        return {
+          label: "Congelado",
+          color: "bg-blue-50 text-blue-800 border-blue-100",
+          icon: <Snowflake className="h-3.5 w-3.5 mr-1" aria-hidden="true" />,
+        }
+      case "Pendiente de pago":
+        return {
+          label: "Pendiente de pago",
+          color: "bg-orange-50 text-orange-800 border-orange-100",
+          icon: <CreditCard className="h-3.5 w-3.5 mr-1" aria-hidden="true" />,
+        }
     }
 
+    // Si el cliente está activo, verificamos el estado de su membresía
     if (!client.membershipEndDate) {
       return {
         label: "Sin membresía",
-        color: "bg-gray-100 text-gray-800",
-        icon: <AlertTriangle className="h-3.5 w-3.5 mr-1" aria-hidden="true" />,
+        color: "bg-gray-50 text-gray-800 border-gray-100",
+        icon: <AlertCircle className="h-3.5 w-3.5 mr-1" aria-hidden="true" />,
       }
     }
 
@@ -196,7 +246,7 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
     if (endDate < today) {
       return {
         label: "Vencido",
-        color: "bg-gray-100 text-gray-800",
+        color: "bg-gray-50 text-gray-800 border-gray-100",
         icon: <AlertTriangle className="h-3.5 w-3.5 mr-1" aria-hidden="true" />,
       }
     }
@@ -206,25 +256,16 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
     if (days <= 7) {
       return {
         label: `Por vencer (${days} días)`,
-        color: "bg-yellow-100 text-yellow-800",
+        color: "bg-yellow-50 text-yellow-800 border-yellow-100",
         icon: <Clock className="h-3.5 w-3.5 mr-1" aria-hidden="true" />,
       }
     }
 
     return {
       label: "Activo",
-      color: "bg-green-100 text-green-800",
+      color: "bg-green-50 text-green-800 border-green-100",
       icon: <CheckCircle className="h-3.5 w-3.5 mr-1" aria-hidden="true" />,
     }
-  }
-
-  // Obtener membresías únicas para el filtro
-  const uniqueMemberships = Array.from(new Set(clients.map((c) => c.membershipType).filter(Boolean)))
-
-  const clearFilters = () => {
-    setSearchTerm("")
-    setStatusFilter("")
-    setMembershipFilter("")
   }
 
   return (
@@ -232,144 +273,30 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-2xl font-bold">Clientes</h2>
         <div className="text-sm text-gray-500">
-          Mostrando {filteredClients.length} de {clients.length} clientes
+          Mostrando {displayedClients.length} de {clients.length} clientes
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex gap-2">
         <div className="relative flex-1">
           <Input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por nombre, email, documento o teléfono"
+            placeholder="Buscar por nombre, email, documento, membresía o estado"
             className="w-full h-9 pl-9"
-            aria-label="Buscar clientes"
           />
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsAdvancedFilterOpen(!isAdvancedFilterOpen)}
-          className="h-9 flex items-center gap-1"
-          aria-expanded={isAdvancedFilterOpen}
-          aria-controls="advanced-filters"
-        >
-          <Filter className="h-4 w-4" aria-hidden="true" />
-          {isAdvancedFilterOpen ? "Ocultar filtros" : "Más filtros"}
-        </Button>
-        <Button
-          variant="default"
-          size="sm"
-          onClick={clearFilters}
-          className="h-9"
-          disabled={!searchTerm && !statusFilter && !membershipFilter}
-        >
+        <Button variant="default" size="sm" onClick={() => setSearchTerm("")} className="h-9" disabled={!searchTerm}>
           Limpiar
         </Button>
       </div>
-
-      <div
-        id="advanced-filters"
-        className={cn(
-          "grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 bg-gray-50 p-4 rounded-lg",
-          !isAdvancedFilterOpen && "hidden",
-        )}
-      >
-        <div>
-          <label htmlFor="status-filter" className="text-sm font-medium mb-1 block">
-            Estado
-          </label>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger id="status-filter" className="h-9">
-              <SelectValue placeholder="Todos los estados" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los estados</SelectItem>
-              <SelectItem value="Activo">Activo</SelectItem>
-              <SelectItem value="Inactivo">Inactivo</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <label htmlFor="membership-filter" className="text-sm font-medium mb-1 block">
-            Membresía
-          </label>
-          <Select value={membershipFilter} onValueChange={setMembershipFilter}>
-            <SelectTrigger id="membership-filter" className="h-9">
-              <SelectValue placeholder="Todas las membresías" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las membresías</SelectItem>
-              {uniqueMemberships.map(
-                (membership) =>
-                  membership && (
-                    <SelectItem key={membership} value={membership}>
-                      {membership}
-                    </SelectItem>
-                  ),
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Mostrar filtros activos */}
-      {(searchTerm || statusFilter || membershipFilter) && (
-        <div className="mb-4 flex flex-wrap gap-2 items-center">
-          <span className="text-sm text-gray-500">Filtros activos:</span>
-          {searchTerm && (
-            <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
-              Búsqueda: {searchTerm}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 ml-1 p-0"
-                onClick={() => setSearchTerm("")}
-                aria-label="Eliminar filtro de búsqueda"
-              >
-                <X className="h-3 w-3" aria-hidden="true" />
-              </Button>
-            </Badge>
-          )}
-          {statusFilter && statusFilter !== "all" && (
-            <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
-              Estado: {statusFilter}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 ml-1 p-0"
-                onClick={() => setStatusFilter("")}
-                aria-label="Eliminar filtro de estado"
-              >
-                <X className="h-3 w-3" aria-hidden="true" />
-              </Button>
-            </Badge>
-          )}
-          {membershipFilter && membershipFilter !== "all" && (
-            <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
-              Membresía: {membershipFilter}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 ml-1 p-0"
-                onClick={() => setMembershipFilter("")}
-                aria-label="Eliminar filtro de membresía"
-              >
-                <X className="h-3 w-3" aria-hidden="true" />
-              </Button>
-            </Badge>
-          )}
-        </div>
-      )}
 
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
               <TableHead>CÓDIGO</TableHead>
               <TableHead>NOMBRE</TableHead>
               <TableHead>DOCUMENTO</TableHead>
@@ -385,7 +312,6 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
                 const status = getClientStatus(client)
                 return (
                   <TableRow key={client.id} className="hover:bg-gray-50">
-                    <TableCell>{client.id}</TableCell>
                     <TableCell>{client.codigo || `P${client.id.toString().padStart(4, "0")}`}</TableCell>
                     <TableCell className="font-medium">
                       {client.firstName && client.lastName ? `${client.firstName} ${client.lastName}` : client.name}
@@ -403,10 +329,15 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge className={cn("flex items-center", status.color)}>
+                      <div
+                        className={cn(
+                          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                          status.color,
+                        )}
+                      >
                         {status.icon}
                         <span>{status.label}</span>
-                      </Badge>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
@@ -447,13 +378,8 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
                             variant="ghost"
                             size="icon"
                             onClick={() => handleToggleClientStatus(client)}
-                            title={client.status === "Activo" ? "Desactivar cliente" : "Activar cliente"}
-                            aria-label={client.status === "Activo" ? "Desactivar cliente" : "Activar cliente"}
-                            className={
-                              client.status === "Inactivo"
-                                ? "text-green-600 hover:text-green-700"
-                                : "text-red-600 hover:text-red-700"
-                            }
+                            title="Cambiar estado"
+                            aria-label="Cambiar estado del cliente"
                           >
                             <Power className="h-4 w-4" aria-hidden="true" />
                           </Button>
@@ -467,7 +393,7 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8">
                   <div className="flex flex-col items-center justify-center text-gray-500">
-                    <Search className="h-8 w-8 mb-2 opacity-30" aria-hidden="true" />
+                    <Search className="h-8 w-8 mb-2 opacity-30" />
                     <p className="text-lg font-medium">No se encontraron clientes</p>
                     <p className="text-sm">Intenta con otros criterios de búsqueda</p>
                   </div>
@@ -479,14 +405,14 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
       </div>
 
       {/* Paginación */}
-      {filteredClients.length > clientsPerPage && (
-        <div className="mt-4 flex flex-wrap items-center justify-between">
-          <div className="text-sm text-gray-500 mb-2 md:mb-0">
+      {displayedClients.length > clientsPerPage && (
+        <div className="mt-4 flex items-center justify-between">
+          <div className="text-sm text-gray-500">
             Mostrando {(currentPage - 1) * clientsPerPage + 1} -{" "}
-            {Math.min(currentPage * clientsPerPage, filteredClients.length)} de {filteredClients.length} clientes
+            {Math.min(currentPage * clientsPerPage, displayedClients.length)} de {displayedClients.length} clientes
           </div>
 
-          <nav className="flex space-x-1" aria-label="Pagination">
+          <div className="flex space-x-1">
             <Button
               variant="outline"
               size="sm"
@@ -495,11 +421,11 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
               disabled={currentPage === 1}
               aria-label="Página anterior"
             >
-              <span className="sr-only">Anterior</span>
+              <VisuallyHidden>Anterior</VisuallyHidden>
               <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             </Button>
 
-            {Array.from({ length: Math.min(5, Math.ceil(filteredClients.length / clientsPerPage)) }, (_, i) => {
+            {Array.from({ length: Math.min(5, Math.ceil(displayedClients.length / clientsPerPage)) }, (_, i) => {
               const pageNumber = i + 1
               return (
                 <Button
@@ -516,17 +442,17 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
               )
             })}
 
-            {Math.ceil(filteredClients.length / clientsPerPage) > 5 && (
+            {Math.ceil(displayedClients.length / clientsPerPage) > 5 && (
               <>
                 <span className="flex h-8 w-8 items-center justify-center text-sm">...</span>
                 <Button
                   variant="outline"
                   size="sm"
                   className="h-8 w-8 p-0"
-                  onClick={() => setCurrentPage(Math.ceil(filteredClients.length / clientsPerPage))}
-                  aria-label={`Página ${Math.ceil(filteredClients.length / clientsPerPage)}`}
+                  onClick={() => setCurrentPage(Math.ceil(displayedClients.length / clientsPerPage))}
+                  aria-label={`Página ${Math.ceil(displayedClients.length / clientsPerPage)}`}
                 >
-                  {Math.ceil(filteredClients.length / clientsPerPage)}
+                  {Math.ceil(displayedClients.length / clientsPerPage)}
                 </Button>
               </>
             )}
@@ -536,15 +462,15 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
               size="sm"
               className="h-8 w-8 p-0"
               onClick={() =>
-                setCurrentPage(Math.min(Math.ceil(filteredClients.length / clientsPerPage), currentPage + 1))
+                setCurrentPage(Math.min(Math.ceil(displayedClients.length / clientsPerPage), currentPage + 1))
               }
-              disabled={currentPage === Math.ceil(filteredClients.length / clientsPerPage)}
+              disabled={currentPage === Math.ceil(displayedClients.length / clientsPerPage)}
               aria-label="Página siguiente"
             >
-              <span className="sr-only">Siguiente</span>
+              <VisuallyHidden>Siguiente</VisuallyHidden>
               <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </Button>
-          </nav>
+          </div>
         </div>
       )}
 
@@ -586,4 +512,3 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
     </>
   )
 }
-

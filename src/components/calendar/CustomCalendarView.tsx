@@ -114,8 +114,8 @@ export function CustomCalendarView({
     }
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6">
-            <div className="lg:w-3/4">
+        <div className="flex flex-col">
+            <div className="w-full">
                 <Card>
                     <CardHeader className="pb-3">
                         <div className="flex justify-between items-center">
@@ -324,79 +324,6 @@ export function CustomCalendarView({
                         ) : (
                             <p className="text-gray-500">No hay entrenamientos programados para este día.</p>
                         )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            <div className="lg:w-1/4">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Filtros</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                                placeholder="Buscar por cliente o entrenador"
-                                className="pl-10"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Entrenador</label>
-                            <Select value={selectedTrainer} onValueChange={setSelectedTrainer}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Todos los entrenadores" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todos los entrenadores</SelectItem>
-                                    {uniqueTrainers.map((trainer) => (
-                                        <SelectItem key={trainer} value={trainer}>
-                                            {trainer}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Servicio</label>
-                            <Select value={selectedService} onValueChange={setSelectedService}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Todos los servicios" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todos los servicios</SelectItem>
-                                    {uniqueServices.map((service) => (
-                                        <SelectItem key={service} value={service}>
-                                            {service}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="pt-4 border-t">
-                            <h3 className="font-medium mb-2">Resumen</h3>
-                            <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">Total entrenamientos:</span>
-                                    <span className="font-medium">{filteredTrainings.length}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">Activos:</span>
-                                    <span className="font-medium">{filteredTrainings.filter((t) => t.status === "Activo").length}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">Cancelados:</span>
-                                    <span className="font-medium">
-                                        {filteredTrainings.filter((t) => t.status === "Cancelado").length}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
                     </CardContent>
                 </Card>
             </div>

@@ -17,32 +17,38 @@ const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undef
 
 export function ThemeProvider({
   children,
-  defaultTheme = "system",
+  defaultTheme = "light",
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<string>(() => localStorage.getItem(storageKey) || defaultTheme)
+  const [theme, setTheme] = useState<string>(() => {
+    // Limpiar tema guardado y forzar tema claro
+    localStorage.removeItem(storageKey)
+    return "light"
+  })
 
   useEffect(() => {
     const root = window.document.documentElement
-
-    root.classList.remove("light", "dark")
-
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-
-      root.classList.add(systemTheme)
-      return
+    
+    // Limpiar todas las clases de tema
+    root.classList.remove("light", "dark", "system")
+    
+    // Forzar tema claro
+    root.classList.add("light")
+    
+    // Asegurar que los colores del sistema no afecten
+    if (window.matchMedia) {
+      window.matchMedia("(prefers-color-scheme: dark)").removeEventListener("change", () => {})
     }
-
-    root.classList.add(theme)
-  }, [theme])
+  }, [])
 
   const value = {
     theme,
     setTheme: (theme: string) => {
-      localStorage.setItem(storageKey, theme)
-      setTheme(theme)
+      // Asegurarse de que siempre se mantenga en light
+      const finalTheme = "light"
+      localStorage.setItem(storageKey, finalTheme)
+      setTheme(finalTheme)
     },
   }
 

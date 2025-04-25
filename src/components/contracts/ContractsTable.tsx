@@ -11,22 +11,17 @@ import {
   Eye,
   RefreshCw,
   Ban,
-  Calendar,
   ChevronLeft,
   ChevronRight,
-  X,
-  Filter,
   AlertTriangle,
   CheckCircle,
   Clock,
   Edit,
   Power,
+  Snowflake,
+  CreditCard,
 } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
-import { es } from "date-fns/locale"
-import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import type { DateRange } from "react-day-picker"
 import { NewContractForm } from "./NewContractForm"
 import { ContractDetails } from "./ContractDetails"
@@ -94,56 +89,32 @@ export function ContractsTable({
       filtered = filtered.filter((contract) => contract.id_cliente.toString() === user.clientId)
     }
 
-    // Aplicar filtros de búsqueda
+    // Aplicar filtro de búsqueda global
     if (filters.cliente) {
       const searchTerm = filters.cliente.toLowerCase()
       filtered = filtered.filter((contract) => {
-        // Buscar por nombre del cliente
-        if (contract.cliente_nombre?.toLowerCase().includes(searchTerm)) {
-          return true
-        }
-
-        // Buscar por código del contrato
-        if (contract.codigo && contract.codigo.toLowerCase().includes(searchTerm)) {
-          return true
-        }
-
-        // Buscar por documento del cliente
-        if (contract.cliente_documento && contract.cliente_documento.toLowerCase().includes(searchTerm)) {
-          return true
-        }
-
-        return false
-      })
-    }
-
-    if (filters.membresia && filters.membresia !== "all") {
-      filtered = filtered.filter(
-        (contract) =>
-          contract.id_membresia.toString() === filters.membresia || contract.membresia_nombre === filters.membresia,
-      )
-    }
-
-    if (filters.estado && filters.estado !== "all") {
-      filtered = filtered.filter((contract) => contract.estado === filters.estado)
-    }
-
-    if (filters.fechaRange.from && filters.fechaRange.to) {
-      const fromDate = new Date(filters.fechaRange.from)
-      const toDate = new Date(filters.fechaRange.to)
-
-      fromDate.setHours(0, 0, 0, 0)
-      toDate.setHours(23, 59, 59, 999)
-
-      filtered = filtered.filter((contract) => {
-        const startDate = new Date(contract.fecha_inicio)
-        return startDate >= fromDate && startDate <= toDate
+        // Buscar en todos los campos posibles
+        return (
+          // Código y cliente
+          (contract.codigo && contract.codigo.toLowerCase().includes(searchTerm)) ||
+          (contract.cliente_nombre && contract.cliente_nombre.toLowerCase().includes(searchTerm)) ||
+          (contract.cliente_documento && contract.cliente_documento.toLowerCase().includes(searchTerm)) ||
+          // Membresía
+          (contract.membresia_nombre && contract.membresia_nombre.toLowerCase().includes(searchTerm)) ||
+          // Estado (búsqueda exacta para estados)
+          (contract.estado && contract.estado.toLowerCase().includes(searchTerm)) ||
+          // Fechas
+          format(new Date(contract.fecha_inicio), "dd/MM/yyyy").includes(searchTerm) ||
+          format(new Date(contract.fecha_fin), "dd/MM/yyyy").includes(searchTerm) ||
+          // Precio
+          (contract.membresia_precio !== undefined && contract.membresia_precio.toString().includes(searchTerm))
+        )
       })
     }
 
     setFilteredContracts(filtered)
     setCurrentPage(1) // Reset to first page on filter change
-  }, [contracts, user, filters, clients])
+  }, [contracts, user, filters.cliente])
 
   const handleViewContract = (contract: Contract) => {
     setSelectedContract(contract)
@@ -156,27 +127,70 @@ export function ContractsTable({
   }
 
   const handleToggleContractStatus = (contract: Contract) => {
-    const newStatus = contract.estado === "Activo" ? "Cancelado" : "Activo"
-    const action = newStatus === "Activo" ? "activar" : "cancelar"
+    // Crear un array con los posibles estados
+    const statusOptions = ["Activo", "Cancelado", "Vencido", "Por vencer", "Congelado", "Pendiente de pago"]
 
+    // Mostrar un diálogo para seleccionar el nuevo estado
     Swal.fire({
-      title: "¿Estás seguro?",
-      text: `¿Deseas ${action} este contrato? ${newStatus === "Cancelado" ? "Esta acción afectará el estado del cliente." : ""}`,
-      icon: "warning",
+      title: "Cambiar estado del contrato",
+      text: `Selecciona el nuevo estado para el contrato ${contract.codigo || contract.id}`,
+      input: "select",
+      inputOptions: {
+        Activo: "Activo",
+        Cancelado: "Cancelado",
+        Vencido: "Vencido",
+        "Por vencer": "Por vencer",
+        Congelado: "Congelado",
+        "Pendiente de pago": "Pendiente de pago",
+      },
+      inputValue: contract.estado,
       showCancelButton: true,
-      confirmButtonColor: newStatus === "Activo" ? "#10b981" : "#d33",
+      confirmButtonColor: "#000",
       cancelButtonColor: "#6b7280",
-      confirmButtonText: `Sí, ${action}`,
-      cancelButtonText: "No, mantener como está",
-      timer: 15000,
-      timerProgressBar: true,
+      confirmButtonText: "Cambiar estado",
+      cancelButtonText: "Cancelar",
+      inputValidator: (value) => {
+        if (!value) {
+          return "Debes seleccionar un estado"
+        }
+        if (value === contract.estado) {
+          return "El contrato ya tiene este estado"
+        }
+        return null
+      },
     }).then((result) => {
       if (result.isConfirmed) {
+        const newStatus = result.value as
+          | "Activo"
+          | "Cancelado"
+          | "Vencido"
+          | "Por vencer"
+          | "Congelado"
+          | "Pendiente de pago"
+
         onUpdateContract(contract.id, { estado: newStatus })
 
+        // Actualizar también el estado del cliente
+        const clientId = contract.id_cliente.toString()
+        const clientIndex = clients.findIndex((c) => c.id === clientId)
+
+        if (clientIndex !== -1) {
+          const clientStatus =
+            newStatus === "Activo"
+              ? "Activo"
+              : newStatus === "Congelado"
+                ? "Congelado"
+                : newStatus === "Pendiente de pago"
+                  ? "Pendiente de pago"
+                  : "Inactivo"
+
+          // Aquí deberías tener una función para actualizar el cliente
+          // Esto dependerá de cómo manejes la actualización de clientes en tu aplicación
+        }
+
         Swal.fire({
-          title: `Contrato ${newStatus === "Activo" ? "activado" : "cancelado"}`,
-          text: `El contrato ha sido ${newStatus === "Activo" ? "activado" : "cancelado"} exitosamente.`,
+          title: `Estado actualizado`,
+          text: `El contrato ahora está en estado: ${newStatus}`,
           icon: "success",
           confirmButtonColor: "#000",
           timer: 5000,
@@ -266,6 +280,7 @@ export function ContractsTable({
           cliente_nombre: contract.cliente_nombre,
           membresia_nombre: contract.membresia_nombre,
           membresia_precio: contract.membresia_precio,
+          precio_total: contract.membresia_precio || membership.precio,
           cliente_documento: contract.cliente_documento,
           cliente_documento_tipo: contract.cliente_documento_tipo,
         }
@@ -290,39 +305,49 @@ export function ContractsTable({
     return filteredContracts.slice(startIndex, endIndex)
   }
 
-  // Actualizar la función getContractStatus para usar los estados correctos
+  // Actualizar la función getContractStatus para incluir los nuevos estados
   const getContractStatus = (contract: Contract) => {
-    if (contract.estado === "Cancelado") {
-      return {
-        label: "Cancelado",
-        color: "bg-red-100 text-red-800",
-        icon: <Ban className="h-3.5 w-3.5 mr-1" />,
-      }
-    }
-
-    if (contract.estado === "Vencido") {
-      return {
-        label: "Vencido",
-        color: "bg-gray-100 text-gray-800",
-        icon: <AlertTriangle className="h-3.5 w-3.5 mr-1" />,
-      }
-    }
-
-    if (contract.estado === "Por vencer") {
-      return {
-        label: "Por vencer",
-        color: "bg-yellow-100 text-yellow-800",
-        icon: <Clock className="h-3.5 w-3.5 mr-1" />,
-      }
-    }
-
-    return {
-      label: "Activo",
-      color: "bg-green-100 text-green-800",
-      icon: <CheckCircle className="h-3.5 w-3.5 mr-1" />,
+    switch (contract.estado) {
+      case "Cancelado":
+        return {
+          label: "Cancelado",
+          color: "bg-red-50 text-red-800 border-red-100",
+          icon: <Ban className="h-3.5 w-3.5 mr-1" />,
+        }
+      case "Vencido":
+        return {
+          label: "Vencido",
+          color: "bg-gray-50 text-gray-800 border-gray-100",
+          icon: <AlertTriangle className="h-3.5 w-3.5 mr-1" />,
+        }
+      case "Por vencer":
+        return {
+          label: "Por vencer",
+          color: "bg-yellow-50 text-yellow-800 border-yellow-100",
+          icon: <Clock className="h-3.5 w-3.5 mr-1" />,
+        }
+      case "Congelado":
+        return {
+          label: "Congelado",
+          color: "bg-blue-50 text-blue-800 border-blue-100",
+          icon: <Snowflake className="h-3.5 w-3.5 mr-1" />,
+        }
+      case "Pendiente de pago":
+        return {
+          label: "Pendiente de pago",
+          color: "bg-orange-50 text-orange-800 border-orange-100",
+          icon: <CreditCard className="h-3.5 w-3.5 mr-1" />,
+        }
+      default:
+        return {
+          label: "Activo",
+          color: "bg-green-50 text-green-800 border-green-100",
+          icon: <CheckCircle className="h-3.5 w-3.5 mr-1" />,
+        }
     }
   }
 
+  // Simplificar la función handleFilterChange
   const handleFilterChange = (key: keyof ContractFilters, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
   }
@@ -386,189 +411,26 @@ export function ContractsTable({
             type="text"
             value={filters.cliente}
             onChange={(e) => handleFilterChange("cliente", e.target.value)}
-            placeholder="Buscar por nombre del cliente o código"
+            placeholder="Buscar en todos los campos (cliente, código, membresía, fechas, estado...)"
             className="w-full h-9 pl-9"
           />
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         </div>
         <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsAdvancedFilterOpen(!isAdvancedFilterOpen)}
-          className="h-9 flex items-center gap-1"
-        >
-          <Filter className="h-4 w-4" />
-          {isAdvancedFilterOpen ? "Ocultar filtros" : "Más filtros"}
-        </Button>
-        <Button
           variant="default"
           size="sm"
-          onClick={clearFilters}
+          onClick={() => handleFilterChange("cliente", "")}
           className="h-9"
-          disabled={
-            !filters.cliente &&
-            filters.membresia === "" &&
-            filters.estado === "" &&
-            !filters.fechaRange.from &&
-            !filters.fechaRange.to
-          }
+          disabled={!filters.cliente}
         >
           Limpiar
         </Button>
       </div>
 
-      {isAdvancedFilterOpen && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 bg-gray-50 p-4 rounded-lg">
-          <div>
-            <label className="text-sm font-medium mb-1 block">Membresía</label>
-            <Select value={filters.membresia} onValueChange={(value) => handleFilterChange("membresia", value)}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Todas las membresías" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las membresías</SelectItem>
-                {uniqueMemberships.map((membership) => (
-                  <SelectItem key={membership} value={membership}>
-                    {membership}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium mb-1 block">Estado</label>
-            {/* Actualizar el filtro de estado */}
-            <Select value={filters.estado} onValueChange={(value) => handleFilterChange("estado", value)}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Todos los estados" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="Activo">Activo</SelectItem>
-                <SelectItem value="Por vencer">Por vencer</SelectItem>
-                <SelectItem value="Vencido">Vencido</SelectItem>
-                <SelectItem value="Cancelado">Cancelado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium mb-1 block">Rango de fechas</label>
-            <div className="flex gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal h-9">
-                    {filters.fechaRange.from ? (
-                      format(filters.fechaRange.from, "dd/MM/yyyy")
-                    ) : (
-                      <span>Fecha inicial</span>
-                    )}
-                    <Calendar className="ml-auto h-4 w-4 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={filters.fechaRange.from || undefined}
-                    onSelect={(date) => handleDateRangeChange({ ...filters.fechaRange, from: date })}
-                    initialFocus
-                    locale={es}
-                  />
-                </PopoverContent>
-              </Popover>
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal h-9">
-                    {filters.fechaRange.to ? format(filters.fechaRange.to, "dd/MM/yyyy") : <span>Fecha final</span>}
-                    <Calendar className="ml-auto h-4 w-4 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={filters.fechaRange.to || undefined}
-                    onSelect={(date) => handleDateRangeChange({ ...filters.fechaRange, to: date })}
-                    initialFocus
-                    locale={es}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mostrar filtros activos */}
-      {(filters.cliente ||
-        filters.membresia !== "" ||
-        filters.estado !== "" ||
-        filters.fechaRange.from ||
-        filters.fechaRange.to) && (
-          <div className="mb-4 flex flex-wrap gap-2 items-center">
-            <span className="text-sm text-gray-500">Filtros activos:</span>
-            {filters.cliente && (
-              <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
-                Cliente: {filters.cliente}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 ml-1 p-0"
-                  onClick={() => handleFilterChange("cliente", "")}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
-            {filters.membresia && filters.membresia !== "all" && (
-              <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
-                Membresía: {filters.membresia}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 ml-1 p-0"
-                  onClick={() => handleFilterChange("membresia", "")}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
-            {filters.estado && filters.estado !== "all" && (
-              <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
-                Estado: {filters.estado}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 ml-1 p-0"
-                  onClick={() => handleFilterChange("estado", "")}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
-            {(filters.fechaRange.from || filters.fechaRange.to) && (
-              <Badge variant="outline" className="flex items-center gap-1 bg-blue-50">
-                Fechas: {filters.fechaRange.from ? format(filters.fechaRange.from, "dd/MM/yyyy") : "Inicio"} -
-                {filters.fechaRange.to ? format(filters.fechaRange.to, "dd/MM/yyyy") : "Fin"}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 ml-1 p-0"
-                  onClick={() => handleFilterChange("fechaRange", { from: null, to: null })}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            )}
-          </div>
-        )}
-
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
               <TableHead>CÓDIGO</TableHead>
               <TableHead>CLIENTE</TableHead>
               <TableHead>MEMBRESÍA</TableHead>
@@ -584,7 +446,6 @@ export function ContractsTable({
                 const status = getContractStatus(contract)
                 return (
                   <TableRow key={contract.id} className="hover:bg-gray-50">
-                    <TableCell>{contract.id.toString().padStart(4, "0")}</TableCell>
                     <TableCell>{contract.codigo || `C${contract.id.toString().padStart(4, "0")}`}</TableCell>
                     <TableCell className="font-medium">{contract.cliente_nombre}</TableCell>
                     <TableCell>
@@ -594,7 +455,7 @@ export function ContractsTable({
                     <TableCell>{format(new Date(contract.fecha_inicio), "dd/MM/yyyy")}</TableCell>
                     <TableCell>{format(new Date(contract.fecha_fin), "dd/MM/yyyy")}</TableCell>
                     <TableCell>
-                      <Badge className={`flex items-center ${status.color}`}>
+                      <Badge className={`flex items-center ${status.color}`} style={{ pointerEvents: "none" }}>
                         {status.icon}
                         <span>{status.label}</span>
                       </Badge>
@@ -634,12 +495,8 @@ export function ContractsTable({
                             variant="ghost"
                             size="icon"
                             onClick={() => handleToggleContractStatus(contract)}
-                            title={contract.estado === "Activo" ? "Cancelar contrato" : "Activar contrato"}
-                            className={
-                              contract.estado === "Cancelado"
-                                ? "text-green-600 hover:text-green-700"
-                                : "text-red-600 hover:text-red-700"
-                            }
+                            title="Cambiar estado"
+                            className="text-gray-600 hover:text-gray-900"
                           >
                             <Power className="h-4 w-4" />
                           </Button>
@@ -770,4 +627,3 @@ export function ContractsTable({
     </>
   )
 }
-

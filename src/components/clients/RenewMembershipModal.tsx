@@ -5,15 +5,15 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format, addDays, differenceInDays } from "date-fns"
 import { es } from "date-fns/locale"
 import { CalendarIcon, User, CalendarPlus2Icon as CalendarIcon2, AlertTriangle, CheckCircle, Clock } from "lucide-react"
-import { cn } from "@/lib/utils"
 import type { Client } from "@/types"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DatePicker } from "@/components/ui/date-picker"
+import { mockMemberships } from "@/data/mockData"
+
 
 interface RenewMembershipModalProps {
   client: Client
@@ -28,42 +28,9 @@ export function RenewMembershipModal({ client, onSubmit }: RenewMembershipModalP
   const [endDate, setEndDate] = useState<Date | null>(null)
   const [selectedDuration, setSelectedDuration] = useState<number>(30)
   const [isProcessing, setIsProcessing] = useState(false)
-
-  // Membresías disponibles
-  const memberships = [
-    { id: 1, nombre: "Básico", descripcion: "Acceso a instalaciones básicas", precio: 29.99, duracion_dias: 30 },
-    {
-      id: 2,
-      nombre: "Estándar",
-      descripcion: "Acceso a instalaciones y clases grupales",
-      precio: 49.99,
-      duracion_dias: 30,
-    },
-    {
-      id: 3,
-      nombre: "Premium",
-      descripcion: "Acceso completo a instalaciones, clases y entrenador personal",
-      precio: 79.99,
-      duracion_dias: 30,
-    },
-    {
-      id: 4,
-      nombre: "VIP",
-      descripcion: "Acceso ilimitado a todas las instalaciones y servicios",
-      precio: 99.99,
-      duracion_dias: 30,
-    },
-    {
-      id: 5,
-      nombre: "Familiar",
-      descripcion: "Acceso para hasta 4 miembros de la familia",
-      precio: 129.99,
-      duracion_dias: 30,
-    },
-    { id: 6, nombre: "Trimestral", descripcion: "Plan estándar por 3 meses", precio: 129.99, duracion_dias: 90 },
-    { id: 7, nombre: "Semestral", descripcion: "Plan estándar por 6 meses", precio: 249.99, duracion_dias: 180 },
-    { id: 8, nombre: "Anual", descripcion: "Plan estándar por 12 meses", precio: 449.99, duracion_dias: 365 },
-  ]
+  
+  // Usar las membresías del sistema
+  const memberships = mockMemberships
 
   // Obtener el estado actual de la membresía
   const getMembershipStatus = () => {
@@ -265,36 +232,16 @@ export function RenewMembershipModal({ client, onSubmit }: RenewMembershipModalP
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="startDate" className="text-xs font-medium">
-                    Fecha de Inicio
-                  </Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal h-8 text-sm",
-                          !startDate && "text-muted-foreground",
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {startDate ? (
-                          format(startDate, "dd MMMM, yyyy", { locale: es })
-                        ) : (
-                          <span>Seleccionar fecha</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={startDate}
-                        onSelect={(date) => date && setStartDate(date)}
-                        initialFocus
-                        locale={es}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <DatePicker
+                    date={startDate}
+                    setDate={(date) => date && setStartDate(date)}
+                    label="Fecha de Inicio"
+                    placeholder="Seleccionar fecha"
+                    size="sm"
+                    fromYear={new Date().getFullYear() - 1}
+                    toYear={new Date().getFullYear() + 5}
+                    subtitle="Seleccione la fecha de inicio de la membresía"
+                  />
 
                   <div className="mt-3">
                     <Label htmlFor="endDate" className="text-xs font-medium">
@@ -321,4 +268,3 @@ export function RenewMembershipModal({ client, onSubmit }: RenewMembershipModalP
     </div>
   )
 }
-

@@ -7,17 +7,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { format, isValid } from "date-fns"
-import { es } from "date-fns/locale"
-import { User, Mail, Phone, CalendarIcon, Home, UserPlus, AlertTriangle, MapPin, FileText } from "lucide-react"
+import { DatePicker } from "@/components/ui/date-picker"
+import { User, Mail, Phone, Home, UserPlus, AlertTriangle, MapPin, FileText } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Swal from "sweetalert2"
 import type { Client } from "@/types"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { format } from "date-fns"
 
 interface EditClientModalProps {
   client: Client
@@ -273,7 +271,7 @@ export function EditClientModal({ client, onUpdateClient, onClose }: EditClientM
                         onValueChange={(value) => handleSelectChange("documentType", value)}
                       >
                         <SelectTrigger id="documentType" className="h-8 text-sm">
-                          <SelectValue placeholder="Tipo" />
+                          <SelectValue placeholder="Tipo" className="h-8 text-sm" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="CC">CC</SelectItem>
@@ -309,36 +307,15 @@ export function EditClientModal({ client, onUpdateClient, onClose }: EditClientM
                   </div>
 
                   <div>
-                    <Label htmlFor="birthdate" className="text-xs font-medium">
-                      Fecha de nacimiento
-                    </Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal h-8 text-sm",
-                            !formData.birthdate && "text-muted-foreground",
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.birthdate && isValid(formData.birthdate) ? (
-                            format(formData.birthdate, "dd/MM/yyyy")
-                          ) : (
-                            <span>Seleccionar fecha</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={formData.birthdate}
-                          onSelect={(date) => setFormData((prev) => ({ ...prev, birthdate: date }))}
-                          initialFocus
-                          locale={es}
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <DatePicker
+                      date={formData.birthdate}
+                      setDate={(date) => setFormData((prev) => ({ ...prev, birthdate: date }))}
+                      label="Fecha de nacimiento"
+                      placeholder="Seleccionar fecha"
+                      fromYear={1920}
+                      toYear={new Date().getFullYear()}
+                      subtitle="Seleccione año, mes y día"
+                    />
                   </div>
 
                   <div>
@@ -419,13 +396,13 @@ export function EditClientModal({ client, onUpdateClient, onClose }: EditClientM
                         // Limpiar datos del beneficiario si el cliente es el beneficiario
                         ...(checked === true
                           ? {
-                              beneficiaryName: undefined,
-                              beneficiaryRelation: undefined,
-                              beneficiaryDocumentType: undefined,
-                              beneficiaryDocumentNumber: undefined,
-                              beneficiaryPhone: undefined,
-                              beneficiaryEmail: undefined,
-                            }
+                            beneficiaryName: undefined,
+                            beneficiaryRelation: undefined,
+                            beneficiaryDocumentType: undefined,
+                            beneficiaryDocumentNumber: undefined,
+                            beneficiaryPhone: undefined,
+                            beneficiaryEmail: undefined,
+                          }
                           : {}),
                       }))
                     }}
@@ -644,4 +621,3 @@ export function EditClientModal({ client, onUpdateClient, onClose }: EditClientM
     </div>
   )
 }
-

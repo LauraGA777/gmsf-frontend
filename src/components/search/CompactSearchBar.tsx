@@ -13,9 +13,10 @@ interface CompactSearchBarProps {
   trainers: string[]
   services: string[]
   trainings: Training[]
+  includeContracts?: boolean // New prop to indicate if contracts should be included in search
 }
 
-export function CompactSearchBar({ onSearch, trainers, services, trainings }: CompactSearchBarProps) {
+export function CompactSearchBar({ onSearch, trainers, services, trainings, includeContracts = false }: CompactSearchBarProps) {
   const [searchTerm, setSearchTerm] = useState<string>("")
   const [searchResults, setSearchResults] = useState<{ type: string; name: string }[]>([])
   const [showResults, setShowResults] = useState<boolean>(false)
@@ -46,6 +47,25 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings }: Co
       }
     })
 
+    // Buscar en servicios
+    services.forEach((service) => {
+      if (service.toLowerCase().includes(term.toLowerCase())) {
+        results.push({ type: "service", name: service })
+      }
+    })
+
+    // Buscar por estado
+    const estados = ["Activo", "Inactivo", "Congelado", "Pendiente de pago"]
+    if (includeContracts) {
+      estados.push("Vencido", "Por vencer", "Cancelado")
+    }
+    
+    estados.forEach((estado) => {
+      if (estado.toLowerCase().includes(term.toLowerCase())) {
+        results.push({ type: "status", name: estado })
+      }
+    })
+
     setSearchResults(results)
     setShowResults(true)
   }
@@ -65,8 +85,9 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings }: Co
     const filters: SearchFilters = {
       client: result.type === "client" ? result.name : "",
       trainer: result.type === "trainer" ? result.name : "",
-      service: "",
+      service: result.type === "service" ? result.name : "",
       dateRange: { from: null, to: null },
+      status: result.type === "status" ? result.name : "",
     }
 
     onSearch(filters)
@@ -83,6 +104,7 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings }: Co
       trainer: "",
       service: "",
       dateRange: { from: null, to: null },
+      status: "",
     })
   }
 
@@ -93,7 +115,9 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings }: Co
           <div className="relative flex-1">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Buscar por cliente o entrenador"
+              placeholder={includeContracts 
+                ? "Buscar por cliente, entrenador, servicio, estado o contrato" 
+                : "Buscar por cliente, entrenador, servicio o estado"}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 border-gray-200 pr-10"
@@ -131,7 +155,13 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings }: Co
                 >
                   <span>{result.name}</span>
                   <Badge variant="outline" className="text-xs">
-                    {result.type === "client" ? "Cliente" : "Entrenador"}
+                    {result.type === "client" 
+                      ? "Cliente" 
+                      : result.type === "trainer" 
+                        ? "Entrenador" 
+                        : result.type === "service" 
+                          ? "Servicio" 
+                          : "Estado"}
                   </Badge>
                 </li>
               ))}
@@ -149,7 +179,13 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings }: Co
           >
             {selectedFilter.name}
             <span className="ml-1 text-xs text-gray-500">
-              ({selectedFilter.type === "client" ? "Cliente" : "Entrenador"})
+              ({selectedFilter.type === "client" 
+                ? "Cliente" 
+                : selectedFilter.type === "trainer" 
+                  ? "Entrenador" 
+                  : selectedFilter.type === "service" 
+                    ? "Servicio" 
+                    : "Estado"})
             </span>
             <button type="button" onClick={clearFilter} className="ml-1 rounded-full hover:bg-gray-200 p-0.5">
               <X className="h-3 w-3" />

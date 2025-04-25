@@ -1,16 +1,16 @@
 "use client"
 
 import type React from "react"
-
 import { createContext, useContext, useState, useEffect } from "react"
-import type { User, UserRole, AuthState } from "../types"
+import { useNavigate, useLocation } from "react-router-dom"
+import type { User, UserRole } from "../types"
 
 // Definir la interfaz del contexto
 interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (email: string, password: string) => Promise<boolean>
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   logout: () => void
   hasPermission: (requiredRoles: UserRole[]) => boolean
 }
@@ -46,6 +46,14 @@ const MOCK_USERS: User[] = [
     email: "juan@example.com",
     role: "client",
     clientId: "0001",
+    // Agregar contrato activo por defecto
+    activeContract: {
+      id: "C0001",
+      status: "Activo",
+      startDate: new Date("2025-01-01"),
+      endDate: new Date("2025-12-31"),
+      membershipType: "Premium"
+    }
   },
   {
     id: "5",
@@ -53,92 +61,113 @@ const MOCK_USERS: User[] = [
     email: "maria@example.com",
     role: "client",
     clientId: "0002",
+    // Agregar contrato activo por defecto
+    activeContract: {
+      id: "C0002",
+      status: "Activo",
+      startDate: new Date("2025-01-01"),
+      endDate: new Date("2025-12-31"),
+      membershipType: "Standard"
+    }
   },
 ]
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [authState, setAuthState] = useState<AuthState>({
-    user: null,
-    isAuthenticated: false,
-    isLoading: true,
-  })
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  // Comprobar si hay un usuario en localStorage al cargar
   useEffect(() => {
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser)
-        setAuthState({
-          user,
-          isAuthenticated: true,
-          isLoading: false,
-        })
-      } catch (error) {
-        console.error("Error parsing stored user:", error)
-        localStorage.removeItem("user")
-        setAuthState({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-        })
+    const initializeAuth = () => {
+      const storedUser = localStorage.getItem("user")
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser)
+        if (parsedUser.role === "client") {
+          parsedUser.contract = {
+            id: "default",
+            estado: "Activo",
+            fecha_inicio: new Date().toISOString(),
+            fecha_fin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            membresia_nombre: "Mensual",
+          }
+        }
+        setUser(parsedUser)
       }
-    } else {
-      setAuthState((prev) => ({ ...prev, isLoading: false }))
+      setLoading(false)
     }
+
+    initializeAuth()
   }, [])
 
-  // Función de login
-  const login = async (email: string, password: string): Promise<boolean> => {
-    // En un entorno real, aquí harías una llamada a la API
-    // Para este ejemplo, simulamos la autenticación con datos de ejemplo
-
-    // Simular un retraso de red
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    const user = MOCK_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase())
-
-    if (user) {
-      // En un entorno real, verificarías la contraseña aquí
-      // Para este ejemplo, cualquier contraseña es válida
-
-      setAuthState({
-        user,
-        isAuthenticated: true,
-        isLoading: false,
-      })
-
-      // Guardar en localStorage para persistencia
-      localStorage.setItem("user", JSON.stringify(user))
-
-      return true
+  // Efecto separado para manejar redirecciones
+  useEffect(() => {
+    if (!loading && user && location.pathname === "/") {
+      if (user.role === "client") {
+        navigate("/clients")
+      } else {
+        navigate("/dashboard")
+      }
     }
+  }, [loading, user, navigate, location])
 
-    return false
+  const login = async (email: string, password: string) => {
+    try {
+      const foundUser = MOCK_USERS.find(u => u.email === email)
+      
+      if (!foundUser || password !== "password") {
+        return { success: false, error: "Credenciales inválidas" }
+      }
+
+      const userToSave = { ...foundUser }
+      if (userToSave.role === "client") {
+        userToSave.contract = {
+          id: "default",
+          estado: "Activo",
+          fecha_inicio: new Date().toISOString(),
+          fecha_fin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          membresia_nombre: "Mensual",
+        }
+      }
+
+      setUser(userToSave)
+      localStorage.setItem("user", JSON.stringify(userToSave))
+
+      if (userToSave.role === "client") {
+        navigate("/clients")
+      } else {
+        navigate("/dashboard")
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error("Error durante el inicio de sesión:", error)
+      return { 
+        success: false, 
+        error: "Ha ocurrido un error durante el inicio de sesión. Por favor, intente nuevamente." 
+      }
+    }
   }
 
   // Función de logout
   const logout = () => {
-    setAuthState({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-    })
+    setUser(null)
     localStorage.removeItem("user")
+    navigate("/")
   }
 
   // Función para verificar permisos
   const hasPermission = (requiredRoles: UserRole[]): boolean => {
-    if (!authState.isAuthenticated || !authState.user) return false
-    return requiredRoles.includes(authState.user.role)
+    if (!user) return false
+    return requiredRoles.includes(user.role)
   }
 
   return (
     <AuthContext.Provider
       value={{
-        user: authState.user,
-        isAuthenticated: authState.isAuthenticated,
-        isLoading: authState.isLoading,
+        user,
+        isAuthenticated: !!user,
+        isLoading: loading,
         login,
         logout,
         hasPermission,

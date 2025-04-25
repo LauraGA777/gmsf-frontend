@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
@@ -21,13 +20,11 @@ export function LoginForm() {
     setError("")
 
     try {
-      const success = await login(email, password)
-
-      if (!success) {
-        setError("Credenciales incorrectas. Por favor, inténtalo de nuevo.")
+      const result = await login(email, password)
+      if (!result.success && result.error) {
+        setError(result.error)
       }
-    } catch (error) {
-      console.error("Login error:", error)
+    } catch (err) {
       setError("Ha ocurrido un error al iniciar sesión. Por favor, inténtalo de nuevo.")
     } finally {
       setIsLoading(false)
@@ -77,7 +74,7 @@ export function LoginForm() {
           <li>carlos@example.com (Entrenador)</li>
           <li>juan@example.com (Cliente)</li>
         </ul>
-        <p className="mt-2 text-center">La contraseña puede ser cualquiera.</p>
+        <p className="mt-2 text-center">La contraseña es: "password"</p>
       </div>
     </div>
   )

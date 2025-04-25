@@ -90,8 +90,7 @@
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 3px;
+  @apply bg-gray-300 hover:bg-gray-400 rounded;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
@@ -100,18 +99,12 @@
 
 /* Estilos para el módulo de título fijo */
 .module-title {
-  position: sticky;
-  top: 64px; /* Ajustar según la altura del navbar */
-  background-color: white;
-  z-index: 10;
-  padding: 1rem 0;
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid #f0f0f0;
+  @apply sticky top-14 bg-white/95 backdrop-blur z-10 py-4 border-b border-gray-100;
 }
 
 /* Estilos para el dashboard */
 .dashboard-card {
-  @apply bg-white p-4 md:p-6 rounded-lg shadow-sm;
+  @apply bg-white p-4 md:p-6 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md;
 }
 
 .dashboard-title {
@@ -165,6 +158,49 @@
   /* Contenedor responsivo */
   .responsive-container {
     @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Animaciones de entrada/salida */
+  .animate-in {
+    animation-duration: 150ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .fade-in {
+    animation-name: fade-in;
+  }
+  
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Mejoras para el scroll */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .smooth-scroll {
+    scroll-behavior: smooth;
+  }
+
+  /* Efectos de glassmorphism */
+  .glass-effect {
+    @apply bg-white/95 backdrop-blur-sm supports-[backdrop-filter]:bg-white/60;
+  }
+
+  /* Transiciones suaves */
+  .transition-all-smooth {
+    @apply transition-all duration-300 ease-in-out;
   }
 }
 

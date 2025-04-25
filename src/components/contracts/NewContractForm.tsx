@@ -201,6 +201,16 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
       newErrors.phone = "El teléfono debe tener entre 7 y 10 dígitos"
     }
 
+    // Hacer obligatorio el campo de dirección
+    if (!address.trim()) {
+      newErrors.address = "La dirección es obligatoria"
+    }
+
+    // Hacer obligatorio el campo de fecha de nacimiento
+    if (!birthdate) {
+      newErrors.birthdate = "La fecha de nacimiento es obligatoria"
+    }
+
     if (!membershipId) {
       newErrors.membershipId = "Debe seleccionar una membresía"
     }
@@ -341,6 +351,30 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
     })
 
     onClose()
+  }
+
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    documentType: "C.C.",
+    documentNumber: "",
+    address: "",
+    birthdate: undefined,
+    emergencyContact: "",
+    emergencyPhone: "",
+    isBeneficiary: true,
+    beneficiaryRelation: "",
+    beneficiaryName: "",
+    beneficiaryDocumentType: "C.C.",
+    beneficiaryDocumentNumber: "",
+    beneficiaryPhone: "",
+    beneficiaryEmail: "",
+  })
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   return (
@@ -520,7 +554,7 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
 
             <div>
               <Label htmlFor="address" className="text-sm font-medium">
-                Dirección
+                Dirección <span className="text-red-500">*</span>
               </Label>
               <div className="relative">
                 <Home className="h-4 w-4 text-gray-400 absolute left-3 top-2.5" />
@@ -528,17 +562,23 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
                   id="address"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="pl-9 mt-1 h-9 text-sm"
+                  className={cn("pl-9 mt-1 h-9 text-sm", errors.address ? "border-red-500" : "")}
                   disabled={clientExists}
                   placeholder="Dirección completa"
                 />
               </div>
+              {errors.address && (
+                <p className="text-red-500 text-xs mt-1 flex items-center">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  {errors.address}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
               <div>
                 <Label htmlFor="birthdate" className="text-sm font-medium">
-                  Fecha de nacimiento
+                  Fecha de nacimiento <span className="text-red-500">*</span>
                 </Label>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -547,6 +587,7 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
                       className={cn(
                         "w-full justify-start text-left font-normal mt-1 h-9 text-sm",
                         !birthdate && "text-muted-foreground",
+                        errors.birthdate && "border-red-500",
                       )}
                       disabled={clientExists}
                     >
@@ -554,7 +595,11 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
                       {birthdate ? format(birthdate, "dd/MM/yyyy") : <span>Seleccionar fecha</span>}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <div className="p-3 border-b border-border">
+                      <h3 className="text-sm font-medium">Fecha de nacimiento</h3>
+                      <p className="text-xs text-muted-foreground mt-1">Seleccione año, mes y día</p>
+                    </div>
                     <Calendar
                       mode="single"
                       selected={birthdate}
@@ -562,9 +607,19 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
                       initialFocus
                       locale={es}
                       disabled={(date) => date > new Date()}
+                      captionLayout="dropdown-buttons"
+                      fromYear={1920}
+                      toYear={new Date().getFullYear()}
+                      className="rounded-md border-0"
                     />
                   </PopoverContent>
                 </Popover>
+                {errors.birthdate && (
+                  <p className="text-red-500 text-xs mt-1 flex items-center">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    {errors.birthdate}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -853,13 +908,21 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
                       {startDate ? format(startDate, "dd/MM/yyyy") : <span>Seleccionar fecha</span>}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <div className="p-3 border-b border-border">
+                      <h3 className="text-sm font-medium">Fecha de inicio</h3>
+                      <p className="text-xs text-muted-foreground mt-1">Seleccione la fecha de inicio del contrato</p>
+                    </div>
                     <Calendar
                       mode="single"
                       selected={startDate}
                       onSelect={(date) => date && setStartDate(date)}
                       initialFocus
                       locale={es}
+                      captionLayout="dropdown-buttons"
+                      fromYear={new Date().getFullYear() - 1}
+                      toYear={new Date().getFullYear() + 5}
+                      className="rounded-md border-0"
                     />
                   </PopoverContent>
                 </Popover>
@@ -963,4 +1026,3 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
     </div>
   )
 }
-

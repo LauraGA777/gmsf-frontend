@@ -15,6 +15,7 @@ export interface Service {
   nombre: string;
   descripcion?: string;
   estado: boolean;
+  precio: number;
 }
 
 // Actualizar la interfaz de Client para que coincida con la tabla personas
@@ -140,24 +141,28 @@ export const mockServices: Service[] = [
     nombre: "Entrenamiento funcional",
     descripcion: "Entrenamiento que mejora la fuerza y resistencia",
     estado: true,
+    precio: 50000
   },
   {
     id: 2,
     nombre: "Yoga",
     descripcion: "Disciplina que busca el equilibrio físico y mental",
     estado: true,
+    precio: 45000
   },
   {
     id: 3,
     nombre: "Crossfit",
     descripcion: "Entrenamiento de alta intensidad",
     estado: true,
+    precio: 60000
   },
   {
     id: 4,
     nombre: "Pilates",
     descripcion: "Sistema de entrenamiento físico y mental",
     estado: true,
+    precio: 55000
   },
 ];
 

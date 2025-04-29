@@ -1,7 +1,6 @@
 "use client"
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
 // Definición de los datos de satisfacción por categoría
 export interface SatisfactionData {
@@ -50,66 +49,60 @@ export function SatisfactionChart({
     ).toFixed(1)
 
     return (
-        <Card className="hover:shadow-lg transition-shadow duration-200">
-            <CardHeader className="pb-2">
-                <CardTitle className="text-xl font-bold text-gray-800">{title}</CardTitle>
-                <CardDescription className="text-gray-500">{description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="mb-4">
-                    <p className="text-3xl font-bold text-gray-900">{averageSatisfaction}/5.0</p>
-                    <p className="text-sm text-gray-500">promedio general</p>
-                </div>
-                <div className="w-full h-[350px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                            data={data}
-                            margin={{
-                                top: 20,
-                                right: 30,
-                                left: 20,
-                                bottom: 30,
+        <div className="w-full">
+            <div className="mb-4">
+                <p className="text-3xl font-bold text-gray-900">{averageSatisfaction}/5.0</p>
+                <p className="text-sm text-gray-500">promedio general</p>
+            </div>
+            <div className="w-full h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                        data={data}
+                        margin={{
+                            top: 20,
+                            right: 30,
+                            left: 20,
+                            bottom: 30,
+                        }}
+                        barSize={60}
+                    >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                        <XAxis
+                            dataKey="categoria"
+                            stroke="#6b7280"
+                            fontSize={12}
+                            tickMargin={10}
+                            angle={0}
+                            interval={0}
+                            textAnchor="middle"
+                        />
+                        <YAxis
+                            domain={[0, 5]}
+                            ticks={[0, 1, 2, 3, 4, 5]}
+                            stroke="#6b7280"
+                            fontSize={12}
+                            tickMargin={10}
+                        />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(79, 70, 229, 0.1)' }} />
+                        <Legend
+                            wrapperStyle={{
+                                paddingTop: "20px",
+                                fontSize: "14px"
                             }}
-                            barSize={60}
+                        />
+                        <Bar
+                            dataKey="calificacion"
+                            name="Calificación"
+                            radius={[4, 4, 0, 0]}
+                            maxBarSize={60}
                         >
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                            <XAxis
-                                dataKey="categoria"
-                                stroke="#6b7280"
-                                fontSize={12}
-                                tickMargin={10}
-                                angle={0}
-                                interval={0}
-                                textAnchor="middle"
-                            />
-                            <YAxis
-                                domain={[0, 5]}
-                                ticks={[0, 1, 2, 3, 4, 5]}
-                                stroke="#6b7280"
-                                fontSize={12}
-                                tickMargin={10}
-                            />
-                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(79, 70, 229, 0.1)' }} />
-                            <Legend
-                                wrapperStyle={{
-                                    paddingTop: "20px",
-                                    fontSize: "14px"
-                                }}
-                            />
-                            <Bar
-                                dataKey="calificacion"
-                                name="Calificación"
-                                radius={[4, 4, 0, 0]}
-                                maxBarSize={60}
-                            >
-                                {data.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </CardContent>
-        </Card>
+                            {data.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
     )
 }

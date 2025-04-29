@@ -1,8 +1,5 @@
-"use client"
-
 import { useState } from "react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MOCK_CONTRACTS } from "@/data/mockData"
 
@@ -75,65 +72,32 @@ const renderCustomizedLabel = ({
     innerRadius,
     outerRadius,
     percent,
-    name,
-    index,
-    payload,
-    value,
+    name
 }: any) => {
-    // Aumentar el radio para las etiquetas externas
-    const radius = innerRadius + (outerRadius - innerRadius) * 1.7
+    // Ajustar el radio para que las etiquetas no se salgan del contenedor
+    const radius = innerRadius + (outerRadius - innerRadius) * 1.2
     const x = cx + radius * Math.cos(-midAngle * RADIAN)
     const y = cy + radius * Math.sin(-midAngle * RADIAN)
     
-    // Calcular la posición de la línea conectora
-    const pos = value >= totalValue / 15 ? 'end' : 'start'
-    const lineX1 = cx + (outerRadius + 10) * Math.cos(-midAngle * RADIAN)
-    const lineY1 = cy + (outerRadius + 10) * Math.sin(-midAngle * RADIAN)
-    const lineX2 = x
-    const lineY2 = y
-
+    // Mostrar todas las etiquetas, sin filtrar por porcentaje
     return (
-        <g>
-            {/* Línea conectora */}
-            <line
-                x1={lineX1}
-                y1={lineY1}
-                x2={lineX2}
-                y2={lineY2}
-                stroke={getColor(name)}
-                strokeWidth={1}
-            />
-            {/* Punto en el inicio de la línea */}
-            <circle
-                cx={lineX1}
-                cy={lineY1}
-                r={2}
-                fill={getColor(name)}
-            />
-            {/* Texto de la etiqueta con fondo */}
-            <g>
-                <text
-                    x={x}
-                    y={y}
-                    fill="#000000"
-                    textAnchor={x > cx ? 'start' : 'end'}
-                    dominantBaseline="central"
-                    fontSize="12"
-                    fontWeight="500"
-                >
-                    {`${name} (${(percent * 100).toFixed(0)}%)`}
-                </text>
-            </g>
-        </g>
+        <text
+            x={x}
+            y={y}
+            fill={getColor(name)}
+            textAnchor={x > cx ? 'start' : 'end'}
+            dominantBaseline="central"
+            fontSize="12"
+            fontWeight="600"
+        >
+            {`${(percent * 100).toFixed(0)}%`}
+        </text>
     )
 }
 
 let totalValue = 0 // Variable global para el total de valores
 
-export function PopularMembershipsChart({
-    title = "Membresías Populares",
-    description = "Distribución de membresías activas por tipo",
-}: PopularMembershipsChartProps) {
+export function PopularMembershipsChart() {
     const [timeRange, setTimeRange] = useState<string>("1mes")
     const [membershipData, setMembershipData] = useState(generateMembershipData("1mes"))
 
@@ -167,49 +131,10 @@ export function PopularMembershipsChart({
         return null
     }
 
-    // Custom legend renderer
-    const CustomLegend = ({ payload }: any) => {
-        if (payload && payload.length) {
-            return (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm mt-6">
-                    {payload.map((entry: any, index: number) => (
-                        <div key={`legend-${index}`} className="flex items-center space-x-2">
-                            <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: entry.color }}
-                            />
-                            <span className="text-gray-700">{entry.value}</span>
-                        </div>
-                    ))}
-                </div>
-            )
-        }
-        return null
-    }
-
     return (
-        <Card className="hover:shadow-lg transition-shadow duration-200">
-            <CardHeader className="pb-2">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <CardTitle className="text-xl font-bold text-gray-800">{title}</CardTitle>
-                        <CardDescription className="text-gray-500">{description}</CardDescription>
-                    </div>
-                    <Select defaultValue={timeRange} onValueChange={handleTimeRangeChange}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Seleccionar período" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="1mes">Último mes</SelectItem>
-                            <SelectItem value="3meses">Últimos 3 meses</SelectItem>
-                            <SelectItem value="6meses">Últimos 6 meses</SelectItem>
-                            <SelectItem value="año">Último año</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="mb-4">
+        <div className="w-full">
+            <div className="flex justify-between items-center mb-4">
+                <div>
                     <p className="text-3xl font-bold text-gray-900">{totalValue} contratos</p>
                     <p className="text-sm text-gray-500">
                         {timeRange === "1mes"
@@ -221,36 +146,59 @@ export function PopularMembershipsChart({
                                     : "en el último año"}
                     </p>
                 </div>
-                <div className="w-full h-[450px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={membershipData}
-                                dataKey="value"
-                                nameKey="name"
-                                cx="50%"
-                                cy="45%"
-                                innerRadius={80}
-                                outerRadius={120}
-                                labelLine={false}
-                                label={renderCustomizedLabel}
-                                paddingAngle={2}
-                            >
-                                {membershipData.map((entry, index) => (
-                                    <Cell 
-                                        key={`cell-${index}`} 
-                                        fill={getColor(entry.name)}
-                                        strokeWidth={1}
-                                        stroke="#fff"
-                                    />
-                                ))}
-                            </Pie>
-                            <Tooltip content={<CustomTooltip />} />
-                            <Legend content={<CustomLegend />} verticalAlign="bottom" />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-            </CardContent>
-        </Card>
+                <Select defaultValue={timeRange} onValueChange={handleTimeRangeChange}>
+                    <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Seleccionar período" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="1mes">Último mes</SelectItem>
+                        <SelectItem value="3meses">Últimos 3 meses</SelectItem>
+                        <SelectItem value="6meses">Últimos 6 meses</SelectItem>
+                        <SelectItem value="año">Último año</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+                
+            <div className="w-full h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={membershipData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={70}
+                            outerRadius={110}
+                            labelLine={false}
+                            label={renderCustomizedLabel}
+                            paddingAngle={3}
+                        >
+                            {membershipData.map((entry, index) => (
+                                <Cell 
+                                    key={`cell-${index}`} 
+                                    fill={getColor(entry.name)}
+                                    strokeWidth={2}
+                                    stroke="#fff"
+                                />
+                            ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-2">
+                {membershipData.map((entry, index) => (
+                    <div key={`legend-${index}`} className="flex items-center space-x-2 bg-gray-50 p-2 rounded-md">
+                        <div
+                            className="w-4 h-4 rounded-full"
+                            style={{ backgroundColor: getColor(entry.name) }}
+                        />
+                        <span className="text-gray-800 font-medium">{entry.name}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
     )
 }

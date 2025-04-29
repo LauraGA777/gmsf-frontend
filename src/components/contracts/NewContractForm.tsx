@@ -25,7 +25,7 @@ import {
   CreditCard,
   CalendarPlus2Icon as CalendarIcon2,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/utils"
 import Swal from "sweetalert2"
 import type { Client, Membership, Contract } from "@/types"
 

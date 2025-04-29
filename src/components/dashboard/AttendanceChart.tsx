@@ -1,6 +1,5 @@
 import { useState } from "react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { addDays, format, subDays, startOfWeek } from "date-fns"
 import { es } from "date-fns/locale"
@@ -95,27 +94,9 @@ export function AttendanceChart({
     }
 
     return (
-        <Card className="hover:shadow-lg transition-shadow duration-200">
-            <CardHeader className="pb-2">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <CardTitle className="text-xl font-bold text-gray-800">{title}</CardTitle>
-                        <CardDescription className="text-gray-500">{description}</CardDescription>
-                    </div>
-                    <Select defaultValue={timeRange} onValueChange={handleTimeRangeChange}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Seleccionar período" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="semana">Última semana</SelectItem>
-                            <SelectItem value="2semanas">Últimas 2 semanas</SelectItem>
-                            <SelectItem value="mes">Último mes</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="mb-4">
+        <div className="w-full">
+            <div className="flex justify-between items-center mb-4">
+                <div>
                     <p className="text-3xl font-bold text-gray-900">{totalAttendance} asistencias</p>
                     <p className="text-sm text-gray-500">
                         {timeRange === "semana"
@@ -125,52 +106,62 @@ export function AttendanceChart({
                                 : "en el último mes"}
                     </p>
                 </div>
-                <div className="w-full h-[350px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                            data={attendanceData}
-                            margin={{
-                                top: 20,
-                                right: 30,
-                                left: 20,
-                                bottom: 30,
+                <Select defaultValue={timeRange} onValueChange={handleTimeRangeChange}>
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Seleccionar período" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="semana">Última semana</SelectItem>
+                        <SelectItem value="2semanas">Últimas 2 semanas</SelectItem>
+                        <SelectItem value="mes">Último mes</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="w-full h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                        data={attendanceData}
+                        margin={{
+                            top: 20,
+                            right: 30,
+                            left: 20,
+                            bottom: 30,
+                        }}
+                        barSize={timeRange === "mes" ? 15 : 30}
+                    >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                        <XAxis
+                            dataKey={attendanceData.length <= 7 ? "dayName" : "shortDay"}
+                            tickFormatter={(value) => value.charAt(0).toUpperCase() + value.slice(1, 3)}
+                            stroke="#6b7280"
+                            fontSize={12}
+                            tickMargin={10}
+                            angle={-0}
+                            textAnchor="middle"
+                        />
+                        <YAxis 
+                            stroke="#6b7280"
+                            fontSize={12}
+                            tickFormatter={(value) => `${value}`}
+                            tickMargin={10}
+                        />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(79, 70, 229, 0.1)' }} />
+                        <Legend 
+                            wrapperStyle={{ 
+                                paddingTop: "20px",
+                                fontSize: "14px"
                             }}
-                            barSize={timeRange === "mes" ? 15 : 30}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                            <XAxis
-                                dataKey={attendanceData.length <= 7 ? "dayName" : "shortDay"}
-                                tickFormatter={(value) => value.charAt(0).toUpperCase() + value.slice(1, 3)}
-                                stroke="#6b7280"
-                                fontSize={12}
-                                tickMargin={10}
-                                angle={-0}
-                                textAnchor="middle"
-                            />
-                            <YAxis 
-                                stroke="#6b7280"
-                                fontSize={12}
-                                tickFormatter={(value) => `${value}`}
-                                tickMargin={10}
-                            />
-                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(79, 70, 229, 0.1)' }} />
-                            <Legend 
-                                wrapperStyle={{ 
-                                    paddingTop: "20px",
-                                    fontSize: "14px"
-                                }}
-                            />
-                            <Bar 
-                                dataKey="attendance" 
-                                name="Asistencia" 
-                                fill="#4f46e5"
-                                radius={[4, 4, 0, 0]}
-                                maxBarSize={60}
-                            />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </CardContent>
-        </Card>
+                        />
+                        <Bar 
+                            dataKey="attendance" 
+                            name="Asistencia" 
+                            fill="#4f46e5"
+                            radius={[4, 4, 0, 0]}
+                            maxBarSize={60}
+                        />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
     )
 }

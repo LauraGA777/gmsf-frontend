@@ -1,9 +1,8 @@
 "use client"
 
-import { createBrowserRouter, RouterProvider } from "react-router-dom"
-import { router } from "@/routes/router"
 import { AuthProvider } from "@/context/AuthContext"
 import { ThemeProvider } from "@/context/ThemeContext"
+import AppRoutes from "@/routes/AppRoutes"
 
 /**
  * Componente principal de la aplicación
@@ -12,7 +11,9 @@ import { ThemeProvider } from "@/context/ThemeContext"
 export default function App() {
   return (
     <ThemeProvider defaultTheme="light">
-      <RouterProvider router={router} />
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </ThemeProvider>
   )
 }

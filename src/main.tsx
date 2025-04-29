@@ -1,9 +1,14 @@
 import React from "react"
 import ReactDOM from "react-dom/client"
-import { RouterProvider } from "react-router-dom"
-import { router } from "./routes/router"
-import { ThemeProvider } from "./context/ThemeContext"
+import { BrowserRouter } from "react-router-dom"
+import App from "./App"
 import "./index.css"
+
+// Crear future flags object para React Router
+const routerFutureConfig = {
+  v7_startTransition: true,
+  v7_relativeSplatPath: true
+}
 
 const rootElement = document.getElementById("root")
 
@@ -13,9 +18,9 @@ if (!rootElement) {
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <ThemeProvider>
-      <RouterProvider router={router} />
-    </ThemeProvider>
+    <BrowserRouter future={routerFutureConfig}>
+      <App />
+    </BrowserRouter>
   </React.StrictMode>,
 )
 

@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Users,
   Calendar,
-  FileText,
   ClipboardList,
   MessageSquare,
   LogOut,
@@ -16,10 +15,15 @@ import {
   UserCog,
   Dumbbell,
   X,
-  Clock, // Add Clock icon for Continue section
+  FileSignature,
+  UserCheck,
+  ClipboardCheck,
+  BarChart4,
+  FileQuestion,
+  User,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { cn } from "@/utils"
 import { useAuth } from "@/context/AuthContext"
 
 interface SidebarProps {
@@ -32,37 +36,43 @@ interface NavItemProps {
   label: string
   active: boolean
   onClick: () => void
-  indent?: boolean
+  hasSubmenu?: boolean
+  expanded?: boolean
   to?: string
   onClose?: () => void
   id?: string
 }
 
-const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, indent, to, onClose, id }) => {
+const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, hasSubmenu, expanded, to, onClose, id }) => {
   const className = cn(
-    "flex items-center w-full p-2 text-base font-normal rounded-lg transition duration-75 cursor-pointer",
+    "flex items-center w-full py-3 px-4 text-base font-normal transition duration-75 cursor-pointer",
     active
-      ? "text-blue-600 bg-blue-100 hover:bg-blue-200"
-      : "text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700",
-  )
-
-  const content = (
-    <>
-      {icon}
-      <span className="ml-3 flex-1 whitespace-nowrap">{label}</span>
-    </>
+      ? "text-gray-700 bg-gray-100 hover:bg-gray-200"
+      : "text-gray-900 hover:bg-gray-50 dark:text-white dark:hover:bg-gray-700",
   )
 
   const handleClick = () => {
     onClick()
-    if (onClose && window.innerWidth < 768) {
+    if (onClose && window.innerWidth < 768 && !hasSubmenu) {
       onClose()
     }
   }
 
+  const content = (
+    <>
+      <span className="flex-shrink-0 text-gray-500 dark:text-gray-400">{icon}</span>
+      <span className="ml-3 flex-1 whitespace-nowrap">{label}</span>
+      {hasSubmenu && (
+        <span className="flex-shrink-0 text-gray-400">
+          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </span>
+      )}
+    </>
+  )
+
   if (to) {
     return (
-      <li className={indent ? "ml-4" : ""} id={id}>
+      <li id={id} className="my-1">
         <Link to={to} className={className} onClick={handleClick}>
           {content}
         </Link>
@@ -71,7 +81,7 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, indent,
   }
 
   return (
-    <li className={indent ? "ml-4" : ""} id={id}>
+    <li id={id} className="my-1">
       <div className={className} onClick={handleClick}>
         {content}
       </div>
@@ -92,14 +102,25 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   useEffect(() => {
     const path = location.pathname
-    if (path.includes("/services/trainers")) {
-      setActiveItem("trainers.list")
-      setActiveGroup("services")
+    
+    // Determinar el ítem activo basado en la ruta actual
+    if (path.includes("/dashboard")) {
+      setActiveItem("dashboard")
+      setActiveGroup(null)
+    } else if (path.includes("/users")) {
+      setActiveItem("users")
+      setActiveGroup(null)
+    } else if (path.includes("/trainers")) {
+      setActiveItem("trainers")
+      setActiveGroup(null)
     } else if (path.includes("/services/custom")) {
       setActiveItem("services.custom")
       setActiveGroup("services")
     } else if (path.includes("/services")) {
       setActiveItem("services.list")
+      setActiveGroup("services")
+    } else if (path.includes("/calendar")) {
+      setActiveItem("calendar")
       setActiveGroup("services")
     } else if (path.includes("/clients")) {
       setActiveItem("clients.list")
@@ -107,19 +128,25 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     } else if (path.includes("/contracts")) {
       setActiveItem("contracts.list")
       setActiveGroup("clients")
-    } else if (path.includes("/dashboard")) {
-      setActiveItem("dashboard")
-      setActiveGroup(null)
+    } else if (path.includes("/memberships")) {
+      setActiveItem("memberships.list")
+      setActiveGroup("memberships")
+    } else if (path.includes("/attendance")) {
+      setActiveItem("attendance.list")
+      setActiveGroup("memberships")
+    } else if (path.includes("/surveys")) {
+      setActiveItem("surveys.list")
+      setActiveGroup("feedback")
     }
   }, [location.pathname])
 
-  // Función mejorada para determinar si se debe mostrar un elemento
+  // Función para determinar si se debe mostrar un elemento basado en el rol de usuario
   const shouldShowItem = (allowedRoles: string[]) => {
-    if (!user || !user.role) return false;
-    return allowedRoles.includes(user.role);
+    if (!user || !user.role) return false
+    return allowedRoles.includes(user.role)
   }
 
-  const handleItemClick = (item: string, group: string) => {
+  const handleItemClick = (item: string, group: string | null = null) => {
     if (item === "logout") {
       logout()
       return
@@ -138,7 +165,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     "h-screen",
     "w-[280px] md:w-64",
     "transform transition-transform duration-300 ease-in-out",
-    "flex flex-col",
+    "flex flex-col shadow-md",
     isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
   )
 
@@ -148,169 +175,257 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     <aside className={sidebarClasses} aria-label="Sidebar">
       <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-800">
         {/* Encabezado del Sidebar */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-100">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-800">GMSF</h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="md:hidden p-1"
-              aria-label="Close sidebar"
-            >
+            <h2 className="text-xl font-semibold text-gray-800">GMSF</h2>
+            <Button variant="ghost" size="sm" onClick={onClose} className="md:hidden p-1" aria-label="Cerrar menú">
               <X className="h-5 w-5" />
             </Button>
           </div>
         </div>
 
         {/* Área de navegación con scroll */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3">
-          <ul className="space-y-2">
-            {/* Dashboard - Solo para admin y trainer */}
+        <nav className="flex-1 overflow-y-auto py-4 text-base">
+          <ul className="space-y-0">
+            {/* 1. Panel de control - Solo para admin y trainer */}
             {shouldShowItem(["admin", "trainer"]) && (
               <NavItem
                 icon={<LayoutDashboard className="h-5 w-5" aria-hidden="true" />}
-                label="Dashboard"
+                label="Panel de control"
                 active={activeItem === "dashboard"}
-                onClick={() => handleItemClick("dashboard", "main")}
+                onClick={() => handleItemClick("dashboard")}
                 to="/dashboard"
                 onClose={onClose}
+                id="nav-dashboard"
               />
             )}
 
-            {/* Servicios & Entrenadores */}
-            <li>
-              <button
-                type="button"
-                onClick={() => toggleGroup("services")}
-                className="flex items-center p-2 w-full text-base font-normal text-gray-900 rounded-lg transition duration-75 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
-                aria-controls="dropdown-services"
-                aria-expanded={activeGroup === "services"}
-              >
-                <Dumbbell className="h-5 w-5" aria-hidden="true" />
-                <span className="ml-3 flex-1 whitespace-nowrap">Servicios & Entrenadores</span>
-                {activeGroup === "services" ? (
-                  <ChevronUp className="h-4 w-4" aria-hidden="true" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                )}
-              </button>
-              <ul
-                id="dropdown-services"
-                className={cn("py-2 space-y-2", activeGroup !== "services" && "hidden")}
-                aria-hidden={activeGroup !== "services"}
-              >
-                {/* Lista de servicios visible para todos */}
-                <NavItem
-                  icon={<ClipboardList className="h-5 w-5" aria-hidden="true" />}
-                  label="Lista de Servicios"
-                  active={activeItem === "services.list"}
-                  onClick={() => handleItemClick("services.list", "services")}
-                  to="/services"
-                  onClose={onClose}
-                  indent
-                />
-
-                {/* Agenda - Visible para todos */}
-                <NavItem
-                  icon={<Calendar className="h-5 w-5" aria-hidden="true" />}
-                  label="Agenda"
-                  active={activeItem === "calendar"}
-                  onClick={() => handleItemClick("calendar", "services")}
-                  to="/calendar"
-                  onClose={onClose}
-                  indent
-                />
-
-                {/* Entrenadores - Solo visible para admin */}
-                {shouldShowItem(["admin"]) && (
-                  <NavItem
-                    icon={<UserCog className="h-5 w-5" aria-hidden="true" />}
-                    label="Entrenadores"
-                    active={activeItem === "trainers.list"}
-                    onClick={() => handleItemClick("trainers.list", "services")}
-                    to="/services/trainers"
-                    onClose={onClose}
-                    indent
-                  />
-                )}
-              </ul>
-            </li>
-
-            {/* Clientes y Contratos - Solo para admin y trainer */}
-            {shouldShowItem(["admin", "trainer"]) && (
-              <li>
-                <button
-                  type="button"
-                  onClick={() => toggleGroup("clients")}
-                  className="flex items-center p-2 w-full text-base font-normal text-gray-900 rounded-lg transition duration-75 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
-                  aria-controls="dropdown-clients"
-                  aria-expanded={activeGroup === "clients"}
-                >
-                  <Users className="h-5 w-5" aria-hidden="true" />
-                  <span className="ml-3 flex-1 whitespace-nowrap">Clientes & Contratos</span>
-                  {activeGroup === "clients" ? (
-                    <ChevronUp className="h-4 w-4" aria-hidden="true" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                  )}
-                </button>
-                <ul
-                  id="dropdown-clients"
-                  className={cn("py-2 space-y-2", activeGroup !== "clients" && "hidden")}
-                  aria-hidden={activeGroup !== "clients"}
-                >
-                  <NavItem
-                    icon={<Users className="h-5 w-5" aria-hidden="true" />}
-                    label="Lista de Clientes"
-                    active={activeItem === "clients.list"}
-                    onClick={() => handleItemClick("clients.list", "clients")}
-                    to="/clients"
-                    onClose={onClose}
-                    indent
-                  />
-                  <NavItem
-                    icon={<FileText className="h-5 w-5" aria-hidden="true" />}
-                    label="Contratos"
-                    active={activeItem === "contracts.list"}
-                    onClick={() => handleItemClick("contracts.list", "clients")}
-                    to="/contracts"
-                    onClose={onClose}
-                    indent
-                  />
-                </ul>
-              </li>
-            )}
-
-            {/* Continue section - Visible for trainers and clients */}
-            {shouldShowItem(["trainer", "client"]) && (
+            {/* 2. Usuarios - Solo para admin */}
+            {shouldShowItem(["admin"]) && (
               <NavItem
-                icon={<Clock className="h-5 w-5" aria-hidden="true" />}
-                label="Continue"
-                active={activeItem === "continue"}
-                onClick={() => handleItemClick("continue", "main")}
-                to="/continue"
+                icon={<Users className="h-5 w-5" aria-hidden="true" />}
+                label="Usuarios"
+                active={activeItem === "users"}
+                onClick={() => handleItemClick("users")}
+                to="/users"
                 onClose={onClose}
+                id="nav-users"
               />
             )}
 
-            {/* Mensajes - Visible para todos */}
+            {/* 3. Entrenadores - Solo para admin */}
+            {shouldShowItem(["admin"]) && (
+              <NavItem
+                icon={<UserCog className="h-5 w-5" aria-hidden="true" />}
+                label="Entrenadores"
+                active={activeItem === "trainers"}
+                onClick={() => handleItemClick("trainers")}
+                to="/trainers"
+                onClose={onClose}
+                id="nav-trainers"
+              />
+            )}
+
+            {/* 4. Servicios */}
             <NavItem
-              icon={<MessageSquare className="h-5 w-5" aria-hidden="true" />}
-              label="Mensajes"
-              active={activeItem === "messages"}
-              onClick={() => handleItemClick("messages", "main")}
-              to="/messages"
-              onClose={onClose}
+              icon={<Dumbbell className="h-5 w-5" aria-hidden="true" />}
+              label="Servicios"
+              active={activeGroup === "services"}
+              onClick={() => toggleGroup("services")}
+              hasSubmenu={true}
+              expanded={activeGroup === "services"}
+              id="nav-services"
             />
+            {activeGroup === "services" && (
+              <ul className="py-1 mx-4 border-l border-gray-100">
+                {/* Listado de servicios */}
+                <li className="my-1">
+                  <Link
+                    to="/services"
+                    className={cn(
+                      "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
+                      activeItem === "services.list"
+                        ? "text-gray-700 hover:bg-gray-100"
+                        : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                    )}
+                    onClick={() => {
+                      handleItemClick("services.list", "services")
+                      if (window.innerWidth < 768) onClose()
+                    }}
+                  >
+                    <span className="flex-shrink-0 text-gray-500 mr-3">
+                      <ClipboardList className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <span className="flex-1 whitespace-nowrap">Servicios</span>
+                  </Link>
+                </li>
+                {/* Agenda */}
+                <li className="my-1">
+                  <Link
+                    to="/calendar"
+                    className={cn(
+                      "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
+                      activeItem === "calendar"
+                        ? "text-gray-700 hover:bg-gray-100"
+                        : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                    )}
+                    onClick={() => {
+                      handleItemClick("calendar", "services")
+                      if (window.innerWidth < 768) onClose()
+                    }}
+                  >
+                    <span className="flex-shrink-0 text-gray-500 mr-3">
+                      <Calendar className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <span className="flex-1 whitespace-nowrap">Agenda</span>
+                  </Link>
+                </li>
+              </ul>
+            )}
+
+            {/* 5. Clientes y contratos */}
+            {shouldShowItem(["admin", "trainer"]) && (
+              <>
+                <NavItem
+                  icon={<Users className="h-5 w-5" aria-hidden="true" />}
+                  label="Clientes"
+                  active={activeGroup === "clients"}
+                  onClick={() => toggleGroup("clients")}
+                  hasSubmenu={true}
+                  expanded={activeGroup === "clients"}
+                  id="nav-clients"
+                />
+                {activeGroup === "clients" && (
+                  <ul className="py-1 mx-4 border-l border-gray-100">
+                    {/* Contratos */}
+                    <li className="my-1">
+                      <Link
+                        to="/contracts"
+                        className={cn(
+                          "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
+                          activeItem === "contracts.list"
+                            ? "text-gray-700 hover:bg-gray-100"
+                            : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                        )}
+                        onClick={() => {
+                          handleItemClick("contracts.list", "clients")
+                          if (window.innerWidth < 768) onClose()
+                        }}
+                      >
+                        <span className="flex-shrink-0 text-gray-500 mr-3">
+                          <FileSignature className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <span className="flex-1 whitespace-nowrap">Contratos</span>
+                      </Link>
+                    </li>
+                    {/* Personas */}
+                    <li className="my-1">
+                      <Link
+                        to="/clients"
+                        className={cn(
+                          "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
+                          activeItem === "clients.list"
+                            ? "text-gray-700 hover:bg-gray-100"
+                            : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                        )}
+                        onClick={() => {
+                          handleItemClick("clients.list", "clients")
+                          if (window.innerWidth < 768) onClose()
+                        }}
+                      >
+                        <span className="flex-shrink-0 text-gray-500 mr-3">
+                          <User className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <span className="flex-1 whitespace-nowrap">Personas</span>
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </>
+            )}
+
+            {/* 6. Membresías y asistencia */}
+            {shouldShowItem(["admin", "trainer"]) && (
+              <>
+                <NavItem
+                  icon={<UserCheck className="h-5 w-5" aria-hidden="true" />}
+                  label="Membresías"
+                  active={activeGroup === "memberships"}
+                  onClick={() => toggleGroup("memberships")}
+                  hasSubmenu={true}
+                  expanded={activeGroup === "memberships"}
+                  id="nav-memberships"
+                />
+                {activeGroup === "memberships" && (
+                  <ul className="py-1 mx-4 border-l border-gray-100">
+                    {/* Membresías */}
+                    <li className="my-1">
+                      <Link
+                        to="/memberships"
+                        className={cn(
+                          "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
+                          activeItem === "memberships.list"
+                            ? "text-gray-700 hover:bg-gray-100"
+                            : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                        )}
+                        onClick={() => {
+                          handleItemClick("memberships.list", "memberships")
+                          if (window.innerWidth < 768) onClose()
+                        }}
+                      >
+                        <span className="flex-shrink-0 text-gray-500 mr-3">
+                          <ClipboardCheck className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <span className="flex-1 whitespace-nowrap">Membresías</span>
+                      </Link>
+                    </li>
+                    {/* Asistencia */}
+                    <li className="my-1">
+                      <Link
+                        to="/attendance"
+                        className={cn(
+                          "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
+                          activeItem === "attendance.list"
+                            ? "text-gray-700 hover:bg-gray-100"
+                            : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                        )}
+                        onClick={() => {
+                          handleItemClick("attendance.list", "memberships")
+                          if (window.innerWidth < 768) onClose()
+                        }}
+                      >
+                        <span className="flex-shrink-0 text-gray-500 mr-3">
+                          <BarChart4 className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <span className="flex-1 whitespace-nowrap">Asistencia</span>
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </>
+            )}
+
+            {/* 7. Retroalimentación - Encuestas */}
+            {shouldShowItem(["admin", "trainer"]) && (
+              <NavItem
+                icon={<MessageSquare className="h-5 w-5" aria-hidden="true" />}
+                label="Encuestas"
+                active={activeItem === "surveys.list"}
+                onClick={() => handleItemClick("surveys.list", "feedback")}
+                to="/surveys"
+                onClose={onClose}
+                id="nav-surveys"
+              />
+            )}
 
             {/* Cerrar Sesión */}
             <NavItem
               icon={<LogOut className="h-5 w-5" aria-hidden="true" />}
               label="Cerrar Sesión"
               active={false}
-              onClick={() => handleItemClick("logout", "main")}
+              onClick={() => handleItemClick("logout")}
               onClose={onClose}
+              id="nav-logout"
             />
           </ul>
         </nav>
@@ -318,4 +433,3 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     </aside>
   )
 }
-

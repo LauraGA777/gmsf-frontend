@@ -28,7 +28,7 @@ import { useAuth } from "@/context/AuthContext"
 import type { Client } from "@/types"
 import Swal from "sweetalert2"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
-import { cn, daysRemaining } from "@/lib/utils"
+import { cn, daysRemaining } from "@/utils"
 
 interface ClientsTableProps {
   clients: Client[]

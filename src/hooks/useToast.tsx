@@ -1,5 +1,3 @@
-"use client"
-
 import { useState } from "react"
 
 type ToastVariant = "default" | "destructive" | "success"

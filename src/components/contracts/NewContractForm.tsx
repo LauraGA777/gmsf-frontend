@@ -1,7 +1,4 @@
-"use client"
-
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -139,8 +136,7 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
           confirmButtonColor: "#000",
           timer: 5000,
           timerProgressBar: true,
-          showConfirmButton: true,
-          confirmButtonText: "Aceptar",
+          showConfirmButton: false
         })
       } else {
         setClientExists(false)
@@ -160,10 +156,10 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
           text: "No se encontró ningún cliente con ese documento. Por favor complete los datos para registrarlo.",
           icon: "info",
           confirmButtonColor: "#000",
-          confirmButtonText: "Aceptar",
           timer: 5000,
           timerProgressBar: true,
-          allowOutsideClick: false,
+          showConfirmButton: false,
+          allowOutsideClick: false
         })
       }
 
@@ -255,9 +251,9 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
         text: "Por favor complete todos los campos obligatorios correctamente",
         icon: "error",
         confirmButtonColor: "#000",
-        confirmButtonText: "Aceptar",
         timer: 5000,
         timerProgressBar: true,
+        showConfirmButton: false
       })
       return
     }
@@ -308,18 +304,21 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
         text: "No se pudo encontrar la membresía seleccionada",
         icon: "error",
         confirmButtonColor: "#000",
-        confirmButtonText: "Aceptar",
         timer: 5000,
         timerProgressBar: true,
+        showConfirmButton: false
       })
       return
     }
 
+    const endDateValue = endDate || addDays(startDate, selectedMembership.duracion_dias);
+    const currentDate = new Date();
+    
     const newContract: Omit<Contract, "id"> = {
       id_cliente: Number.parseInt(clientId),
       id_membresia: Number.parseInt(membershipId),
       fecha_inicio: startDate,
-      fecha_fin: endDate || addDays(startDate, selectedMembership.duracion_dias),
+      fecha_fin: endDateValue,
       estado: "Activo",
       cliente_nombre: fullName,
       membresia_nombre: selectedMembership.nombre,
@@ -327,9 +326,10 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
       cliente_documento: documentNumber,
       cliente_documento_tipo: documentType,
       precio_total: selectedMembership.precio,
-      fecha_registro: new Date(),
+      fecha_registro: currentDate,
     }
 
+    // Llamar a la función para agregar el contrato 
     onAddContract(newContract)
 
     // Mostrar mensaje de éxito con más detalles
@@ -339,18 +339,19 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
       <div class="text-left p-3 bg-gray-50 rounded-lg mb-3">
         <p class="mb-2"><strong>Cliente:</strong> ${fullName}</p>
         <p class="mb-2"><strong>Membresía:</strong> ${selectedMembership.nombre}</p>
-        <p class="mb-2"><strong>Periodo:</strong> ${format(startDate, "dd/MM/yyyy")} - ${format(newContract.fecha_fin, "dd/MM/yyyy")}</p>
+        <p class="mb-2"><strong>Periodo:</strong> ${format(startDate, "dd/MM/yyyy")} - ${format(endDateValue, "dd/MM/yyyy")}</p>
         <p><strong>Valor:</strong> ${formatCOP(selectedMembership.precio)}</p>
       </div>
     `,
       icon: "success",
       confirmButtonColor: "#000",
-      confirmButtonText: "Aceptar",
       timer: 5000,
       timerProgressBar: true,
-    })
-
-    onClose()
+      showConfirmButton: false
+    }).then(() => {
+      // Asegurarse de cerrar el formulario después de que se cierre el mensaje
+      onClose();
+    });
   }
 
   const [formData, setFormData] = useState({
@@ -585,25 +586,38 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
                     <Button
                       variant="outline"
                       className={cn(
-                        "w-full justify-start text-left font-normal mt-1 h-9 text-sm",
+                        "w-full justify-start text-left font-normal mt-1 h-10 text-sm bg-white rounded-md transition-colors hover:bg-gray-50",
                         !birthdate && "text-muted-foreground",
                         errors.birthdate && "border-red-500",
                       )}
                       disabled={clientExists}
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      <CalendarIcon className="mr-2 h-4 w-4 text-gray-500" />
                       {birthdate ? format(birthdate, "dd/MM/yyyy") : <span>Seleccionar fecha</span>}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <div className="p-3 border-b border-border">
-                      <h3 className="text-sm font-medium">Fecha de nacimiento</h3>
-                      <p className="text-xs text-muted-foreground mt-1">Seleccione año, mes y día</p>
-                    </div>
+                  <PopoverContent 
+                    className="w-auto p-0 shadow-md rounded-md border border-gray-200" 
+                    align="start"
+                    side="right"
+                    sideOffset={10}
+                    alignOffset={0}
+                    avoidCollisions={false}
+                    hideWhenDetached={false}
+                    forceMount
+                  >
                     <Calendar
                       mode="single"
                       selected={birthdate}
-                      onSelect={(date) => date && setBirthdate(date)}
+                      onSelect={(date) => {
+                        if (date) {
+                          setBirthdate(date);
+                          // Cerrar automáticamente el popover cuando se selecciona una fecha
+                          setTimeout(() => {
+                            document.body.click();
+                          }, 100);
+                        }
+                      }}
                       initialFocus
                       locale={es}
                       disabled={(date) => date > new Date()}
@@ -611,6 +625,11 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
                       fromYear={1920}
                       toYear={new Date().getFullYear()}
                       className="rounded-md border-0"
+                      showHeader={true}
+                      title="Fecha de nacimiento"
+                      subtitle="Seleccione año, mes y día"
+                      fixedWeeks
+                      showOutsideDays
                     />
                   </PopoverContent>
                 </Popover>
@@ -899,30 +918,48 @@ export function NewContractForm({ clients, memberships, onAddClient, onAddContra
                     <Button
                       variant="outline"
                       className={cn(
-                        "w-full justify-start text-left font-normal mt-1 h-9 text-sm",
+                        "w-full justify-start text-left font-normal mt-1 h-10 text-sm bg-white rounded-md transition-colors hover:bg-gray-50",
                         !startDate && "text-muted-foreground",
                         errors.startDate && "border-red-500",
                       )}
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      <CalendarIcon className="mr-2 h-4 w-4 text-gray-500" />
                       {startDate ? format(startDate, "dd/MM/yyyy") : <span>Seleccionar fecha</span>}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <div className="p-3 border-b border-border">
-                      <h3 className="text-sm font-medium">Fecha de inicio</h3>
-                      <p className="text-xs text-muted-foreground mt-1">Seleccione la fecha de inicio del contrato</p>
-                    </div>
+                  <PopoverContent 
+                    className="w-auto p-0 shadow-md rounded-md border border-gray-200" 
+                    align="start"
+                    side="right"
+                    sideOffset={10}
+                    alignOffset={0}
+                    avoidCollisions={false}
+                    hideWhenDetached={false}
+                    forceMount
+                  >
                     <Calendar
                       mode="single"
                       selected={startDate}
-                      onSelect={(date) => date && setStartDate(date)}
+                      onSelect={(date) => {
+                        if (date) {
+                          setStartDate(date);
+                          // Cerrar automáticamente el popover cuando se selecciona una fecha
+                          setTimeout(() => {
+                            document.body.click();
+                          }, 100);
+                        }
+                      }}
                       initialFocus
                       locale={es}
                       captionLayout="dropdown-buttons"
                       fromYear={new Date().getFullYear() - 1}
                       toYear={new Date().getFullYear() + 5}
                       className="rounded-md border-0"
+                      showHeader={true}
+                      title="Fecha de inicio"
+                      subtitle="Seleccione la fecha de inicio del contrato"
+                      fixedWeeks
+                      showOutsideDays
                     />
                   </PopoverContent>
                 </Popover>

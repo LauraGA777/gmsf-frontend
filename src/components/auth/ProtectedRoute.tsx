@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { useAuth } from "@/context/AuthContext"
 import { LoginForm } from "@/components/auth/LoginForm"

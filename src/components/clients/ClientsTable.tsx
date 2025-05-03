@@ -1,10 +1,8 @@
-"use client"
-
 import { useState, useEffect } from "react"
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import {
   Eye,
   Edit,
@@ -32,7 +30,7 @@ import { cn, daysRemaining } from "@/utils"
 
 interface ClientsTableProps {
   clients: Client[]
-  onUpdateClient: (updatedClient: Client) => void
+  onUpdateClient: (id: string, updates: Partial<Client>) => void
   onAddClient?: (newClient: Omit<Client, "id">) => string
 }
 
@@ -155,11 +153,8 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
       if (result.isConfirmed) {
         const newStatus = result.value as "Activo" | "Inactivo" | "Congelado" | "Pendiente de pago"
 
-        const updatedClient = {
-          ...client,
-          status: newStatus,
-        }
-        onUpdateClient(updatedClient)
+        // Actualizar el cliente con el nuevo estado
+        onUpdateClient(client.id, { status: newStatus });
 
         Swal.fire({
           title: `Estado actualizado`,
@@ -173,8 +168,9 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
     })
   }
 
-  const handleSubmitRenewal = (updatedClient: Client) => {
-    onUpdateClient(updatedClient)
+  const handleSubmitRenewal = (clientId: string, updates: Partial<Client>) => {
+    onUpdateClient(clientId, updates);
+    
     setIsRenewModalOpen(false)
 
     Swal.fire({
@@ -187,14 +183,10 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
     })
   }
 
-  const handleUpdateClient = (updates: Partial<Client>) => {
-    if (selectedClient) {
-      const updatedClient = {
-        ...selectedClient,
-        ...updates,
-      }
-      onUpdateClient(updatedClient)
-      setIsEditModalOpen(false)
+  const handleUpdateClient = (clientId: string, updates: Partial<Client>) => {
+    if (selectedClient && clientId === selectedClient.id) {
+      onUpdateClient(clientId, updates);
+      setIsEditModalOpen(false);
     }
   }
 
@@ -271,7 +263,7 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
   return (
     <>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Clientes</h2>
+        <h2 className="text-2xl font-bold">Personas</h2>
         <div className="text-sm text-gray-500">
           Mostrando {displayedClients.length} de {clients.length} clientes
         </div>
@@ -476,9 +468,10 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
 
       {/* Modal para ver detalles del cliente */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg" aria-describedby="client-details-description">
           <VisuallyHidden>
             <DialogTitle>Detalles del Cliente</DialogTitle>
+            <DialogDescription id="client-details-description">Información detallada del cliente seleccionado.</DialogDescription>
           </VisuallyHidden>
           {selectedClient && <ClientDetails client={selectedClient} onClose={() => setIsViewModalOpen(false)} />}
         </DialogContent>
@@ -486,9 +479,10 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
 
       {/* Modal para editar cliente */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-4xl">
+        <DialogContent className="sm:max-w-4xl" aria-describedby="edit-client-description">
           <VisuallyHidden>
             <DialogTitle>Editar Cliente</DialogTitle>
+            <DialogDescription id="edit-client-description">Modifique la información del cliente según sea necesario.</DialogDescription>
           </VisuallyHidden>
           {selectedClient && (
             <EditClientModal
@@ -506,7 +500,13 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
           <VisuallyHidden>
             <DialogTitle>Renovar Membresía</DialogTitle>
           </VisuallyHidden>
-          {selectedClient && <RenewMembershipModal client={selectedClient} onSubmit={handleSubmitRenewal} />}
+          {selectedClient && isRenewModalOpen && (
+            <RenewMembershipModal
+              client={selectedClient}
+              onSubmit={handleSubmitRenewal}
+              onClose={() => setIsRenewModalOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </>

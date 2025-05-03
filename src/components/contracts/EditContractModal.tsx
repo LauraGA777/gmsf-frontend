@@ -1,7 +1,4 @@
-"use client"
-
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -16,6 +13,7 @@ import { formatCOP } from "@/utils"
 import type { Contract, Membership } from "@/types"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import Swal from "sweetalert2"
 
 interface EditContractModalProps {
   contract: Contract
@@ -50,6 +48,15 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
 
     if (!selectedMembership) {
       setIsProcessing(false)
+      Swal.fire({
+        title: "Error",
+        text: "No se pudo encontrar la membresía seleccionada",
+        icon: "error",
+        confirmButtonColor: "#000",
+        timer: 5000,
+        timerProgressBar: true,
+        showConfirmButton: false
+      })
       return
     }
 
@@ -61,17 +68,49 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
       membresia_nombre: selectedMembership.nombre,
       membresia_precio: selectedMembership.precio,
       estado: "Activo", // Asumimos que al editar, el contrato se activa
+      precio_total: selectedMembership.precio // Actualizar el precio total también
     }
 
-    // Simular un pequeño retraso para mostrar el estado de procesamiento
+    // Mostrar mensaje de espera
+    Swal.fire({
+      title: "Actualizando contrato",
+      text: "Por favor espere mientras se actualiza el contrato...",
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading()
+      }
+    })
+
+    // Actualizar el contrato
+    onUpdateContract(updatedData)
+    
+    // Cerrar mensaje de espera y mostrar éxito
     setTimeout(() => {
-      onUpdateContract(updatedData)
-      setIsProcessing(false)
-    }, 500)
+      Swal.fire({
+        title: "¡Contrato actualizado!",
+        html: `
+        <div class="text-left p-3 bg-gray-50 rounded-lg mb-3">
+          <p class="mb-2"><strong>Cliente:</strong> ${contract.cliente_nombre}</p>
+          <p class="mb-2"><strong>Membresía:</strong> ${selectedMembership.nombre}</p>
+          <p class="mb-2"><strong>Nuevo periodo:</strong> ${format(startDate, "dd/MM/yyyy")} - ${format(endDate, "dd/MM/yyyy")}</p>
+          <p><strong>Valor:</strong> ${formatCOP(selectedMembership.precio)}</p>
+        </div>
+        `,
+        icon: "success",
+        confirmButtonColor: "#000",
+        timer: 5000,
+        timerProgressBar: true,
+        showConfirmButton: false
+      }).then(() => {
+        setIsProcessing(false)
+        onClose() // Cerrar el modal después de actualizar
+      })
+    }, 800)
   }
 
   return (
-    <div className="p-4">
+    <div className="p-4 max-w-3xl mx-auto overflow-x-hidden">
       <h2 className="text-xl font-bold mb-3">Editar Membresía del Contrato</h2>
 
       <form onSubmit={handleSubmit}>
@@ -153,7 +192,7 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
                 <h3 className="font-semibold text-sm">Membresía</h3>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="membershipId" className="text-xs font-medium">
                     Tipo de Membresía
@@ -188,34 +227,54 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
                       <Button
                         variant="outline"
                         className={cn(
-                          "w-full justify-start text-left font-normal h-8 text-sm",
+                          "w-full justify-start text-left font-normal h-10 text-sm bg-white rounded-md transition-colors hover:bg-gray-50",
                           !startDate && "text-muted-foreground",
                         )}
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        <CalendarIcon className="mr-2 h-4 w-4 text-gray-500" />
                         {startDate ? (
-                          format(startDate, "dd MMMM, yyyy", { locale: es })
+                          format(startDate, "dd/MM/yyyy")
                         ) : (
                           <span>Seleccionar fecha</span>
                         )}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <div className="p-3 border-b border-border">
-                        <h3 className="text-sm font-medium">Fecha de inicio</h3>
-                        <p className="text-xs text-muted-foreground mt-1">Seleccione la fecha de inicio del contrato</p>
+                    <PopoverContent 
+                      className="w-auto p-0 shadow-md rounded-md border border-gray-200" 
+                      align="start"
+                      side="right"
+                      sideOffset={10}
+                      alignOffset={0}
+                      avoidCollisions={false}
+                      hideWhenDetached={false}
+                      forceMount
+                    >
+                      <div className="p-1 w-full">
+                        <Calendar
+                          mode="single"
+                          selected={startDate}
+                          onSelect={(date) => {
+                            if (date) {
+                              setStartDate(date);
+                              // Cerrar automáticamente el popover cuando se selecciona una fecha
+                              setTimeout(() => {
+                                document.body.click();
+                              }, 100);
+                            }
+                          }}
+                          initialFocus
+                          locale={es}
+                          captionLayout="dropdown-buttons"
+                          fromYear={new Date().getFullYear() - 1}
+                          toYear={new Date().getFullYear() + 5}
+                          className="rounded-md border-0 w-full"
+                          showHeader={true}
+                          title="Fecha de inicio"
+                          subtitle="Seleccione la fecha de inicio del contrato"
+                          fixedWeeks
+                          showOutsideDays
+                        />
                       </div>
-                      <Calendar
-                        mode="single"
-                        selected={startDate}
-                        onSelect={(date) => date && setStartDate(date)}
-                        initialFocus
-                        locale={es}
-                        captionLayout="dropdown-buttons"
-                        fromYear={new Date().getFullYear() - 1}
-                        toYear={new Date().getFullYear() + 5}
-                        className="rounded-md border-0"
-                      />
                     </PopoverContent>
                   </Popover>
 
@@ -225,7 +284,7 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
                     </Label>
                     <div className="flex items-center gap-2 mt-1 p-2 border rounded-md bg-gray-100 text-sm">
                       <CalendarIcon className="h-4 w-4 text-gray-500" />
-                      <span>{endDate ? format(endDate, "dd MMMM, yyyy", { locale: es }) : "Calculando..."}</span>
+                      <span>{endDate ? format(endDate, "dd/MM/yyyy") : "Calculando..."}</span>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Duración: {selectedDuration} días</p>
                   </div>

@@ -1,7 +1,4 @@
-"use client"
-
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,7 +16,7 @@ import { format } from "date-fns"
 
 interface EditClientModalProps {
   client: Client
-  onUpdateClient: (updates: Partial<Client>) => void
+  onUpdateClient: (clientId: string, updates: Partial<Client>) => void
   onClose: () => void
 }
 
@@ -149,7 +146,7 @@ export function EditClientModal({ client, onUpdateClient, onClose }: EditClientM
         birthdate: formData.birthdate,
       }
 
-      onUpdateClient(updates)
+      onUpdateClient(client.id, updates)
 
       Swal.fire({
         title: "Cliente actualizado",

@@ -1,5 +1,3 @@
-"use client"
-
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { LogOut, User, ChevronRight, Settings, Bell, HelpCircle } from "lucide-react"

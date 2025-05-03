@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo } from "react"
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
-import { CustomCalendarView } from "@/components/calendar/CustomCalendarView"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { TrainingForm } from "@/components/forms/TrainingForm"
-import { TrainingDetailsForm } from "@/components/forms/TrainingDetailsForm"
+import { TrainingForm } from "@/components/calendar/TrainingForm"
+import { TrainingDetailsForm } from "@/components/calendar/TrainingDetailsForm"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,7 +31,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CompactTrainingForm } from "@/components/forms/CompactTrainingForm"
+import { EnhancedCalendarView } from "@/components/calendar/EnhancedCalendarView"
 
 export function CalendarPage() {
     const { user } = useAuth()
@@ -42,6 +41,7 @@ export function CalendarPage() {
     const [selectedTraining, setSelectedTraining] = useState<Training | null>(null)
     const [viewMode, setViewMode] = useState<"calendar" | "daily">("daily")
     const [searchTerm, setSearchTerm] = useState("")
+    const [currentMonth, setCurrentMonth] = useState<string>(format(new Date(), "MMMM yyyy", { locale: es }))
 
     // Datos de ejemplo para servicios agendados (convertidos al formato Training)
     const [trainings, setTrainings] = useState<Training[]>([
@@ -141,25 +141,36 @@ export function CalendarPage() {
 
     // Obtener clientes con contratos activos desde mockData
     const [clientsWithActiveContracts, setClientsWithActiveContracts] = useState<{ id: string; name: string }[]>([])
+    const [activeClientsCount, setActiveClientsCount] = useState<number>(0)
 
     // Cargar clientes con contratos activos
     useEffect(() => {
         // Importar los datos de contratos y clientes
         import("@/data/mockData").then((data) => {
-            const { MOCK_CONTRACTS } = data;
+            const { MOCK_CONTRACTS, MOCK_CLIENTS } = data;
 
-            if (!MOCK_CONTRACTS) {
-                console.error("No se pudieron cargar los datos de contratos");
+            if (!MOCK_CONTRACTS || !MOCK_CLIENTS) {
+                console.error("No se pudieron cargar los datos de contratos o clientes");
                 return;
             }
 
             try {
-                // Filtrar contratos activos y mapear a formato requerido
-                const activeClients = MOCK_CONTRACTS
+                // Filtrar contratos activos
+                const activeContractIds = MOCK_CONTRACTS
                     .filter(contract => contract.estado === "Activo")
-                    .map(contract => ({
-                        id: contract.cliente_documento,
-                        name: contract.cliente_nombre
+                    .map(contract => contract.id_cliente.toString());
+                
+                // Obtener clientes con contratos activos
+                const activeClients = MOCK_CLIENTS
+                    .filter(client => 
+                        activeContractIds.includes(client.id) && 
+                        client.estado === "Activo" && 
+                        client.membershipEndDate && 
+                        new Date(client.membershipEndDate) > new Date()
+                    )
+                    .map(client => ({
+                        id: client.id,
+                        name: `${client.nombre} ${client.apellido}`
                     }))
                     // Eliminar duplicados basados en el ID del cliente
                     .filter((client, index, self) =>
@@ -168,15 +179,24 @@ export function CalendarPage() {
 
                 console.log('Clientes con contratos activos:', activeClients);
                 setClientsWithActiveContracts(activeClients);
+                setActiveClientsCount(activeClients.length);
+                
+                // Si el usuario actual es un cliente, verificar si tiene membresía activa
+                if (user?.role === "client" && user.clientId) {
+                    const hasActive = activeClients.some(client => client.id === user.clientId);
+                    setHasActiveMembership(hasActive);
+                }
             } catch (error) {
                 console.error("Error al procesar los datos de clientes:", error);
                 setClientsWithActiveContracts([]);
+                setActiveClientsCount(0);
             }
         }).catch(error => {
             console.error("Error al importar los datos:", error);
             setClientsWithActiveContracts([]);
+            setActiveClientsCount(0);
         });
-    }, [])
+    }, [user, trainings]) // Añadir trainings como dependencia para actualizar cuando cambian los entrenamientos
 
     // Verificar si el usuario tiene una membresía activa
     useEffect(() => {
@@ -512,301 +532,252 @@ export function CalendarPage() {
                 return <Badge variant="outline">{status}</Badge>
         }
     }
+    
+    // Componentes UI extraídos fuera del método de renderizado
+    const SearchComponent = () => (
+        <Card className="overflow-hidden">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-md flex items-center gap-2">
+                    <Search className="h-4 w-4" />
+                    Búsqueda
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <Input
+                        placeholder="Buscar entrenamiento, cliente..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9 text-sm"
+                    />
+                </div>
+            </CardContent>
+        </Card>
+    )
+
+    // Componente de selector de vista reutilizable
+    const ViewSelector = () => (
+        <Card className="overflow-hidden">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-md flex items-center gap-2">
+                    <CalendarIcon className="h-4 w-4" />
+                    Vista
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Tabs
+                    value={viewMode}
+                    onValueChange={(value) => setViewMode(value as "calendar" | "daily")}
+                    className="w-full"
+                >
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="daily" className="text-xs">
+                            <Clock className="h-3.5 w-3.5 mr-1.5" />
+                            Diaria
+                        </TabsTrigger>
+                        <TabsTrigger value="calendar" className="text-xs">
+                            <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
+                            Calendario
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
+            </CardContent>
+        </Card>
+    )
+
+    // Componente de clientes disponibles reutilizable
+    const AvailableClients = () => (
+        <Card className="overflow-hidden">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-md flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Clientes disponibles
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="px-2 py-1">
+                            <span className="font-medium">{activeClientsCount}</span>
+                        </Badge>
+                        <span className="text-sm text-gray-500">Clientes con contratos activos</span>
+                    </div>
+                </div>
+                <Button
+                    onClick={handleAddTraining}
+                    className="w-full bg-black hover:bg-gray-800 text-white text-xs py-2 mt-2"
+                    disabled={!hasActiveMembership}
+                >
+                    <Plus className="h-3.5 w-3.5 mr-1.5" />
+                    Agendar entrenamiento
+                </Button>
+            </CardContent>
+        </Card>
+    )
+    
+    // Componente de vista diaria reutilizable
+    const DailyView = () => (
+        <Card className="overflow-hidden">
+            <CardHeader className="pb-3 border-b">
+                <div className="flex justify-between items-center">
+                    <CardTitle>Calendario de Entrenamientos</CardTitle>
+                    <Button
+                        onClick={handleAddTraining}
+                        className="bg-black hover:bg-gray-800 text-white text-xs py-2"
+                        disabled={!hasActiveMembership}
+                    >
+                        <Plus className="h-3.5 w-3.5 mr-1.5" />
+                        Agendar entrenamiento
+                    </Button>
+                </div>
+                <p className="text-sm text-gray-500">Visualiza los entrenamientos programados</p>
+            </CardHeader>
+
+            <div className="flex justify-between items-center p-4 bg-gray-50 border-b">
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={handlePreviousDay}>
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleNextDay}>
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleToday}>
+                        Hoy
+                    </Button>
+                </div>
+                <div className="text-lg font-medium">
+                    {format(selectedDate, "d 'de' MMMM, yyyy", { locale: es })}
+                    {isToday(selectedDate) && (
+                        <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                            Hoy
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-7 text-center py-2 border-b bg-gray-50">
+                {["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"].map((day, index) => (
+                    <div key={index} className="text-xs font-medium text-gray-500">
+                        {day}
+                    </div>
+                ))}
+            </div>
+
+            <CardContent className="p-4">
+                {Object.entries(groupedTrainings).length > 0 ? (
+                    <div className="space-y-4">
+                        {Object.entries(groupedTrainings).map(([hour, hourTrainings]) => (
+                            <div key={hour} className="border-l-2 border-gray-200 pl-4 py-2">
+                                <div className="flex items-center mb-2">
+                                    <Clock className="h-4 w-4 text-gray-500 mr-2" />
+                                    <span className="font-medium">{hour}</span>
+                                </div>
+                                <div className="space-y-2">
+                                    {hourTrainings.map((training) => (
+                                        <div
+                                            key={training.id}
+                                            className={`p-3 rounded-lg cursor-pointer transition-all hover:shadow-md ${
+                                                training.status === "Activo"
+                                                    ? "bg-green-50 border-l-4 border-green-500"
+                                                    : training.status === "Pendiente"
+                                                    ? "bg-blue-50 border-l-4 border-blue-500"
+                                                    : training.status === "Completado"
+                                                    ? "bg-purple-50 border-l-4 border-purple-500"
+                                                    : "bg-red-50 border-l-4 border-red-500"
+                                            }`}
+                                            onClick={() => handleTrainingClick(training)}
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h4 className="font-medium">{training.service}</h4>
+                                                    <div className="text-sm text-gray-600 mt-1">
+                                                        <div className="flex items-center">
+                                                            <User className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
+                                                            {training.client}
+                                                        </div>
+                                                        <div className="flex items-center mt-1">
+                                                            <Dumbbell className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
+                                                            {training.trainer}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col items-end">
+                                                    {getStatusBadge(training.status as "Activo" | "Pendiente" | "Completado" | "Cancelado")}
+                                                    <span className="text-xs text-gray-500 mt-1">
+                                                        {training.startTime && training.endTime
+                                                            ? `${format(new Date(training.startTime), "HH:mm")} - ${
+                                                                  format(new Date(training.endTime), "HH:mm")
+                                                              }`
+                                                            : "Horario no especificado"}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-10">
+                        <CalendarDays className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-500 mb-2">No hay entrenamientos para este día</h3>
+                        <p className="text-gray-400 mb-6">No se encontraron entrenamientos programados para la fecha seleccionada.</p>
+                        <Button onClick={handleAddTraining} className="bg-black hover:bg-gray-800 text-white" disabled={!hasActiveMembership}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Agendar entrenamiento
+                        </Button>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
 
     return (
         <ProtectedRoute allowedRoles={["admin", "trainer", "client"]}>
-            <div className="container mx-auto py-6">
+            <div className="container mx-auto px-4 py-6">
                 <div className="mb-6">
-                    <h1 className="text-3xl font-bold mb-2">Mi Calendario de Entrenamiento</h1>
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <p className="text-gray-500">
-                            Visualiza y gestiona tus sesiones de entrenamiento y revisa los detalles de tu membresía actual.
-                        </p>
-                        {user?.role === "client" && (
-                            <Badge
-                                className={`${hasActiveMembership ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"} px-3 py-1 text-sm flex items-center gap-2`}
-                            >
-                                {hasActiveMembership ? (
-                                    <>
-                                        <CheckCircle2 className="h-4 w-4" />
-                                        Contrato activo
-                                    </>
-                                ) : (
-                                    <>
-                                        <AlertCircle className="h-4 w-4" />
-                                        Contrato inactivo
-                                    </>
-                                )}
-                            </Badge>
-                        )}
-                    </div>
-                    {user?.role === "client" && !hasActiveMembership && (
-                        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
-                            <p className="flex items-center gap-2">
-                                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                                <span>Para agendar servicios, necesitas tener un contrato activo. Por favor, contacta a recepción para adquirir o renovar tu membresía.</span>
-                            </p>
-                        </div>
-                    )}
+                    <h1 className="text-2xl font-bold mb-2">Mi Calendario de Entrenamiento</h1>
+                    <p className="text-gray-500 text-sm">Visualiza y gestiona tus entrenamientos y revisa los detalles de tu membresía actual.</p>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    {/* Panel lateral con filtros y búsqueda */}
-                    <div className="lg:col-span-1 space-y-6">
-                        <Card>
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-xl flex items-center gap-2">
-                                    <Search className="h-5 w-5" />
-                                    Búsqueda global
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <div className="relative">
-                                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                                        <Input
-                                            id="search"
-                                            type="search"
-                                            placeholder="Cliente, entrenador, servicio, fecha, hora..."
-                                            className="pl-8"
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                        />
-                                        {searchTerm && (
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="absolute right-1 top-1 h-7 w-7 text-gray-400 hover:text-gray-600"
-                                                onClick={() => setSearchTerm("")}
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        )}
-                                    </div>
-                                    {searchTerm && (
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            Buscando "{searchTerm}" en todos los campos
-                                        </p>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-xl flex items-center gap-2">
-                                    <CalendarDays className="h-5 w-5" />
-                                    Vista
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <Tabs defaultValue="daily" onValueChange={(value) => setViewMode(value as "calendar" | "daily")}>
-                                    <TabsList className="grid w-full grid-cols-2">
-                                        <TabsTrigger value="daily" className="flex items-center gap-1">
-                                            <Clock className="h-4 w-4" />
-                                            Diaria
-                                        </TabsTrigger>
-                                        <TabsTrigger value="calendar" className="flex items-center gap-1">
-                                            <CalendarIcon className="h-4 w-4" />
-                                            Calendario
-                                        </TabsTrigger>
-                                    </TabsList>
-                                </Tabs>
-                            </CardContent>
-                        </Card>
-
-                        {(user?.role === "admin" || user?.role === "trainer") && (
-                            <Card>
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-xl flex items-center gap-2">
-                                        <User className="h-5 w-5" />
-                                        Clientes disponibles
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-2">
-                                        <p className="text-lg font-medium text-gray-900 flex items-center justify-center gap-2">
-                                            <User className="h-5 w-5 text-gray-500" />
-                                            {clientsWithActiveContracts.length}
-                                        </p>
-                                        <p className="text-sm text-gray-500 text-center">
-                                            {clientsWithActiveContracts.length === 1 ? 'Cliente con contrato activo' : 'Clientes con contratos activos'}
-                                        </p>
-                                        {clientsWithActiveContracts.length === 0 && (
-                                            <div className="p-3 bg-amber-50 rounded-md text-amber-800 text-sm">
-                                                <p className="flex items-center gap-2">
-                                                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                                                    No hay clientes con contratos activos disponibles
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full mt-2"
-                                            onClick={handleAddTraining}
-                                            disabled={clientsWithActiveContracts.length === 0}
-                                        >
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Agendar entrenamiento
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
+                <div className="flex flex-col lg:flex-row gap-6">
+                    {/* Panel lateral izquierdo */}
+                    <div className="w-full lg:w-1/4 space-y-4">
+                        <SearchComponent />
+                        <ViewSelector />
+                        <AvailableClients />
                     </div>
 
                     {/* Contenido principal */}
-                    <div className="lg:col-span-3">
+                    <div className="w-full lg:w-3/4">
                         {viewMode === "calendar" ? (
-                            <Card>
-                                <CardContent className="p-0">
-                                    <CustomCalendarView
-                                        trainings={filteredTrainings}
-                                        onSelectDate={handleSelectDate}
-                                        onAddTraining={handleAddTraining}
-                                        onDeleteTraining={handleDeleteTraining}
-                                        onEditTraining={handleEditTraining}
-                                        selectedDate={selectedDate}
-                                        onTrainingClick={handleTrainingClick}
-                                    />
-                                </CardContent>
-                            </Card>
+                            <EnhancedCalendarView
+                                trainings={trainings}
+                                onSelectDate={handleSelectDate}
+                                onDeleteTraining={handleDeleteTraining}
+                                onEditTraining={handleEditTraining}
+                                onAddTraining={handleAddTraining}
+                                selectedDate={selectedDate}
+                            />
                         ) : (
-                            <Card>
-                                <CardHeader className="pb-3">
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex items-center gap-4">
-                                            <Button variant="outline" size="icon" onClick={handlePreviousDay} aria-label="Día anterior">
-                                                <ChevronLeft className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                onClick={handleToday}
-                                                className={isToday(selectedDate) ? "border-black" : ""}
-                                                aria-label="Ir a hoy"
-                                            >
-                                                Hoy
-                                            </Button>
-                                            <Button variant="outline" size="icon" onClick={handleNextDay} aria-label="Día siguiente">
-                                                <ChevronRight className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                        <h2 className="text-xl font-semibold">
-                                            {format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
-                                        </h2>
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                    {Object.keys(groupedTrainings).length > 0 ? (
-                                        <div className="space-y-6">
-                                            {Object.entries(groupedTrainings).map(([hour, trainings]) => (
-                                                <div key={hour} className="relative">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <Clock className="h-4 w-4 text-gray-500" />
-                                                        <h3 className="text-sm font-medium">{hour}</h3>
-                                                    </div>
-                                                    <div className="space-y-3">
-                                                        {trainings.map((training) => (
-                                                            <Card
-                                                                key={training.id}
-                                                                className={`border-l-4 ${training.status === "Activo" ? "border-l-green-500" : training.status === "Pendiente" ? "border-l-blue-500" : training.status === "Completado" ? "border-l-purple-500" : "border-l-red-500"} hover:shadow-md transition-shadow cursor-pointer`}
-                                                                onClick={() => handleTrainingClick(training)}
-                                                            >
-                                                                <CardContent className="p-4">
-                                                                    <div className="flex justify-between items-start">
-                                                                        <div>
-                                                                            <div className="flex items-center gap-2 mb-1">
-                                                                                <User className="h-4 w-4 text-gray-500" />
-                                                                                <p className="font-medium">{training.client}</p>
-                                                                                {getStatusBadge(training.status)}
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-                                                                                <User className="h-4 w-4" />
-                                                                                <p>{training.trainer}</p>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                                                                                <Dumbbell className="h-4 w-4" />
-                                                                                <p>{training.service}</p>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="flex flex-col items-end">
-                                                                            <div className="flex items-center gap-1 text-sm text-gray-500">
-                                                                                <Clock className="h-3 w-3" />
-                                                                                <p>
-                                                                                    {format(new Date(training.startTime), "HH:mm")} -{" "}
-                                                                                    {format(new Date(training.endTime ?? training.date), "HH:mm")}
-                                                                                </p>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </CardContent>
-                                                            </Card>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-10">
-                                            <p className="text-gray-500 mb-4">No hay entrenamientos programados para este día</p>
-                                            {user && (user.role === "admin" || user.role === "trainer") && (
-                                                <Button onClick={handleAddTraining} className="bg-black hover:bg-gray-800 text-white">
-                                                    <Plus className="mr-2 h-4 w-4" />
-                                                    Agendar entrenamiento
-                                                </Button>
-                                            )}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
+                            <DailyView />
                         )}
                     </div>
                 </div>
 
-                {/* Botón flotante para agregar entrenamiento (visible solo en vista diaria) */}
-                {viewMode === "daily" && Object.keys(groupedTrainings).length > 0 && user && (user.role === "admin" || user.role === "trainer") && (
-                    <Button
-                        onClick={handleAddTraining}
-                        className="fixed bottom-6 right-6 rounded-full w-14 h-14 bg-black hover:bg-gray-800 text-white shadow-lg"
-                        aria-label="Agendar entrenamiento"
-                    >
-                        <Plus className="h-6 w-6" />
-                    </Button>
-                )}
-
-                {/* Modal para agregar entrenamiento */}
+                {/* Diálogo para agregar entrenamiento */}
                 <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                    <DialogContent className="sm:max-w-[715px]">
+                    <DialogContent className="sm:max-w-[800px]" aria-describedby="training-form-description">
                         <DialogHeader>
                             <DialogTitle className="text-xl font-semibold flex items-center gap-2">
-                                <Plus className="h-5 w-5" />
-                                Agendar Servicio
+                                <Dumbbell className="h-5 w-5" />
+                                Agendar Entrenamiento Personalizado
                             </DialogTitle>
-                            <DialogDescription>
-                                Complete el formulario para agendar un nuevo servicio o clase.
+                            <DialogDescription id="training-form-description">
+                                Complete los datos para agendar un entrenamiento personalizado con uno de nuestros entrenadores.
                             </DialogDescription>
-                            {clientsWithActiveContracts.length === 0 ? (
-                                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                                    <p className="text-amber-800 flex items-start gap-2">
-                                        <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                                        <span>
-                                            <strong>Importante:</strong> No hay clientes con contratos activos disponibles.
-                                            Solo se pueden agendar servicios para clientes con contratos vigentes.
-                                        </span>
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                    <p className="text-blue-800 flex items-start gap-2">
-                                        <CheckCircle2 className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                                        <span>
-                                            <strong>Clientes disponibles:</strong> {clientsWithActiveContracts.length} {clientsWithActiveContracts.length === 1 ? 'cliente tiene' : 'clientes tienen'} contratos activos y {clientsWithActiveContracts.length === 1 ? 'puede' : 'pueden'} agendar entrenamientos personalizados.
-                                        </span>
-                                    </p>
-                                </div>
-                            )}
                         </DialogHeader>
                         <TrainingForm
                             onAddTraining={handleAddTrainingSubmit}
@@ -824,13 +795,13 @@ export function CalendarPage() {
                 {/* Diálogo para editar entrenamiento */}
                 {selectedTraining && (
                     <Dialog open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
-                        <DialogContent className="sm:max-w-[800px]">
+                        <DialogContent className="sm:max-w-[800px]" aria-describedby="edit-training-description">
                             <DialogHeader>
                                 <DialogTitle className="text-xl font-semibold flex items-center gap-2">
                                     <Dumbbell className="h-5 w-5" />
                                     Detalles del Servicio Agendado
                                 </DialogTitle>
-                                <DialogDescription>
+                                <DialogDescription id="edit-training-description">
                                     Visualice o modifique los detalles del servicio o clase agendada.
                                 </DialogDescription>
                             </DialogHeader>

@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
@@ -21,6 +19,9 @@ import {
   BarChart4,
   FileQuestion,
   User,
+  TagIcon,
+  ShoppingBagIcon,
+  ShoppingCartIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/utils"
@@ -287,8 +288,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             {shouldShowItem(["admin", "trainer"]) && (
               <>
                 <NavItem
-                  icon={<Users className="h-5 w-5" aria-hidden="true" />}
-                  label="Clientes"
+                  icon={<ShoppingCartIcon className="h-5 w-5" aria-hidden="true" />}
+                  label="Ventas"
                   active={activeGroup === "clients"}
                   onClick={() => toggleGroup("clients")}
                   hasSubmenu={true}

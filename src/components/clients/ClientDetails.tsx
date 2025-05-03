@@ -1,5 +1,3 @@
-"use client"
-
 import { format, differenceInDays } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"

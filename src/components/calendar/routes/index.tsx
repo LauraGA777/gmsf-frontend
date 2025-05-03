@@ -1,5 +1,4 @@
 import React from "react";
-import { CustomCalendarView } from "../CustomCalendarView";
 import { EnhancedCalendarView } from "../EnhancedCalendarView";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { CalendarPage } from "@/pages/calendar/CalendarPage";
@@ -27,7 +26,7 @@ export const calendarRoutes = [
         path: "calendar/custom",
         element: (
             <ProtectedRoute allowedRoles={["admin", "trainer"]}>
-                <CustomCalendarView 
+                <EnhancedCalendarView 
                     trainings={calendarTrainings}
                     onSelectDate={(date) => console.log("Fecha seleccionada:", date)}
                     selectedDate={new Date()}
@@ -49,7 +48,7 @@ export const calendarRoutes = [
     {
         path: "calendar",
         element: (
-            <ProtectedRoute allowedRoles={["admin", "trainer"]}>
+            <ProtectedRoute allowedRoles={["admin", "trainer", "client"]}>
                 <CalendarPage />
             </ProtectedRoute>
         ),

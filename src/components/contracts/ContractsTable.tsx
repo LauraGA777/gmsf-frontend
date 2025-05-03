@@ -1,10 +1,8 @@
-"use client"
-
 import { useState, useEffect } from "react"
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogTrigger } from "@/components/ui/dialog"
 import {
   Plus,
   Search,
@@ -112,9 +110,37 @@ export function ContractsTable({
       })
     }
 
+    // Aplicar filtro por estado si está seleccionado
+    if (filters.estado) {
+      filtered = filtered.filter((contract) => contract.estado === filters.estado)
+    }
+
+    // Aplicar filtro por membresía si está seleccionado
+    if (filters.membresia) {
+      filtered = filtered.filter((contract) => contract.membresia_nombre === filters.membresia)
+    }
+
+    // Aplicar filtro por rango de fechas si está seleccionado
+    if (filters.fechaRange && filters.fechaRange.from) {
+      const fromDate = filters.fechaRange.from
+      const toDate = filters.fechaRange.to || fromDate
+      
+      filtered = filtered.filter((contract) => {
+        const contractStartDate = new Date(contract.fecha_inicio)
+        return contractStartDate >= fromDate && contractStartDate <= toDate
+      })
+    }
+
+    // Ordenar contratos por número de código (ordenamiento numérico)
+    filtered.sort((a, b) => {
+      const codeA = a.codigo ? parseInt(a.codigo.replace('C', '')) : a.id;
+      const codeB = b.codigo ? parseInt(b.codigo.replace('C', '')) : b.id;
+      return codeA - codeB;
+    });
+
     setFilteredContracts(filtered)
     setCurrentPage(1) // Reset to first page on filter change
-  }, [contracts, user, filters.cliente])
+  }, [contracts, user, filters])
 
   const handleViewContract = (contract: Contract) => {
     setSelectedContract(contract)
@@ -168,26 +194,14 @@ export function ContractsTable({
           | "Congelado"
           | "Pendiente de pago"
 
+        // Actualizar el contrato con el nuevo estado
         onUpdateContract(contract.id, { estado: newStatus })
 
-        // Actualizar también el estado del cliente
-        const clientId = contract.id_cliente.toString()
-        const clientIndex = clients.findIndex((c) => c.id === clientId)
+        // La actualización del estado del cliente ahora se maneja directamente 
+        // en el componente contenedor (src/components/contracts/routes/index.tsx)
+        // para mantener sincronizados los estados
 
-        if (clientIndex !== -1) {
-          const clientStatus =
-            newStatus === "Activo"
-              ? "Activo"
-              : newStatus === "Congelado"
-                ? "Congelado"
-                : newStatus === "Pendiente de pago"
-                  ? "Pendiente de pago"
-                  : "Inactivo"
-
-          // Aquí deberías tener una función para actualizar el cliente
-          // Esto dependerá de cómo manejes la actualización de clientes en tu aplicación
-        }
-
+        // Mostrar mensaje de éxito
         Swal.fire({
           title: `Estado actualizado`,
           text: `El contrato ahora está en estado: ${newStatus}`,
@@ -195,6 +209,7 @@ export function ContractsTable({
           confirmButtonColor: "#000",
           timer: 5000,
           timerProgressBar: true,
+          showConfirmButton: false
         })
       }
     })
@@ -223,6 +238,7 @@ export function ContractsTable({
           confirmButtonColor: "#000",
           timer: 5000,
           timerProgressBar: true,
+          showConfirmButton: false
         })
       }
     })
@@ -240,6 +256,7 @@ export function ContractsTable({
         confirmButtonColor: "#000",
         timer: 5000,
         timerProgressBar: true,
+        showConfirmButton: false
       })
       return
     }
@@ -283,10 +300,13 @@ export function ContractsTable({
           precio_total: contract.membresia_precio || membership.precio,
           cliente_documento: contract.cliente_documento,
           cliente_documento_tipo: contract.cliente_documento_tipo,
+          fecha_registro: new Date(),
         }
 
+        // Añadir el nuevo contrato
         onAddContract(newContract)
 
+        // Mostrar mensaje de éxito
         Swal.fire({
           title: "Contrato renovado",
           text: "El contrato ha sido renovado exitosamente.",
@@ -294,6 +314,7 @@ export function ContractsTable({
           confirmButtonColor: "#000",
           timer: 5000,
           timerProgressBar: true,
+          showConfirmButton: false
         })
       }
     })
@@ -302,6 +323,7 @@ export function ContractsTable({
   const getPaginatedContracts = () => {
     const startIndex = (currentPage - 1) * contractsPerPage
     const endIndex = startIndex + contractsPerPage
+    // Los contratos ya vienen ordenados del useEffect
     return filteredContracts.slice(startIndex, endIndex)
   }
 
@@ -361,7 +383,7 @@ export function ContractsTable({
       cliente: "",
       membresia: "",
       estado: "",
-      fechaRange: { from: null, to: null },
+      fechaRange: { from: undefined, to: undefined },
     })
   }
 
@@ -388,9 +410,10 @@ export function ContractsTable({
                   Nuevo Contrato
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-5xl h-auto overflow-visible">
+              <DialogContent className="sm:max-w-5xl h-auto overflow-visible" aria-describedby="new-contract-description">
                 <VisuallyHidden>
                   <DialogTitle>Nuevo Contrato</DialogTitle>
+                  <DialogDescription id="new-contract-description">Complete el formulario para crear un nuevo contrato.</DialogDescription>
                 </VisuallyHidden>
                 <NewContractForm
                   clients={clients}
@@ -588,9 +611,10 @@ export function ContractsTable({
 
       {/* Modal para ver detalles del contrato */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg" aria-describedby="contract-details-description">
           <VisuallyHidden>
             <DialogTitle>Detalles del Contrato</DialogTitle>
+            <DialogDescription id="contract-details-description">Información detallada del contrato seleccionado.</DialogDescription>
           </VisuallyHidden>
           {selectedContract && (
             <ContractDetails
@@ -607,9 +631,10 @@ export function ContractsTable({
 
       {/* Modal para editar membresía del contrato */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg" aria-describedby="edit-contract-description">
           <VisuallyHidden>
             <DialogTitle>Editar Contrato</DialogTitle>
+            <DialogDescription id="edit-contract-description">Modifique la información del contrato según sea necesario.</DialogDescription>
           </VisuallyHidden>
           {editingContract && (
             <EditContractModal
@@ -617,7 +642,6 @@ export function ContractsTable({
               memberships={memberships}
               onUpdateContract={(updatedData) => {
                 handleUpdateContract(editingContract.id, updatedData)
-                setIsEditModalOpen(false)
               }}
               onClose={() => setIsEditModalOpen(false)}
             />

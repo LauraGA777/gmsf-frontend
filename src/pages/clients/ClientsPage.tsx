@@ -1,50 +1,21 @@
-"use client"
-
-import { useState, useEffect } from "react"
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
-import { ClientsTable } from "@/components/clients/ClientsTable"
+import { useGlobalClients } from "@/context/ClientsContext"
 import type { Client } from "@/types"
+import { ClientsTable } from "@/components/clients/ClientsTable"
 
-// Importamos los datos de ejemplo de clientes que se usan en ContractsPage
-// En una aplicación real, esto vendría de un contexto global o una API
-import { MOCK_CLIENTS } from "@/data/mockData"
 
 export function ClientsPage() {
-  // Usamos el mismo conjunto de datos que se usa en ContractsPage
-  const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS)
+  // Usamos el contexto global para acceder a los clientes y funciones
+  const { clients, updateClient, addClient } = useGlobalClients()
 
-  // Actualizar los clientes cuando MOCK_CLIENTS cambie (por ejemplo, cuando se añade un nuevo contrato)
-  useEffect(() => {
-    setClients([...MOCK_CLIENTS])
-  }, [])
-
+  // Función para actualizar un cliente
   const handleUpdateClient = (updatedClient: Client) => {
-    // Actualizar el cliente en el estado local
-    setClients(clients.map((client) => (client.id === updatedClient.id ? updatedClient : client)))
-
-    // Actualizar también en MOCK_CLIENTS para mantener la sincronización
-    const index = MOCK_CLIENTS.findIndex((c) => c.id === updatedClient.id)
-    if (index !== -1) {
-      MOCK_CLIENTS[index] = updatedClient
-    }
+    updateClient(updatedClient.id, updatedClient)
   }
 
+  // Función para añadir un nuevo cliente
   const handleAddClient = (newClient: Omit<Client, "id">) => {
-    // Generar un nuevo ID (en producción, esto vendría del backend)
-    const newId = (Number(clients[clients.length - 1]?.id || "0") + 1).toString().padStart(4, "0")
-
-    const clientToAdd = {
-      ...newClient,
-      id: newId,
-    }
-
-    // Añadir al estado local
-    setClients([...clients, clientToAdd])
-
-    // Añadir también a MOCK_CLIENTS
-    MOCK_CLIENTS.push(clientToAdd)
-
-    return newId
+    return addClient(newClient)
   }
 
   return (

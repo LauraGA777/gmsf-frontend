@@ -1,5 +1,3 @@
-"use client"
-
 import { useLocation } from "react-router-dom"
 import { UserMenu } from "@/components/layout/UserMenu"
 import { Menu, Home, Users, UserCog, Dumbbell, FileSignature, User, ClipboardCheck, MessageSquare } from "lucide-react"
@@ -40,10 +38,10 @@ export function Header({ toggleSidebar, currentSection }: HeaderProps) {
       items = ["Servicios", "Agenda"]
     } else if (path.includes("/contracts")) {
       icon = <FileSignature />
-      items = ["Clientes", "Contratos"]
+      items = ["Ventas", "Contratos"]
     } else if (path.includes("/clients")) {
       icon = <User />
-      items = ["Clientes", "Personas"]
+      items = ["Ventas", "Personas"]
     } else if (path.includes("/memberships")) {
       icon = <ClipboardCheck />
       items = ["Membresías"]

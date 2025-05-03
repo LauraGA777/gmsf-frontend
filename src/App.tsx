@@ -1,7 +1,6 @@
-"use client"
-
 import { AuthProvider } from "@/context/AuthContext"
 import { ThemeProvider } from "@/context/ThemeContext"
+import { GlobalClientsProvider } from "@/context/ClientsContext"
 import AppRoutes from "@/routes/AppRoutes"
 
 /**
@@ -12,7 +11,9 @@ export default function App() {
   return (
     <ThemeProvider defaultTheme="light">
       <AuthProvider>
-        <AppRoutes />
+        <GlobalClientsProvider>
+          <AppRoutes />
+        </GlobalClientsProvider>
       </AuthProvider>
     </ThemeProvider>
   )

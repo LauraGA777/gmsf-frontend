@@ -2,7 +2,7 @@ import React from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { AttendanceChart } from "../AttendanceChart";
-import { PopularMembershipsChart } from "../ClassesCompletedChart";
+import { PopularMembershipsChart } from "../PopularMembershipsChart";
 import { SatisfactionChart } from "../SatisfactionChart";
 import { ServiceSatisfactionChart } from "../ServicesSatisfactionChart";
 import { UpcomingTrainings } from "../UpcomingTrainings";
@@ -92,4 +92,4 @@ export const dashboardRoutes = [
             </ProtectedRoute>
         ),
     },
-]; 
+];

@@ -71,7 +71,7 @@ export interface Training {
   endTime?: Date;
   maxCapacity: number;
   occupiedSpots: number;
-  status: "Activo" | "Cancelado";
+  status: "Activo" | "Pendiente" | "Completado" | "Cancelado";
   notes?: string;
   location?: string;
 }

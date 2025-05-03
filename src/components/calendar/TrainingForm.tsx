@@ -1,7 +1,4 @@
-"use client"
-
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +8,7 @@ import { es } from "date-fns/locale"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/utils"
-import { CalendarIcon, Clock, Dumbbell } from "lucide-react"
+import { CalendarIcon, Clock, Dumbbell, User } from "lucide-react"
 import type { Training } from "@/types"
 import Swal from "sweetalert2"
 
@@ -43,7 +40,16 @@ export function TrainingForm({
     const [clientId, setClientId] = useState(initialValues?.clientId || "")
     const [trainer, setTrainer] = useState(initialValues?.trainer || "")
     const [searchTerm, setSearchTerm] = useState("")
+    
+    // Asegurarse de que solo se muestren clientes con contratos activos
+    // Si clientsWithActiveContracts está vacío, se mostrará un mensaje indicando que no hay clientes disponibles
     const [filteredClients, setFilteredClients] = useState(clientsWithActiveContracts)
+    
+    // Actualizar los clientes filtrados cuando cambia la lista de clientes con contratos activos
+    useEffect(() => {
+        setFilteredClients(clientsWithActiveContracts)
+    }, [clientsWithActiveContracts])
+    
     // Permitir seleccionar cualquier servicio
     const [service, setService] = useState(initialValues?.service || "")
     const [date, setDate] = useState<Date>(initialValues?.date || selectedDate)
@@ -53,8 +59,7 @@ export function TrainingForm({
     const [endTime, setEndTime] = useState<string>(
         initialValues?.endTime ? format(new Date(initialValues.endTime), "HH:mm") : "10:00",
     )
-    // Capacidad máxima (1 para servicios personalizados, configurable para otros)
-    const [maxCapacity, setMaxCapacity] = useState<number>(initialValues?.maxCapacity || (isCustomService ? 1 : 10))
+    
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
@@ -98,7 +103,6 @@ export function TrainingForm({
             date,
             startTime: startDateTime,
             endTime: endDateTime,
-            maxCapacity: isCustomService ? 1 : maxCapacity,
             occupiedSpots: initialValues?.occupiedSpots || 0,
             status: initialValues?.status || "Activo",
             trainerId: initialValues?.trainerId,
@@ -113,53 +117,57 @@ export function TrainingForm({
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6 p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-6 p-6 max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Columna izquierda */}
                 <div>
                     {/* Información del Entrenamiento */}
-                    <div className="rounded-lg bg-gray-50 p-6 mb-6 shadow-sm">
-                        <div className="mb-3 flex items-center gap-2">
+                    <div className="rounded-lg bg-gray-50 p-6 mb-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300">
+                        <div className="mb-4 flex items-center gap-2">
                             <Dumbbell className="h-5 w-5 text-gray-700" />
                             <h3 className="text-md font-medium">Información del Entrenamiento</h3>
                         </div>
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             <div>
                                 <label htmlFor="client" className="block text-sm font-medium">
                                     Cliente <span className="text-red-500">*</span>
                                 </label>
                                 <div className="space-y-2">
-                                    <Input
-                                        type="text"
-                                        placeholder="Buscar cliente por nombre o documento..."
-                                        className="w-full transition-all hover:border-black focus:border-black"
-                                        value={searchTerm}
-                                        onChange={(e) => {
-                                            const term = e.target.value
-                                            setSearchTerm(term)
-                                            // Filtrar clientes en tiempo real
-                                            const filtered = clientsWithActiveContracts.filter(
-                                                (client) =>
-                                                    client.name.toLowerCase().includes(term.toLowerCase()) ||
-                                                    client.id.toLowerCase().includes(term.toLowerCase()),
-                                            )
-                                            setFilteredClients(filtered)
-                                            // Si solo hay un cliente que coincide, seleccionarlo automáticamente
-                                            if (filtered.length === 1) {
-                                                setClientId(filtered[0].id)
-                                                setSearchTerm(filtered[0].name) // Mostrar el nombre completo cuando se encuentra una coincidencia
-                                            }
-                                        }}
-                                    />
+                                    <div className="relative">
+                                        <Input
+                                            type="text"
+                                            placeholder="Buscar cliente por nombre o documento..."
+                                            className="w-full transition-all hover:border-black focus:border-black pl-9"
+                                            value={searchTerm}
+                                            onChange={(e) => {
+                                                const term = e.target.value
+                                                setSearchTerm(term)
+                                                // Filtrar clientes en tiempo real
+                                                const filtered = clientsWithActiveContracts.filter(
+                                                    (client) =>
+                                                        client.name.toLowerCase().includes(term.toLowerCase()) ||
+                                                        client.id.toLowerCase().includes(term.toLowerCase()),
+                                                )
+                                                setFilteredClients(filtered)
+                                                // Si solo hay un cliente que coincide, seleccionarlo automáticamente
+                                                if (filtered.length === 1) {
+                                                    setClientId(filtered[0].id)
+                                                    setSearchTerm(filtered[0].name) // Mostrar el nombre completo cuando se encuentra una coincidencia
+                                                }
+                                            }}
+                                        />
+                                        <CalendarIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                                    </div>
                                     {clientId ? (
-                                        <div className="bg-gray-50 p-2 rounded-md border border-gray-200">
-                                            <p className="text-sm text-gray-700">
-                                                Cliente seleccionado: <span className="font-medium">{searchTerm}</span>
+                                        <div className="bg-white p-3 rounded-md border border-gray-200 shadow-sm hover:shadow transition-all">
+                                            <p className="text-sm text-gray-700 flex items-center">
+                                                <User className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
+                                                Cliente seleccionado: <span className="font-medium ml-1">{searchTerm}</span>
                                             </p>
                                             <Button
                                                 type="button"
                                                 variant="outline"
-                                                className="mt-2 text-sm w-full"
+                                                className="mt-2 text-sm w-full text-gray-600 hover:bg-gray-50"
                                                 onClick={() => {
                                                     setClientId("")
                                                     setSearchTerm("")
@@ -207,37 +215,24 @@ export function TrainingForm({
                                 <label htmlFor="service" className="block text-sm font-medium">
                                     Servicio <span className="text-red-500">*</span>
                                 </label>
-                                <Select value={service} onValueChange={setService} required>
-                                    <SelectTrigger className="w-full transition-all hover:border-black focus:border-black">
-                                        <SelectValue placeholder="Seleccionar servicio" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {services.map((s) => (
-                                            <SelectItem key={s} value={s}>
-                                                {s}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <div className="relative">
+                                    <Select value={service} onValueChange={setService} required>
+                                        <SelectTrigger className="w-full transition-all hover:border-black focus:border-black pl-9">
+                                            <Dumbbell className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                                            <SelectValue placeholder="Seleccionar servicio" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {services.map((s) => (
+                                                <SelectItem key={s} value={s}>
+                                                    {s}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
 
-                            {!isCustomService && (
-                                <div>
-                                    <label htmlFor="maxCapacity" className="block text-sm font-medium">
-                                        Capacidad máxima <span className="text-red-500">*</span>
-                                    </label>
-                                    <Input
-                                        id="maxCapacity"
-                                        type="number"
-                                        min="1"
-                                        max="50"
-                                        value={maxCapacity}
-                                        onChange={(e) => setMaxCapacity(Number(e.target.value))}
-                                        className="w-full transition-all hover:border-black focus:border-black"
-                                        required
-                                    />
-                                </div>
-                            )}
+                            
                         </div>
                     </div>
                 </div>
@@ -245,28 +240,31 @@ export function TrainingForm({
                 {/* Columna derecha */}
                 <div>
                     {/* Entrenador y Horario */}
-                    <div className="rounded-lg bg-gray-50 p-6 mb-6 shadow-sm">
-                        <div className="mb-3 flex items-center gap-2">
+                    <div className="rounded-lg bg-gray-50 p-6 mb-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300">
+                        <div className="mb-4 flex items-center gap-2">
                             <Clock className="h-5 w-5 text-gray-700" />
                             <h3 className="text-md font-medium">Entrenador y Horario</h3>
                         </div>
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             <div>
                                 <label htmlFor="trainer" className="block text-sm font-medium">
                                     Entrenador <span className="text-red-500">*</span>
                                 </label>
-                                <Select value={trainer} onValueChange={setTrainer} required>
-                                    <SelectTrigger className="w-full transition-all hover:border-black focus:border-black">
-                                        <SelectValue placeholder="Seleccionar entrenador" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {trainers.map((t) => (
-                                            <SelectItem key={t} value={t}>
-                                                {t}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <div className="relative">
+                                    <Select value={trainer} onValueChange={setTrainer} required>
+                                        <SelectTrigger className="w-full transition-all hover:border-black focus:border-black pl-9">
+                                            <User className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                                            <SelectValue placeholder="Seleccionar entrenador" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {trainers.map((t) => (
+                                                <SelectItem key={t} value={t}>
+                                                    {t}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
 
                             <div>
@@ -337,12 +335,15 @@ export function TrainingForm({
                     type="button"
                     variant="outline"
                     onClick={onCancel}
-                    className="transition-all hover:bg-gray-100 px-6 py-2.5 w-[115%]"
+                    className="transition-all hover:bg-gray-100 px-6 py-2.5 rounded-md w-[120px] md:w-[140px]"
                 >
                     Cancelar
                 </Button>
-                <Button type="submit" className="bg-black text-white transition-all hover:bg-gray-800 px-6 py-2.5 w-[115%]">
-                    {initialValues ? "Actualizar Entrenamiento" : "Agendar Entrenamiento"}
+                <Button 
+                    type="submit" 
+                    className="bg-black text-white transition-all hover:bg-gray-800 px-6 py-2.5 rounded-md w-[120px] md:w-[180px] font-medium"
+                >
+                    {initialValues ? "Actualizar" : "Agendar"}
                 </Button>
             </div>
         </form>

@@ -1,11 +1,10 @@
-"use client"
-
 import { useState, useEffect } from "react"
 import { ContractsTable } from "@/components/contracts/ContractsTable"
 import { useAuth } from "@/context/AuthContext"
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import type { Contract, Client } from "@/types"
 import { MOCK_CLIENTS, MOCK_MEMBERSHIPS, MOCK_CONTRACTS } from "@/data/mockData"
+import Swal from "sweetalert2"
 
 export function ContractsPage() {
   const { user } = useAuth()
@@ -66,6 +65,16 @@ export function ContractsPage() {
       if (mockClientIndex !== -1) {
         MOCK_CLIENTS[mockClientIndex] = updatedClient
       }
+
+      // Mostrar mensaje de confirmación
+      Swal.fire({
+        title: "Contrato creado exitosamente",
+        text: `El cliente ${updatedClient.nombre} ${updatedClient.apellido} ahora puede agendar entrenamientos con su membresía ${newContract.membresia_nombre}`,
+        icon: "success",
+        confirmButtonColor: "#000",
+        timer: 5000,
+        timerProgressBar: true,
+      })
     }
   }
 

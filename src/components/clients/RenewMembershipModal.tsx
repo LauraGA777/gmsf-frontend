@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -17,10 +15,11 @@ import { mockMemberships } from "@/data/mockData"
 
 interface RenewMembershipModalProps {
   client: Client
-  onSubmit: (client: Client) => void
+  onSubmit: (clientId: string, updates: Partial<Client>) => void
+  onClose: () => void
 }
 
-export function RenewMembershipModal({ client, onSubmit }: RenewMembershipModalProps) {
+export function RenewMembershipModal({ client, onSubmit, onClose }: RenewMembershipModalProps) {
   const [membershipType, setMembershipType] = useState(client.membershipType || "")
   const [startDate, setStartDate] = useState<Date>(
     client.membershipEndDate && client.membershipEndDate > new Date() ? client.membershipEndDate : new Date(),
@@ -106,7 +105,7 @@ export function RenewMembershipModal({ client, onSubmit }: RenewMembershipModalP
         status: "Activo",
       }
 
-      onSubmit(updatedClient)
+      onSubmit(client.id, updatedClient)
       setIsProcessing(false)
     }, 500)
   }

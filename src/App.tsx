@@ -1,7 +1,7 @@
-import { AuthProvider } from "@/context/AuthContext"
-import { ThemeProvider } from "@/context/ThemeContext"
-import { GlobalClientsProvider } from "@/context/ClientsContext"
-import AppRoutes from "@/routes/AppRoutes"
+import { AuthProvider } from "@/shared/contexts/AuthContext"
+import { ThemeProvider } from "@/shared/contexts/ThemeContext"
+import { GlobalClientsProvider } from "@/shared/contexts/ClientsContext"
+import AppRoutes from "@/shared/routes/AppRoutes"
 
 /**
  * Componente principal de la aplicación

@@ -12,7 +12,7 @@ export default function AppRoutes() {
   // Ruta de redirección según el rol del usuario
   const getRedirectPath = () => {
     if (!user) return "/login";
-    return user.role === "client" ? "/clients" : "/dashboard";
+    return user.role === "client" ? "/calendar/client" : "/dashboard";
   };
 
   // Configura la ruta principal con redirección

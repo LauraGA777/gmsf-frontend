@@ -122,7 +122,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       setActiveGroup("services")
     } else if (path.includes("/calendar")) {
       setActiveItem("calendar")
-      setActiveGroup("services")
+      setActiveGroup(user?.role === "client" ? null : "services")
+    } else if (path.includes("/my-contract")) {
+      setActiveItem("my-contract")
+      setActiveGroup(null)
     } else if (path.includes("/clients")) {
       setActiveItem("clients.list")
       setActiveGroup("clients")
@@ -143,9 +146,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Función para determinar si se debe mostrar un elemento basado en el rol de usuario
   const shouldShowItem = (allowedRoles: string[]) => {
-    if (!user || !user.role) return false
-    return allowedRoles.includes(user.role)
-  }
+    return user?.role && allowedRoles.includes(user.role);
+  };
 
   const handleItemClick = (item: string, group: string | null = null) => {
     if (item === "logout") {
@@ -227,61 +229,91 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               />
             )}
 
-            {/* 4. Servicios */}
-            <NavItem
-              icon={<Dumbbell className="h-5 w-5" aria-hidden="true" />}
-              label="Servicios"
-              active={activeGroup === "services"}
-              onClick={() => toggleGroup("services")}
-              hasSubmenu={true}
-              expanded={activeGroup === "services"}
-              id="nav-services"
-            />
-            {activeGroup === "services" && (
-              <ul className="py-1 mx-4 border-l border-gray-100">
-                {/* Listado de servicios */}
-                <li className="my-1">
-                  <Link
-                    to="/services"
-                    className={cn(
-                      "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
-                      activeItem === "services.list"
-                        ? "text-gray-700 hover:bg-gray-100"
-                        : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
-                    )}
-                    onClick={() => {
-                      handleItemClick("services.list", "services")
-                      if (window.innerWidth < 768) onClose()
-                    }}
-                  >
-                    <span className="flex-shrink-0 text-gray-500 mr-3">
-                      <ClipboardList className="h-5 w-5" aria-hidden="true" />
-                    </span>
-                    <span className="flex-1 whitespace-nowrap">Servicios</span>
-                  </Link>
-                </li>
-                {/* Agenda */}
-                <li className="my-1">
-                  <Link
-                    to="/calendar"
-                    className={cn(
-                      "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
-                      activeItem === "calendar"
-                        ? "text-gray-700 hover:bg-gray-100"
-                        : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
-                    )}
-                    onClick={() => {
-                      handleItemClick("calendar", "services")
-                      if (window.innerWidth < 768) onClose()
-                    }}
-                  >
-                    <span className="flex-shrink-0 text-gray-500 mr-3">
-                      <Calendar className="h-5 w-5" aria-hidden="true" />
-                    </span>
-                    <span className="flex-1 whitespace-nowrap">Agenda</span>
-                  </Link>
-                </li>
-              </ul>
+            {/* 4. Servicios - Solo para admin y trainer */}
+            {shouldShowItem(["admin", "trainer"]) && (
+              <>
+                <NavItem
+                  icon={<Dumbbell className="h-5 w-5" aria-hidden="true" />}
+                  label="Servicios"
+                  active={activeGroup === "services"}
+                  onClick={() => toggleGroup("services")}
+                  hasSubmenu={true}
+                  expanded={activeGroup === "services"}
+                  id="nav-services"
+                />
+                {activeGroup === "services" && (
+                  <ul className="py-1 mx-4 border-l border-gray-100">
+                    {/* Listado de servicios */}
+                    <li className="my-1">
+                      <Link
+                        to="/services"
+                        className={cn(
+                          "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
+                          activeItem === "services.list"
+                            ? "text-gray-700 hover:bg-gray-100"
+                            : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                        )}
+                        onClick={() => {
+                          handleItemClick("services.list", "services")
+                          if (window.innerWidth < 768) onClose()
+                        }}
+                      >
+                        <span className="flex-shrink-0 text-gray-500 mr-3">
+                          <ClipboardList className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <span className="flex-1 whitespace-nowrap">Servicios</span>
+                      </Link>
+                    </li>
+                    {/* Agenda */}
+                    <li className="my-1">
+                      <Link
+                        to="/calendar"
+                        className={cn(
+                          "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
+                          activeItem === "calendar"
+                            ? "text-gray-700 hover:bg-gray-100"
+                            : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                        )}
+                        onClick={() => {
+                          handleItemClick("calendar", "services")
+                          if (window.innerWidth < 768) onClose()
+                        }}
+                      >
+                        <span className="flex-shrink-0 text-gray-500 mr-3">
+                          <Calendar className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <span className="flex-1 whitespace-nowrap">Agenda</span>
+                      </Link>
+                    </li>
+                  </ul>
+                )}
+              </>
+            )}
+            
+            {/* Agenda - Solo para clientes */}
+            {shouldShowItem(["client"]) && (
+              <NavItem
+                icon={<Calendar className="h-5 w-5" aria-hidden="true" />}
+                label="Agenda"
+                active={activeItem === "calendar"}
+                onClick={() => handleItemClick("calendar")}
+                to="/calendar"
+                onClose={onClose}
+                id="nav-calendar-client"
+              />
+            )}
+            
+            {/* Mi Contrato - Solo para clientes */}
+            {shouldShowItem(["client"]) && (
+              <NavItem
+                icon={<FileSignature className="h-5 w-5" aria-hidden="true" />}
+                label="Mi Contrato"
+                active={activeItem === "my-contract"}
+                onClick={() => handleItemClick("my-contract")}
+                to="/my-contract"
+                onClose={onClose}
+                id="nav-my-contract"
+              />
             )}
 
             {/* 5. Clientes y contratos */}

@@ -5,9 +5,7 @@ import { AttendanceChart } from "../components/AttendanceChart";
 import { PopularMembershipsChart } from "../components/PopularMembershipsChart";
 import { SatisfactionChart } from "../components/SatisfactionChart";
 import { ServiceSatisfactionChart } from "../components/ServicesSatisfactionChart";
-import { UpcomingTrainings } from "../components/UpcomingTrainings";
 import { mockTrainings, mockClients } from "@/features/data/mockData";
-import type { Training } from "@/shared/types";
 
 // Datos simulados para ServiceSatisfactionChart
 const serviceSatisfactionData = [
@@ -25,21 +23,7 @@ const satisfactionData = [
     { categoria: "Atención al Cliente", calificacion: 4.8, color: "#ff8042" },
 ];
 
-// Crear datos simulados con la estructura que espera el componente UpcomingTrainings
-const upcomingTrainings: Training[] = mockTrainings.slice(0, 5).map(t => ({
-    id: t.id,
-    client: `${mockClients.find(c => c.id_persona === 1)?.nombre || ''} ${mockClients.find(c => c.id_persona === 1)?.apellido || ''}`,
-    clientId: "1",
-    trainer: `${t.trainer?.nombre || ''} ${t.trainer?.apellido || ''}`,
-    trainerId: String(t.id_entrenador),
-    service: t.service?.nombre || '',
-    date: new Date(t.fecha),
-    startTime: new Date(`${t.fecha}T${t.hora_inicio}`),
-    endTime: new Date(`${t.fecha}T${t.hora_fin}`),
-    maxCapacity: t.cupo_maximo,
-    occupiedSpots: t.cupos_ocupados,
-    status: t.estado === "Activo" ? "Activo" : "Cancelado"
-}));
+
 
 export const dashboardRoutes = [
     {
@@ -82,14 +66,5 @@ export const dashboardRoutes = [
             </ProtectedRoute>
         ),
     },
-    {
-        path: "dashboard/upcoming-trainings",
-        element: (
-            <ProtectedRoute allowedRoles={["admin", "trainer"]}>
-                <UpcomingTrainings
-                    trainings={upcomingTrainings}
-                />
-            </ProtectedRoute>
-        ),
-    },
+
 ];

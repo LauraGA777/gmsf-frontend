@@ -107,6 +107,8 @@ function Calendar({
                   value={value}
                   onChange={onChange}
                   className="w-full h-9 appearance-none bg-transparent px-2 py-1 text-sm font-semibold cursor-pointer focus:outline-none focus:ring-0"
+                  aria-label={props.name === "months" ? "Seleccionar mes" : "Seleccionar año"}
+                  tabIndex={0}
                 >
                   {children}
                 </select>

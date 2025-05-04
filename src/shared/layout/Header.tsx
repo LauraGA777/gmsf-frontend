@@ -60,12 +60,12 @@ export function Header({ toggleSidebar, currentSection }: HeaderProps) {
   }, [location.pathname, user])
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+    <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:bg-gray-900/90 dark:border-gray-800">
       <div className="flex h-16 items-center px-4 md:px-6">
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden mr-2"
+          className="md:hidden mr-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           onClick={toggleSidebar}
           aria-label="Mostrar menú"
         >
@@ -73,20 +73,20 @@ export function Header({ toggleSidebar, currentSection }: HeaderProps) {
         </Button>
 
         {/* Breadcrumb navigation */}
-        <div className="flex items-center">
-          <div className="flex items-center text-gray-500 mr-2">
+        <div className="flex items-center overflow-hidden">
+          <div className="flex items-center text-gray-500 mr-2 flex-shrink-0">
             {pathIcon}
           </div>
-          <nav aria-label="Breadcrumb" className="flex">
-            <ol className="flex items-center space-x-2">
+          <nav aria-label="Breadcrumb" className="flex overflow-hidden">
+            <ol className="flex items-center space-x-2 overflow-hidden">
               {breadcrumbItems.map((item, index) => (
-                <li key={item} className="flex items-center">
-                  {index > 0 && <span className="mx-2 text-gray-400">/</span>}
+                <li key={item} className="flex items-center whitespace-nowrap">
+                  {index > 0 && <span className="mx-2 text-gray-400 hidden xs:inline">/</span>}
                   <span className={cn(
-                    "text-sm md:text-base font-medium",
+                    "text-sm md:text-base font-medium truncate max-w-[100px] sm:max-w-[150px] md:max-w-none",
                     index === breadcrumbItems.length - 1 
-                      ? "text-gray-800 font-semibold" 
-                      : "text-gray-500"
+                      ? "text-gray-800 font-semibold dark:text-gray-200" 
+                      : "text-gray-500 dark:text-gray-400"
                   )}>
                     {item}
                   </span>

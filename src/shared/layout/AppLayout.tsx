@@ -79,7 +79,7 @@ export function AppLayout() {
   const currentYear = new Date().getFullYear()
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="flex flex-1">
         {/* Sidebar para escritorio con animación suave */}
         <div className="hidden md:block transition-all duration-300 ease-in-out">
@@ -90,7 +90,7 @@ export function AppLayout() {
         {isMobile && (
           <>
             <div
-              className={`fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 ${
+              className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300 ${
                 isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
               }`}
               onClick={() => setIsSidebarOpen(false)}

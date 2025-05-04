@@ -46,17 +46,17 @@ export function ServiceSatisfactionChart({
                 <p className="text-3xl font-bold text-gray-900">{averageSatisfaction}/5.0</p>
                 <p className="text-sm text-gray-500">promedio de servicios</p>
             </div>
-            <div className="w-full h-[350px]">
+            <div className="w-full h-[280px] sm:h-[350px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                         data={data}
                         margin={{
                             top: 20,
-                            right: 30,
-                            left: 20,
+                            right: 10,
+                            left: 0,
                             bottom: 30,
                         }}
-                        barSize={40}
+                        barSize={30}
                     >
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                         <XAxis 

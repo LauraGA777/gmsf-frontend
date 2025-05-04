@@ -1,7 +1,9 @@
 import React from "react";
+import { Navigate } from "react-router-dom";
 import { ScheduleComponent } from "../components/ScheduleComponent";
 import { ProtectedRoute } from "@/features/auth/ProtectedRoute";
 import { SchedulePage } from "@/features/schedule/pages/SchedulePage";
+import { ClientSchedulePage } from "@/features/schedule/pages/ClientSchedulePage";
 import { mockTrainings } from "@/features/data/mockData";
 import type { Training } from "@/shared/types";
 
@@ -48,8 +50,26 @@ export const calendarRoutes = [
     {
         path: "calendar",
         element: (
-            <ProtectedRoute allowedRoles={["admin", "trainer", "client"]}>
+            <ProtectedRoute allowedRoles={["admin", "trainer"]}>
                 <SchedulePage />
+            </ProtectedRoute>
+        ),
+    },
+    {
+        path: "calendar/client",
+        element: (
+            <ProtectedRoute allowedRoles={["client"]}>
+                <ClientSchedulePage />
+            </ProtectedRoute>
+        ),
+    },
+    // Ruta principal que redirige según el rol del usuario
+    {
+        path: "",
+        element: (
+            <ProtectedRoute allowedRoles={["admin", "trainer", "client"]}>
+                {/* El componente ProtectedRoute ya maneja la redirección según el rol */}
+                <div>Redirigiendo...</div>
             </ProtectedRoute>
         ),
     }

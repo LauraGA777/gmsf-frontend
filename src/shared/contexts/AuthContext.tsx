@@ -43,14 +43,22 @@ const MOCK_USERS: User[] = [
     name: "Juan Pérez",
     email: "juan@example.com",
     role: "client",
-    clientId: "0001",
-    // Agregar contrato activo por defecto
-    activeContract: {
-      id: "C0001",
-      status: "Activo",
-      startDate: new Date("2025-01-01"),
-      endDate: new Date("2025-12-31"),
-      membershipType: "Premium"
+    clientId: "1", // ID que coincide con un cliente en mockData
+    contract: {
+      id: 1,
+      codigo: "CT0001",
+      id_cliente: 1,
+      id_membresia: 2,
+      fecha_inicio: new Date("2023-05-15"),
+      fecha_fin: new Date(new Date().setDate(new Date().getDate() + 30)),
+      precio_total: 150000,
+      estado: "Activo",
+      fecha_registro: "2023-05-15",
+      cliente_nombre: "Juan Carlos Pérez Rodríguez",
+      membresia_nombre: "Mensualidad",
+      membresia_precio: 150000,
+      cliente_documento: "1098765432",
+      cliente_documento_tipo: "CC"
     }
   },
   {
@@ -102,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading && user && location.pathname === "/") {
       if (user.role === "client") {
-        navigate("/clients")
+        navigate("/calendar")
       } else {
         navigate("/dashboard")
       }
@@ -118,13 +126,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const userToSave = { ...foundUser }
-      if (userToSave.role === "client") {
+      
+      // No sobrescribir el contrato si ya existe en el usuario
+      if (userToSave.role === "client" && !userToSave.contract) {
         userToSave.contract = {
-          id: "default",
+          id: 1,
+          codigo: "CT0001",
+          id_cliente: 1,
+          id_membresia: 2,
+          fecha_inicio: new Date("2023-05-15"),
+          fecha_fin: new Date(new Date().setDate(new Date().getDate() + 30)),
+          precio_total: 150000,
           estado: "Activo",
-          fecha_inicio: new Date().toISOString(),
-          fecha_fin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          membresia_nombre: "Mensual",
+          fecha_registro: "2023-05-15",
+          cliente_nombre: "Juan Carlos Pérez Rodríguez",
+          membresia_nombre: "Mensualidad",
+          membresia_precio: 150000,
+          cliente_documento: "1098765432",
+          cliente_documento_tipo: "CC"
         }
       }
 
@@ -132,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("user", JSON.stringify(userToSave))
 
       if (userToSave.role === "client") {
-        navigate("/clients")
+        navigate("/calendar")
       } else {
         navigate("/dashboard")
       }

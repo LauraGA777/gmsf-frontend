@@ -26,6 +26,13 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   }
 
   if (!hasPermission(allowedRoles)) {
+    // Redirigir a los usuarios según su rol cuando intentan acceder a una página no permitida
+    if (user.role === "client") {
+      return <Navigate to="/calendar/client" replace />
+    } else if (user.role === "admin" || user.role === "trainer") {
+      return <Navigate to="/dashboard" replace />
+    }
+    
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <h1 className="text-2xl font-bold mb-4">Acceso Denegado</h1>

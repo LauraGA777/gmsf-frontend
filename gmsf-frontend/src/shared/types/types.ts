@@ -1,0 +1,1 @@
+export type UserRole = 1 | 2 | 3; // Admin | Entrenador | Cliente

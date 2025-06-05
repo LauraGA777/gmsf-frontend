@@ -35,7 +35,8 @@ export function AppLayout() {
     // Actualizar la sección actual basada en la ruta
     const path = location.pathname
     if (path.includes("/dashboard")) setCurrentSection("Panel de Control")
-    else if (path.includes("/users")) setCurrentSection("Gestión de Usuarios")
+    else if (path.includes("/roles")) setCurrentSection("Roles")
+    else if (path.includes("/users")) setCurrentSection("Usuarios")
     else if (path.includes("/trainers")) setCurrentSection("Entrenadores")
     else if (path.includes("/services")) setCurrentSection("Servicios")
     else if (path.includes("/calendar")) setCurrentSection(user?.id_rol === 3 ? "Mi Agenda" : "Agenda")

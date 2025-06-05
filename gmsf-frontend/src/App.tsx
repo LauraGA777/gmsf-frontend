@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes, useRoutes } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 import { ThemeProvider } from "./shared/contexts/themeContext";
 import AppRoutes from "./shared/routes/appRoutes";
 import { GlobalClientsProvider } from "@/shared/contexts/clientsContext"

@@ -63,3 +63,12 @@ export function formatTime(date: Date | string | null): string {
   if (!date) return "N/A"
   return format(new Date(date), "HH:mm")
 }
+
+export function formatDays(accessDays: number, validityDays: number): string {
+  return `${accessDays}/${validityDays}`
+}
+
+export function truncateText(text: string, maxLength = 50): string {
+  if (text.length <= maxLength) return text
+  return text.substring(0, maxLength) + "..."
+}

@@ -26,6 +26,10 @@ export function Header({ toggleSidebar, currentSection }: HeaderProps) {
     if (path.includes("/dashboard")) {
       icon = <Home />
       items = ["Panel de Control"]
+    }
+    else if (path.includes("/roles")) {
+      icon = <Users />
+      items = ["Roles"]
     } else if (path.includes("/users")) {
       icon = <Users />
       items = ["Usuarios"]

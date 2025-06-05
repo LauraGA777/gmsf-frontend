@@ -108,7 +108,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     if (path.includes("/dashboard")) {
       setActiveItem("dashboard")
       setActiveGroup(null)
-    } else if (path.includes("/users")) {
+    } else if (path.includes("/roles")) {
+      setActiveItem("roles")
+      setActiveGroup(null)
+    }
+    else if (path.includes("/users")) {
       setActiveItem("users")
       setActiveGroup(null)
     } else if (path.includes("/trainers")) {
@@ -179,7 +183,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="p-4 border-b border-gray-100">
           <div className="flex gap-2 items-center">
             <img
-              src="../../public/logo.svg" // o la ruta correcta a tu imagen
+              src="../../public/favicon.ico" // o la ruta correcta a tu imagen
               alt="Logo GMSF"
               className="h-8 w-8" // Ajusta el tamaño según necesites
             /> 
@@ -203,6 +207,19 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 to="/dashboard"
                 onClose={onClose}
                 id="nav-dashboard"
+              />
+            )}
+
+            {/* 2. Usuarios - Solo para admin */}
+            {shouldShowItem([1]) && (
+              <NavItem
+                icon={<Users className="h-5 w-5" aria-hidden="true" />}
+                label="Roles"
+                active={activeItem === "roles"}
+                onClick={() => handleItemClick("roles")}
+                to="/roles"
+                onClose={onClose}
+                id="nav-users"
               />
             )}
 
@@ -411,7 +428,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               </>
             )}
 
-            {/* 7. Retroalimentación - Encuestas */}
+            {/* 7. Retroalimentación - Encuestas
             {shouldShowItem([1, 2]) && (
               <NavItem
                 icon={<MessageSquare className="h-5 w-5" aria-hidden="true" />}
@@ -422,7 +439,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 onClose={onClose}
                 id="nav-surveys"
               />
-            )}
+            )}  */}
 
             {/* Cerrar Sesión */}
             <NavItem

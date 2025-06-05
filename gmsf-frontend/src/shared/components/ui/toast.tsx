@@ -1,9 +1,12 @@
 import * as React from "react"
+import { useEffect, useState } from "react"
 import * as ToastPrimitives from "@radix-ui/react-toast"
 import { cva, type VariantProps } from "class-variance-authority"
-import { X } from "lucide-react"
-
+import { X, CheckCircle, AlertCircle, Info } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
+import { Button } from "./button"
+
+export type ToastType = "success" | "error" | "info" | "default"
 
 const ToastProvider = ToastPrimitives.Provider
 
@@ -28,8 +31,9 @@ const toastVariants = cva(
     variants: {
       variant: {
         default: "border bg-background text-foreground",
-        destructive:
-          "destructive group border-destructive bg-destructive text-destructive-foreground",
+        success: "border-green-200 bg-green-50 text-green-800",
+        error: "border-red-200 bg-red-50 text-red-800",
+        info: "border-blue-200 bg-blue-50 text-blue-800",
       },
     },
     defaultVariants: {
@@ -38,17 +42,33 @@ const toastVariants = cva(
   }
 )
 
+const icons = {
+  success: CheckCircle,
+  error: AlertCircle,
+  info: Info,
+  default: Info,
+} as const
+
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &
-    VariantProps<typeof toastVariants>
->(({ className, variant, ...props }, ref) => {
+    VariantProps<typeof toastVariants> & {
+      type?: ToastType
+    }
+>(({ className, variant, type = "default", ...props }, ref) => {
+  const Icon = icons[type as keyof typeof icons]
+  
   return (
     <ToastPrimitives.Root
       ref={ref}
-      className={cn(toastVariants({ variant }), className)}
+      className={cn(toastVariants({ variant: type as ToastType }), className)}
       {...props}
-    />
+    >
+      <div className="flex items-start gap-3">
+        <Icon className="h-5 w-5 mt-0.5" />
+        <div className="flex-1">{props.children}</div>
+      </div>
+    </ToastPrimitives.Root>
   )
 })
 Toast.displayName = ToastPrimitives.Root.displayName
@@ -60,7 +80,7 @@ const ToastAction = React.forwardRef<
   <ToastPrimitives.Action
     ref={ref}
     className={cn(
-      "inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium transition-colors hover:bg-secondary focus:outline-none focus:ring-1 focus:ring-ring disabled:pointer-events-none disabled:opacity-50 group-[.destructive]:border-muted/40 group-[.destructive]:hover:border-destructive/30 group-[.destructive]:hover:bg-destructive group-[.destructive]:hover:text-destructive-foreground group-[.destructive]:focus:ring-destructive",
+      "inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium transition-colors hover:bg-secondary focus:outline-none focus:ring-1 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
       className
     )}
     {...props}
@@ -75,7 +95,7 @@ const ToastClose = React.forwardRef<
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
-      "absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 group-hover:opacity-100 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600",
+      "absolute right-1 top-1 rounded-md p-1 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 group-hover:opacity-100",
       className
     )}
     toast-close=""
@@ -92,7 +112,7 @@ const ToastTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Title
     ref={ref}
-    className={cn("text-sm font-semibold [&+div]:text-xs", className)}
+    className={cn("text-sm font-semibold", className)}
     {...props}
   />
 ))
@@ -110,8 +130,88 @@ const ToastDescription = React.forwardRef<
 ))
 ToastDescription.displayName = ToastPrimitives.Description.displayName
 
-type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
+export interface Toast {
+  id: string
+  type?: ToastType
+  title: string
+  description?: string
+}
 
+interface ToastComponentProps {
+  toast: Toast
+  onRemove: (id: string) => void
+}
+
+interface ToastContainerProps {
+  toasts: Toast[]
+  onRemove: (id: string) => void
+}
+
+function ToastComponent({ toast, onRemove }: ToastComponentProps) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onRemove(toast.id)
+    }, 5000)
+
+    return () => clearTimeout(timer)
+  }, [toast.id, onRemove])
+
+  const Icon = icons[toast.type as keyof typeof icons] || icons.default
+
+  return (
+    <div
+      className={cn(
+        toastVariants({ variant: toast.type as ToastType }),
+        "flex items-start gap-3"
+      )}
+    >
+      <Icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="font-medium">{toast.title}</p>
+        {toast.description && <p className="text-sm opacity-90 mt-1">{toast.description}</p>}
+      </div>
+      <Button variant="ghost" size="sm" onClick={() => onRemove(toast.id)} className="p-1 h-auto hover:bg-black/10">
+        <X className="w-4 h-4" />
+      </Button>
+    </div>
+  )
+}
+
+export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
+  return (
+    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full">
+      {toasts.map((toast) => (
+        <ToastComponent key={toast.id} toast={toast} onRemove={onRemove} />
+      ))}
+    </div>
+  )
+}
+
+export function useToast() {
+  const [toasts, setToasts] = useState<Toast[]>([])
+
+  const addToast = (toast: Omit<Toast, "id">) => {
+    const id = Date.now().toString()
+    setToasts((prev: Toast[]) => [...prev, { ...toast, id }])
+
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      removeToast(id)
+    }, 5000)
+  }
+
+  const removeToast = (id: string) => {
+    setToasts((prev: Toast[]) => prev.filter((toast: Toast) => toast.id !== id))
+  }
+
+  return {
+    toasts,
+    addToast,
+    removeToast,
+  }
+}
+
+type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
 type ToastActionElement = React.ReactElement<typeof ToastAction>
 
 export {

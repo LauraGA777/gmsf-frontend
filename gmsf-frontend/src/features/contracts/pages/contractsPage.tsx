@@ -5,16 +5,55 @@ import { ProtectedRoute } from "../../auth/components/protectedRoute"
 import type { Contract, Client } from "@/shared/types"
 import { MOCK_CLIENTS, MOCK_MEMBERSHIPS, MOCK_CONTRACTS } from "@/features/data/mockData"
 import Swal from "sweetalert2"
+import { Pagination } from "@/shared/layout/pagination"
 
 export function ContractsPage() {
   const { user } = useAuth()
+  const [loading, setLoading] = useState(true)
   const [contracts, setContracts] = useState<Contract[]>(MOCK_CONTRACTS)
   const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS)
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
+  const [paginatedContracts, setPaginatedContracts] = useState<Contract[]>([])
 
   // Listen for changes in MOCK_CLIENTS to keep the local state in sync
   useEffect(() => {
-    setClients([...MOCK_CLIENTS])
+    const loadData = async () => {
+      try {
+        setLoading(true)
+        setClients([...MOCK_CLIENTS])
+        setContracts([...MOCK_CONTRACTS])
+      } catch (error) {
+        console.error("Error cargando datos:", error)
+        Swal.fire({
+          title: "Error",
+          text: "No se pudieron cargar los datos. Por favor, intente de nuevo.",
+          icon: "error",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    loadData()
   }, [])
+
+  // Update pagination
+  useEffect(() => {
+    const total = Math.ceil(contracts.length / itemsPerPage)
+    setTotalPages(total || 1)
+
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    setPaginatedContracts(contracts.slice(startIndex, endIndex))
+  }, [contracts, currentPage, itemsPerPage])
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
 
   const handleAddClient = (newClient: Omit<Client, "id">): string => {
     const maxId = Math.max(...clients.map((c) => Number.parseInt(c.id)), 0)
@@ -180,18 +219,32 @@ export function ContractsPage() {
     }
   }, [clients])
 
+  if (loading) {
+    return <div className="flex justify-center items-center h-64">Cargando...</div>
+  }
+
   return (
-    <ProtectedRoute allowedRoles={["admin", "client"]}>
-      <div className="h-full rounded-lg bg-white p-4 shadow-md dark:bg-gray-800">
-        <ContractsTable
-          contracts={contracts}
-          memberships={MOCK_MEMBERSHIPS}
-          clients={clients}
-          onAddContract={handleAddContract}
-          onUpdateContract={handleUpdateContract}
-          onDeleteContract={handleDeleteContract}
-          onAddClient={handleAddClient}
-        />
+    <ProtectedRoute allowedRoles={[1, 3]}>
+      <div className="container mx-auto px-4">
+        <div className="overflow-hidden mb-4 rounded-lg bg-white p-4 shadow-md dark:bg-gray-800">
+          <ContractsTable
+            contracts={paginatedContracts}
+            memberships={MOCK_MEMBERSHIPS}
+            clients={clients}
+            onAddContract={handleAddContract}
+            onUpdateContract={handleUpdateContract}
+            onDeleteContract={handleDeleteContract}
+            onAddClient={handleAddClient}
+          />
+        </div>
+        
+        {contracts.length > itemsPerPage && (
+          <Pagination 
+            currentPage={currentPage} 
+            totalPages={totalPages} 
+            onPageChange={handlePageChange} 
+          />
+        )}
       </div>
     </ProtectedRoute>
   )

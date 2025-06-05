@@ -64,6 +64,10 @@ Desarrollar una aplicación web que gestione eficientemente los procesos de memb
 ## ⚙️ Variables de Entorno
 
 ```env
+
+# Frontend
+VITE_API_URL=https://gmsf-api.vercel.app/api
+
 # Puerto del servidor
 PORT=
 

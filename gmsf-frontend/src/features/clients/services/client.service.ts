@@ -28,6 +28,14 @@ interface EmergencyContactsResponse {
 }
 
 export const clientService = {
+  // Verificar autenticación
+  checkAuth() {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      throw new Error('No hay token de autenticación');
+    }
+  },
+
   // Get all clients with pagination and filters
   getClients: async (params?: {
     page?: number;
@@ -36,60 +44,70 @@ export const clientService = {
     estado?: boolean;
     id_titular?: number;
   }) => {
+    clientService.checkAuth();
     const response = await api.get<ClientsResponse>("/clients", { params });
     return response.data;
   },
 
   // Get client by ID
   getClient: async (id: number) => {
+    clientService.checkAuth();
     const response = await api.get<ClientResponse>(`/clients/${id}`);
     return response.data;
   },
 
   // Create new client
   createClient: async (data: ClientFormData) => {
+    clientService.checkAuth();
     const response = await api.post<ClientResponse>("/clients", data);
     return response.data;
   },
 
   // Update client
   updateClient: async (id: number, data: Partial<ClientFormData>) => {
+    clientService.checkAuth();
     const response = await api.put<ClientResponse>(`/clients/${id}`, data);
     return response.data;
   },
 
   // Delete client (soft delete - set estado to false)
   deleteClient: async (id: number) => {
+    clientService.checkAuth();
     const response = await api.delete<{ success: boolean; message: string }>(`/clients/${id}`);
     return response.data;
   },
 
   // Get client beneficiaries
   getBeneficiaries: async (id: number) => {
+    clientService.checkAuth();
     const response = await api.get<ClientsResponse>(`/clients/${id}/beneficiaries`);
     return response.data;
   },
 
   // Get client emergency contacts
   getEmergencyContacts: async (id: number) => {
+    clientService.checkAuth();
     const response = await api.get<EmergencyContactsResponse>(`/clients/${id}/emergency-contacts`);
     return response.data;
   },
 
   // Add emergency contact
   addEmergencyContact: async (clientId: number, contactData: EmergencyContactFormData) => {
+    clientService.checkAuth();
     const response = await api.post<{ data: EmergencyContact; message: string }>(`/clients/${clientId}/emergency-contacts`, contactData);
     return response.data;
   },
 
   // Update emergency contact
   updateEmergencyContact: async (clientId: number, contactId: number, contactData: Partial<EmergencyContactFormData>) => {
+    clientService.checkAuth();
     const response = await api.put<{ data: EmergencyContact; message: string }>(`/clients/${clientId}/emergency-contacts/${contactId}`, contactData);
     return response.data;
   },
 
   // Delete emergency contact
   deleteEmergencyContact: async (clientId: number, contactId: number) => {
+    clientService.checkAuth();
     const response = await api.delete<{ success: boolean; message: string }>(`/clients/${clientId}/emergency-contacts/${contactId}`);
     return response.data;
   },
@@ -160,6 +178,7 @@ export const clientService = {
 
   // Get all active clients (for dropdowns, etc.)
   getActiveClients: async () => {
+    clientService.checkAuth();
     const response = await api.get<ClientsResponse>('/clients', {
       params: {
         estado: true,
@@ -171,6 +190,7 @@ export const clientService = {
 
   // Get clients without beneficiaries (eligible to be titulars)
   getEligibleTitulars: async () => {
+    clientService.checkAuth();
     const response = await api.get<ClientsResponse>('/clients', {
       params: {
         estado: true,
@@ -183,6 +203,7 @@ export const clientService = {
 
   // Create beneficiary for an existing client
   createBeneficiary: async (titularId: number, beneficiaryData: ClientFormData) => {
+    clientService.checkAuth();
     const beneficiaryWithTitular: ClientFormData = {
       ...beneficiaryData,
       id_titular: titularId,
@@ -195,6 +216,7 @@ export const clientService = {
 
   // Search clients by various criteria
   searchClients: async (searchTerm: string) => {
+    clientService.checkAuth();
     const response = await api.get<ClientsResponse>('/clients', {
       params: {
         search: searchTerm,
@@ -207,6 +229,7 @@ export const clientService = {
   // Get client statistics
   getClientStats: async () => {
     try {
+      clientService.checkAuth();
       // This could be a separate endpoint in the future
       const response = await api.get<ClientsResponse>('/clients', {
         params: { limit: 1000 }

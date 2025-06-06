@@ -185,6 +185,8 @@ export function MembershipsPage() {
   const [selectedMembership, setSelectedMembership] = useState<Membership | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingMembership, setEditingMembership] = useState<Membership | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  
 
   useEffect(() => {
     filterMemberships();
@@ -361,6 +363,22 @@ export function MembershipsPage() {
 
   return (
     <div className="container mx-auto px-4 py-6">
+      {error && (
+        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          <p>{error}</p>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setRetryCount(0);
+              setError(null);
+              refreshMemberships();
+            }}
+            className="mt-2"
+          >
+            Reintentar
+          </Button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
@@ -387,9 +405,9 @@ export function MembershipsPage() {
       </div>
 
       {/* Debugging Info - Temporal */}
-      <Card className="mb-6 border-orange-200 bg-orange-50">
+      {/*<Card className="mb-6 border-orange-200 bg-orange-50">
         <CardContent className="pt-6">
-          <div className="space-y-2 text-sm">
+           <div className="space-y-2 text-sm">
             <h3 className="font-semibold text-orange-800">🔍 Información de Debug (Temporal)</h3>
             <p><strong>Loading:</strong> {membershipsLoading ? 'Sí' : 'No'}</p>
             <p><strong>Cantidad de membresías:</strong> {memberships?.length || 0}</p>
@@ -398,7 +416,8 @@ export function MembershipsPage() {
             <p><strong>API URL:</strong> https://gmsf-backend.vercel.app</p>
             <p><strong>Token disponible:</strong> {localStorage.getItem('accessToken') ? 'Sí' : 'No'}</p>
             <p><strong>Usuario logueado:</strong> {localStorage.getItem('user') ? 'Sí' : 'No'}</p>
-            <div className="flex gap-2 mt-3">
+            <div className="flex gap-2 mt-3"> 
+              
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -465,7 +484,7 @@ export function MembershipsPage() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card>*/}
 
       {/* Filters */}
       <Card className="mb-6">

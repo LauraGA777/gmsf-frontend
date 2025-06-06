@@ -4,6 +4,7 @@ import { contractService } from '@/features/contracts/services/contract.service'
 import { membershipService } from '@/features/memberships/services/membership.service';
 import type { Client, Contract, Membership } from '@/shared/types';
 import Swal from 'sweetalert2';
+import { useAuth } from './authContext';
 
 interface GymContextType {
   // Data
@@ -67,6 +68,8 @@ export const useGym = () => {
 };
 
 export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  
   // State
   const [clients, setClients] = useState<Client[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -351,10 +354,12 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNavigationCallbacks(callbacks);
   }, []);
 
-  // Load initial data
+  // Load initial data only when authenticated
   useEffect(() => {
-    refreshAll();
-  }, [refreshAll]);
+    if (isAuthenticated) {
+      refreshAll();
+    }
+  }, [isAuthenticated, refreshAll]);
 
   const value: GymContextType = {
     // Data

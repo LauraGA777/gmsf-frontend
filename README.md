@@ -64,14 +64,10 @@ Desarrollar una aplicación web que gestione eficientemente los procesos de memb
 ## ⚙️ Variables de Entorno
 
 ```env
-
-# Frontend
-VITE_API_URL=https://gmsf-api.vercel.app/api
-
-# Puerto del servidor
 PORT=
 
-# Configuración de Base de Datos
+# Database configuration
+DATABASE_URL=
 DB_HOST=
 DB_SSL=
 DB_PORT=
@@ -79,23 +75,24 @@ DB_NAME=
 DB_USER=
 DB_PASSWORD=
 
-# Configuración Postgres Vercel
+# Parameters for Vercel Postgres Templates
 POSTGRES_URL=
 POSTGRES_USER=
 POSTGRES_HOST=
 POSTGRES_PASSWORD=
 POSTGRES_DATABASE=
 
-# Configuración JWT
+#JWT configuration
 JWT_SECRET=
 JWT_EXPIRES_IN=
 JWT_REFRESH_SECRET=
 JWT_REFRESH_EXPIRES_IN=
 
-# Configuración de Email
-EMAIL_USER=
+#Email Config
+SMTP_HOST=
+SMTP_PORT=
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=
 EMAIL_PASSWORD=
-MAILTRAP_USER=
-MAILTRAP_PASSWORD=
-MAILTRAP_HOST=
-MAILTRAP_PORT=```
+FRONTEND_URL=

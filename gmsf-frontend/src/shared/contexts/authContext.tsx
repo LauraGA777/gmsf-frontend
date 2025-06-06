@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { User } from "../types/index"; // Asegúrate de importar el tipo User correct
+import { authService } from '../../features/auth/services/authService';
 
 // Tipos
 interface AuthResponse {
@@ -201,14 +202,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         redirectBasedOnRole(authData.user.id_rol);
     };
 
-    const logout = () => {
-        setUser(null);
-        setAccessToken(null);
-        setRefreshToken(null);
-        localStorage.removeItem("user");
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        navigate("/login");
+    const logout = async () => {
+        try {
+            // 1. Llamar al endpoint de logout en la API
+            await authService.logout();
+        } catch (error) {
+            console.error('Error al cerrar sesión:', error);
+        } finally {
+            // 2. Limpiar el estado local independientemente de la respuesta del servidor
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            setUser(null);
+            setAccessToken(null);
+            setRefreshToken(null);
+            // 3. Redirigir al login
+            navigate('/login');
+        }
     };
 
     const hasPermission = (requiredRoles: number[]): boolean => {

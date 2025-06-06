@@ -1,16 +1,15 @@
-import { useAuth, ROLES } from "../contexts/authContext"
+import { useAuth } from "../contexts/authContext"
 import { Button } from "../components/ui/button"
-import { LogOut, User, ChevronRight, Settings, Bell, HelpCircle } from "lucide-react"
+import { LogOut, User, ChevronRight } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuGroup,
 } from "../components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
+import { Avatar, AvatarFallback } from "../components/ui/avatar"
 import { cn } from "../lib/formatCop"
 import { Link } from 'react-router-dom';
 
@@ -19,13 +18,13 @@ export function UserMenu() {
 
   if (!user) return null
 
-  const getRoleName = (roleId: number) => {
-    switch (roleId) {
-      case ROLES.ADMIN:
+  const getRoleName = (id_rol: number) => {
+    switch (id_rol) {
+      case 1:
         return "Administrador"
-      case ROLES.ENTRENADOR:
+      case 2:
         return "Entrenador"
-      case ROLES.CLIENTE:
+      case 3:
         return "Cliente"
       default:
         return "Usuario"
@@ -39,16 +38,6 @@ export function UserMenu() {
     if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
     return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
   };
-
-  // Obtiene un color de fondo basado en el rol
-  const getAvatarColor = (roleId: number) => {
-    switch (roleId) {
-      case ROLES.ADMIN: return "bg-purple-600 text-white"
-      case ROLES.ENTRENADOR: return "bg-blue-500 text-white"
-      case ROLES.CLIENTE: return "bg-green-500 text-white"
-      default: return "bg-gray-500 text-white"
-    }
-  }
 
   return (
     <div className="flex items-center space-x-4">
@@ -67,19 +56,19 @@ export function UserMenu() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="h-10 px-3 flex items-center gap-2 rounded-full hover:bg-gray-100">
-            <Avatar className={cn("h-8 w-8", getAvatarColor(user.id_rol))}>
+            <Avatar className={cn("h-8 w-8 border-2 border-black text-black")}>
               <AvatarFallback>{getInitials(user.nombre)}</AvatarFallback>
             </Avatar>
             <div className="hidden md:flex flex-col items-start text-left">
               <span className="text-sm font-medium truncate max-w-[120px]">{user.nombre}</span>
-              <span className="text-xs text-gray-500">{getRoleName(user.id_rol)}</span>
+              <p className="text-xs text-gray-400">{getRoleName(user.id_rol)}</p>
             </div>
             <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <div className="flex items-center p-2">
-            <Avatar className={cn("h-10 w-10 mr-2", getAvatarColor(user.id_rol))}>
+            <Avatar className={cn("h-8 w-8 mr-2 border-2 border-black text-black")}>
               <AvatarFallback>{getInitials(user.nombre)}</AvatarFallback>
             </Avatar>
             <div>
@@ -90,7 +79,7 @@ export function UserMenu() {
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <Link to="/edit-profile" className="flex items-center">
+                <Link to="/profile" className="flex items-center">
                     <User className="mr-2 h-4 w-4" />
                     <span>Perfil</span>
                 </Link>

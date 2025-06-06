@@ -22,6 +22,8 @@ import {
   TagIcon,
   ShoppingBagIcon,
   ShoppingCartIcon,
+  Settings,
+  BadgeCheck,
 } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { cn } from "../lib/formatCop"
@@ -42,14 +44,16 @@ interface NavItemProps {
   to?: string
   onClose?: () => void
   id?: string
+  className?: string
 }
 
-const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, hasSubmenu, expanded, to, onClose, id }) => {
-  const className = cn(
+const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, hasSubmenu, expanded, to, onClose, id, className }) => {
+  const baseClassName = cn(
     "flex items-center w-full py-3 px-4 text-base font-normal transition duration-75 cursor-pointer",
     active
       ? "text-gray-700 bg-gray-100 hover:bg-gray-200"
       : "text-gray-900 hover:bg-gray-50 dark:text-white dark:hover:bg-gray-700",
+    className
   )
 
   const handleClick = () => {
@@ -74,7 +78,7 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, hasSubm
   if (to) {
     return (
       <li id={id} className="my-1">
-        <Link to={to} className={className} onClick={handleClick}>
+        <Link to={to} className={baseClassName} onClick={handleClick}>
           {content}
         </Link>
       </li>
@@ -83,7 +87,7 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, hasSubm
 
   return (
     <li id={id} className="my-1">
-      <div className={className} onClick={handleClick}>
+      <div className={baseClassName} onClick={handleClick}>
         {content}
       </div>
     </li>
@@ -213,7 +217,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             {/* 2. Usuarios - Solo para admin */}
             {shouldShowItem([1]) && (
               <NavItem
-                icon={<Users className="h-5 w-5" aria-hidden="true" />}
+                icon={<BadgeCheck className="h-5 w-5" aria-hidden="true" />}
                 label="Roles"
                 active={activeItem === "roles"}
                 onClick={() => handleItemClick("roles")}
@@ -249,63 +253,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               />
             )}
 
-            {/* 4. Servicios */}
-            <NavItem
-              icon={<Dumbbell className="h-5 w-5" aria-hidden="true" />}
-              label="Servicios"
-              active={activeGroup === "services"}
-              onClick={() => toggleGroup("services")}
-              hasSubmenu={true}
-              expanded={activeGroup === "services"}
-              id="nav-services"
-            />
-            {activeGroup === "services" && (
-              <ul className="py-1 mx-4 border-l border-gray-100">
-                {/* Listado de servicios */}
-                <li className="my-1">
-                  <Link
-                    to="/services"
-                    className={cn(
-                      "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
-                      activeItem === "services.list"
-                        ? "text-gray-700 hover:bg-gray-100"
-                        : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
-                    )}
-                    onClick={() => {
-                      handleItemClick("services.list", "services")
-                      if (window.innerWidth < 768) onClose()
-                    }}
-                  >
-                    <span className="flex-shrink-0 text-gray-500 mr-3">
-                      <ClipboardList className="h-5 w-5" aria-hidden="true" />
-                    </span>
-                    <span className="flex-1 whitespace-nowrap">Servicios</span>
-                  </Link>
-                </li>
-                {/* Agenda */}
-                <li className="my-1">
-                  <Link
-                    to="/calendar"
-                    className={cn(
-                      "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
-                      activeItem === "calendar"
-                        ? "text-gray-700 hover:bg-gray-100"
-                        : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
-                    )}
-                    onClick={() => {
-                      handleItemClick("calendar", "services")
-                      if (window.innerWidth < 768) onClose()
-                    }}
-                  >
-                    <span className="flex-shrink-0 text-gray-500 mr-3">
-                      <Calendar className="h-5 w-5" aria-hidden="true" />
-                    </span>
-                    <span className="flex-1 whitespace-nowrap">Agenda</span>
-                  </Link>
-                </li>
-              </ul>
-            )}
-
+            {/* 4. Agenda */}
+            
+              <NavItem
+                icon={<Calendar className="h-5 w-5" aria-hidden="true" />}
+                label="Agenda"
+                active={activeItem === "calendar"}
+                onClick={() => {
+                  handleItemClick("calendar", "services")
+                  if (window.innerWidth < 768) onClose()
+                }}
+                to="/calendar"
+                onClose={onClose}
+                id="nav-trainers"
+              />
+            
             {/* 5. Clientes y contratos */}
             {shouldShowItem([1, 2]) && (
               <>
@@ -443,12 +405,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
             {/* Cerrar Sesión */}
             <NavItem
-              icon={<LogOut className="h-5 w-5" aria-hidden="true" />}
-              label="Cerrar Sesión"
-              active={false}
-              onClick={() => handleItemClick("logout")}
-              onClose={onClose}
-              id="nav-logout"
+                icon={<LogOut className="h-5 w-5 text-red-600" aria-hidden="true" />}
+                label="Cerrar Sesión"
+                active={false}
+                onClick={logout}
+                onClose={onClose}
+                id="nav-logout"
+                className="text-red-600 hover:text-red-700"
             />
           </ul>
         </nav>

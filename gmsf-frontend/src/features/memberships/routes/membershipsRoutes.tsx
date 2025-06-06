@@ -1,31 +1,22 @@
 import { RouteObject } from "react-router-dom";
-import MembershipsPage from "../pages/index";
-import EditMembershipsPage from "../pages/edit";
+import { MembershipsPage } from "../pages/membershipsPage";
+import MembershipPage from "../pages/membershipPage";
 import { ProtectedRoute } from "../../auth/components/protectedRoute";
 
 export const membershipsRoutes: RouteObject[] = [
     {
-        path: "/memberships",
+        path: "memberships",
         element: (
             <ProtectedRoute allowedRoles={[1]}>
                 <MembershipsPage />
             </ProtectedRoute>
-
         )
     },
     {
-        path: "memberships/nueva",
+        path: "memberships/dashboard",
         element: (
             <ProtectedRoute allowedRoles={[1]}>
-                <EditMembershipsPage />
-            </ProtectedRoute>
-        )
-    },
-    {
-        path: "memberships/:id",
-        element: (
-            <ProtectedRoute allowedRoles={[1]}>
-                <EditMembershipsPage />
+                <MembershipPage />
             </ProtectedRoute>
         )
     }

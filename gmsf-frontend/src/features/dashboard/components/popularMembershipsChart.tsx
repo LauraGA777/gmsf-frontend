@@ -1,62 +1,13 @@
 import { useState, useEffect } from "react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, Sector } from "recharts"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
-import { MOCK_CONTRACTS, MOCK_MEMBERSHIPS } from "@/features/data/mockData"
 import { useMediaQuery } from "@/shared/hooks/useMediaQuery"
-
-// Function to generate membership popularity data including ALL membership types
-const generateMembershipData = (timeRange: string) => {
-    const today = new Date()
-    const membershipMap = new Map()
-    
-    // Initialize with all membership types from mockMemberships
-    MOCK_MEMBERSHIPS.forEach(membership => {
-        membershipMap.set(membership.nombre, 0)
-    })
-
-    // Filter contracts based on time range
-    const contracts = MOCK_CONTRACTS.filter(contract => {
-        const startDate = new Date(contract.fecha_inicio)
-        const monthsAgo = (today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
-        
-        switch(timeRange) {
-            case "1mes":
-                return monthsAgo <= 1
-            case "3meses":
-                return monthsAgo <= 3
-            case "6meses":
-                return monthsAgo <= 6
-            case "año":
-                return monthsAgo <= 12
-            default:
-                return true
-        }
-    })
-
-    // Count memberships
-    contracts.forEach((contract) => {
-        const count = membershipMap.get(contract.membresia_nombre) || 0
-        membershipMap.set(contract.membresia_nombre, count + 1)
-    })
-
-    // Convert to array and sort alphabetically to maintain consistent order
-    return Array.from(membershipMap.entries())
-        .map(([name, value]) => ({
-            name,
-            value,
-        }))
-}
+import { contractService } from "@/features/contracts/services/contract.service"
+import { membershipService } from "@/features/memberships/services/membership.service"
+import type { Contract, Membership } from "@/shared/types"
 
 // Colors for the pie chart - colores para todas las membresías con mejor contraste y accesibilidad
-const COLORS = {
-    "Mensualidad": "#4f46e5",    // Azul intenso
-    "Tiquetera": "#059669",      // Verde esmeralda
-    "Easy": "#0ea5e9",           // Azul cielo
-    "Día": "#f97316",            // Naranja
-    "Trimestral": "#8b5cf6",     // Púrpura
-    "Semestral": "#6366f1",      // Índigo
-    "Anual": "#7c3aed"           // Violeta
-}
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
 
 // Versión de colores con mayor saturación para hover
 const HOVER_COLORS = {
@@ -109,34 +60,81 @@ const renderCustomizedLabel = ({
 }
 
 export function PopularMembershipsChart() {
-    const [timeRange, setTimeRange] = useState<string>("1mes")
-    const [membershipData, setMembershipData] = useState(generateMembershipData("1mes"))
+    const [timeRange, setTimeRange] = useState("month")
+    const [data, setData] = useState<Array<{ name: string; value: number }>>([])
     const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined)
-    const [animationComplete, setAnimationComplete] = useState(false)
-    const isMobile = useMediaQuery('(max-width: 640px)')
+    const isMobile = useMediaQuery('(max-width: 768px)')
     const isTablet = useMediaQuery('(max-width: 768px)')
     
-    // Efecto para animar el gráfico cuando se carga
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setAnimationComplete(true)
-        }, 600)
-        
-        return () => clearTimeout(timer)
-    }, [])
+        const fetchData = async () => {
+            try {
+                const [contractsResponse, membershipsResponse] = await Promise.all([
+                    contractService.getContracts(),
+                    membershipService.getMemberships()
+                ])
 
-    // Function to change time range with animación
-    const handleTimeRangeChange = (value: string) => {
-        setTimeRange(value)
-        setAnimationComplete(false)
-        setMembershipData(generateMembershipData(value))
-        
-        // Reiniciar la animación
-        setTimeout(() => {
-            setAnimationComplete(true)
-        }, 100)
-    }
-    
+                // Verificar que las respuestas tienen la estructura esperada
+                const contractsData = contractsResponse?.data?.data || contractsResponse?.data || [];
+                const membershipsData = membershipsResponse?.data || [];
+
+                // Asegurar que son arrays antes de procesarlos
+                const contracts = Array.isArray(contractsData) ? contractsData : [];
+                const memberships = Array.isArray(membershipsData) ? membershipsData : [];
+
+                if (contracts.length === 0 || memberships.length === 0) {
+                    console.warn('No contracts or memberships data received');
+                    setData([]);
+                    return;
+                }
+
+                // Filter contracts based on time range de forma segura
+                const now = new Date()
+                const filteredContracts = contracts.filter(contract => {
+                    if (!contract || !contract.fecha_registro) return false;
+                    
+                    const contractDate = new Date(contract.fecha_registro)
+                    if (isNaN(contractDate.getTime())) return false;
+                    
+                    switch (timeRange) {
+                        case "week":
+                            return contractDate >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        case "month":
+                            return contractDate >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                        case "year":
+                            return contractDate >= new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+                        default:
+                            return true
+                    }
+                })
+
+                // Count memberships de forma segura
+                const membershipCount = memberships.reduce((acc, membership) => {
+                    if (!membership || !membership.id) return acc;
+                    
+                    const count = filteredContracts.filter(contract => 
+                        contract && contract.id_membresia === membership.id
+                    ).length;
+                    
+                    if (count > 0) {
+                        acc.push({
+                            name: membership.nombre || 'Membresía sin nombre',
+                            value: count
+                        })
+                    }
+                    return acc
+                }, [] as Array<{ name: string; value: number }>)
+
+                setData(membershipCount)
+            } catch (error) {
+                console.error("Error fetching data:", error)
+                setData([]);
+            }
+        }
+
+        fetchData()
+    }, [timeRange])
+
     // Manejadores para la interactividad del gráfico
     const onPieEnter = (_: any, index: number) => {
         setActiveIndex(index)
@@ -147,7 +145,7 @@ export function PopularMembershipsChart() {
     }
 
     // Calculate total memberships with contracts
-    const totalContracts = membershipData.reduce((sum, item) => sum + item.value, 0)
+    const totalContracts = data.reduce((sum, item) => sum + item.value, 0)
 
     // Format tooltip con mejor diseño y más información
     const CustomTooltip = ({ active, payload }: any) => {
@@ -181,20 +179,55 @@ export function PopularMembershipsChart() {
     
     // Componente para el sector activo (cuando se hace hover)
     const renderActiveShape = (props: any) => {
-        const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, name } = props
-        
+        const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props
+        const sin = Math.sin(-RADIAN * midAngle)
+        const cos = Math.cos(-RADIAN * midAngle)
+        const mx = cx + (outerRadius + 30) * cos
+        const my = cy + (outerRadius + 30) * sin
+        const ex = mx + (cos >= 0 ? 1 : -1) * 22
+        const ey = my
+        const textAnchor = cos >= 0 ? "start" : "end"
+
         return (
             <g>
+                <text x={cx} y={cy} dy={8} textAnchor="middle" fill={fill}>
+                    {payload.name}
+                </text>
                 <Sector
                     cx={cx}
                     cy={cy}
                     innerRadius={innerRadius}
-                    outerRadius={outerRadius + 8}
+                    outerRadius={outerRadius}
                     startAngle={startAngle}
                     endAngle={endAngle}
-                    fill={HOVER_COLORS[name as keyof typeof HOVER_COLORS] || fill}
-                    className="drop-shadow-md transition-all duration-300 ease-in-out"
+                    fill={fill}
                 />
+                <Sector
+                    cx={cx}
+                    cy={cy}
+                    startAngle={startAngle}
+                    endAngle={endAngle}
+                    innerRadius={outerRadius + 6}
+                    outerRadius={outerRadius + 10}
+                    fill={fill}
+                />
+                <path d={`M${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
+                <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
+                <text
+                    x={ex + (cos >= 0 ? 1 : -1) * 12}
+                    y={ey}
+                    textAnchor={textAnchor}
+                    fill="#333"
+                >{`${value} contratos`}</text>
+                <text
+                    x={ex + (cos >= 0 ? 1 : -1) * 12}
+                    y={ey}
+                    dy={18}
+                    textAnchor={textAnchor}
+                    fill="#999"
+                >
+                    {`(${(percent * 100).toFixed(2)}%)`}
+                </text>
             </g>
         )
     }
@@ -207,24 +240,21 @@ export function PopularMembershipsChart() {
                         {totalContracts} contratos
                     </p>
                     <p className="text-sm text-gray-500">
-                        {timeRange === "1mes"
-                            ? "en el último mes"
-                            : timeRange === "3meses"
-                                ? "en los últimos 3 meses"
-                                : timeRange === "6meses"
-                                    ? "en los últimos 6 meses"
-                                    : "en el último año"}
+                        {timeRange === "week"
+                            ? "en la última semana"
+                            : timeRange === "month"
+                                ? "en el último mes"
+                                : "en el último año"}
                     </p>
                 </div>
-                <Select defaultValue={timeRange} onValueChange={handleTimeRangeChange}>
+                <Select value={timeRange} onValueChange={setTimeRange}>
                     <SelectTrigger className="w-full sm:w-[160px]">
                         <SelectValue placeholder="Seleccionar período" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="1mes">Último mes</SelectItem>
-                        <SelectItem value="3meses">Últimos 3 meses</SelectItem>
-                        <SelectItem value="6meses">Últimos 6 meses</SelectItem>
-                        <SelectItem value="año">Último año</SelectItem>
+                        <SelectItem value="week">Última semana</SelectItem>
+                        <SelectItem value="month">Último mes</SelectItem>
+                        <SelectItem value="year">Último año</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -233,7 +263,7 @@ export function PopularMembershipsChart() {
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie
-                            data={membershipData}
+                            data={data}
                             dataKey="value"
                             nameKey="name"
                             cx="50%"
@@ -252,7 +282,7 @@ export function PopularMembershipsChart() {
                             animationDuration={800}
                             animationEasing="ease-out"
                         >
-                            {membershipData.map((entry, index) => (
+                            {data.map((entry, index) => (
                                 <Cell 
                                     key={`cell-${index}`} 
                                     fill={getColor(entry.name)}
@@ -272,7 +302,7 @@ export function PopularMembershipsChart() {
             </div>
             
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 text-sm mt-4 transition-all duration-300 ease-in-out">
-                {membershipData.map((entry, index) => {
+                {data.map((entry, index) => {
                     const isActive = activeIndex === index
                     const hasValue = entry.value > 0
                     

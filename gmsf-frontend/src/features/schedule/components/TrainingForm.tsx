@@ -1,351 +1,269 @@
-import type React from "react"
-import { useEffect, useState } from "react"
-import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
-import { Calendar } from "@/shared/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
-import { cn } from "@/shared/lib/utils"
-import { CalendarIcon, Clock, Dumbbell, User } from "lucide-react"
-import type { Training } from "@/shared/types"
-import Swal from "sweetalert2"
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Textarea } from "@/shared/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { format, isBefore, startOfDay } from "date-fns";
+import { clientService } from "@/features/clients/services/client.service";
+import { contractService } from "@/features/contracts/services/contract.service";
+import type { Client, Contract, Trainer } from "@/shared/types/index";
+import type { Training } from "@/shared/types/training";
+import { mapDbClientToUiClient, mapDbContractToUiContract } from "@/shared/types/index";
+
+const trainingSchema = z.object({
+  titulo: z.string().min(1, "El título es requerido"),
+  descripcion: z.string().optional(),
+  fecha_inicio: z.string().min(1, "La fecha de inicio es requerida"),
+  fecha_fin: z.string().min(1, "La fecha de fin es requerida"),
+  id_cliente: z.number().min(1, "El cliente es requerido"),
+  id_entrenador: z.number().min(1, "El entrenador es requerido"),
+  estado: z.enum(["Programado", "En proceso", "Completado", "Cancelado"]),
+});
+
+type TrainingFormData = z.infer<typeof trainingSchema>;
 
 interface TrainingFormProps {
-    onSubmit?: (training: Omit<Training, "id">) => void
-    onAddTraining?: (training: Omit<Training, "id">) => void
-    onCancel: () => void
-    selectedDate?: Date
-    trainers: string[]
-    services: string[]
-    clientsWithActiveContracts: { id: string; name: string }[]
-    initialValues?: Partial<Training>
-    isCustomService?: boolean
-    user?: any
+  onSubmit: (data: Partial<Training>) => void;
+  onCancel: () => void;
+  initialDate?: Date;
+  isDailyView?: boolean;
+  clients: Client[];
+  trainers: Trainer[];
 }
 
-export function TrainingForm({
-    onAddTraining,
-    onSubmit,
-    onCancel,
-    selectedDate = new Date(),
-    trainers,
-    services,
-    clientsWithActiveContracts = [],
-    initialValues,
-    isCustomService,
-    user,
-}: TrainingFormProps) {
-    const [clientId, setClientId] = useState(initialValues?.clientId || "")
-    const [trainer, setTrainer] = useState(initialValues?.trainer || "")
-    const [searchTerm, setSearchTerm] = useState("")
-    
-    // Asegurarse de que solo se muestren clientes con contratos activos
-    // Si clientsWithActiveContracts está vacío, se mostrará un mensaje indicando que no hay clientes disponibles
-    const [filteredClients, setFilteredClients] = useState(clientsWithActiveContracts)
-    
-    // Actualizar los clientes filtrados cuando cambia la lista de clientes con contratos activos
-    useEffect(() => {
-        setFilteredClients(clientsWithActiveContracts)
-    }, [clientsWithActiveContracts])
-    
-    // Permitir seleccionar cualquier servicio
-    const [service, setService] = useState(initialValues?.service || "")
-    const [date, setDate] = useState<Date>(initialValues?.date || selectedDate)
-    const [startTime, setStartTime] = useState<string>(
-        initialValues?.startTime ? format(new Date(initialValues.startTime), "HH:mm") : "09:00",
-    )
-    const [endTime, setEndTime] = useState<string>(
-        initialValues?.endTime ? format(new Date(initialValues.endTime), "HH:mm") : "10:00",
-    )
-    
+export function TrainingForm({ onSubmit, onCancel, initialDate, isDailyView = false, clients = [], trainers = [] }: TrainingFormProps) {
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [selectedTrainerId, setSelectedTrainerId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault()
+  const today = startOfDay(new Date());
 
-        // Validación de campos requeridos
-        if (!clientId || !trainer || !service || !date || !startTime || !endTime) {
-            Swal.fire({
-                icon: "error",
-                title: "Campos incompletos",
-                text: "Por favor, complete todos los campos requeridos",
-                timer: 3000,
-                timerProgressBar: true,
-                showConfirmButton: false,
-                didOpen: (toast) => {
-                    toast.addEventListener("mouseenter", Swal.stopTimer)
-                    toast.addEventListener("mouseleave", Swal.resumeTimer)
-                },
-            })
-            return
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<TrainingFormData>({
+    resolver: zodResolver(trainingSchema),
+    defaultValues: {
+      estado: "Programado",
+      fecha_inicio: initialDate ? format(initialDate, "yyyy-MM-dd'T'HH:mm") : format(today, "yyyy-MM-dd'T'HH:mm"),
+      fecha_fin: initialDate ? format(initialDate, "yyyy-MM-dd'T'HH:mm") : format(today, "yyyy-MM-dd'T'HH:mm"),
+      id_cliente: 0,
+      id_entrenador: 0,
+    },
+  });
+
+  useEffect(() => {
+    const fetchContracts = async () => {
+      try {
+        const response = await contractService.getContracts();
+        // Verificar que la respuesta tiene la estructura esperada
+        const contractsData = response?.data?.data || response?.data || [];
+        if (Array.isArray(contractsData)) {
+          const mappedContracts = contractsData.map(mapDbContractToUiContract);
+          if (selectedClientId) {
+            setContracts(mappedContracts.filter(contract => contract.id_cliente === selectedClientId));
+          } else {
+            setContracts([]);
+          }
+        } else {
+          console.warn('Contracts response is not an array:', response);
+          setContracts([]);
         }
+      } catch (error) {
+        console.error("Error fetching contracts:", error);
+        setContracts([]);
+      }
+    };
 
-        // Usar solo clientes con contratos activos
-        const selectedClient = clientsWithActiveContracts.find((c) => c.id === clientId)
-        const clientName = selectedClient ? selectedClient.name : ""
+    fetchContracts();
+  }, [selectedClientId]);
 
-        // Crear objetos Date para startTime y endTime
-        const [startHour, startMinute] = startTime.split(":").map(Number)
-        const [endHour, endMinute] = endTime.split(":").map(Number)
+  const handleClientChange = (clientId: string) => {
+    const id = parseInt(clientId, 10);
+    setSelectedClientId(id);
+    setValue("id_cliente", id);
+  };
 
-        const startDateTime = new Date(date)
-        startDateTime.setHours(startHour, startMinute, 0)
+  const handleTrainerChange = (trainerId: string) => {
+    const id = parseInt(trainerId, 10);
+    setSelectedTrainerId(id);
+    setValue("id_entrenador", id);
+  };
 
-        const endDateTime = new Date(date)
-        endDateTime.setHours(endHour, endMinute, 0)
-
-        const trainingData = {
-            client: clientName,
-            clientId: clientId,
-            trainer,
-            service,
-            date,
-            startTime: startDateTime,
-            endTime: endDateTime,
-            occupiedSpots: initialValues?.occupiedSpots || 0,
-            status: initialValues?.status || "Activo",
-            trainerId: initialValues?.trainerId,
-        }
-
-        // Usar la función de callback apropiada
-        if (onSubmit) {
-            onSubmit(trainingData)
-        } else if (onAddTraining) {
-            onAddTraining(trainingData)
-        }
+  const handleFormSubmit = async (data: TrainingFormData) => {
+    setIsLoading(true);
+    try {
+      await onSubmit(data);
+    } catch (error) {
+      console.error("Error submitting training:", error);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    return (
-        <form onSubmit={handleSubmit} className="space-y-6 p-6 max-w-4xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Columna izquierda */}
-                <div>
-                    {/* Información del Entrenamiento */}
-                    <div className="rounded-lg bg-gray-50 p-6 mb-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300">
-                        <div className="mb-4 flex items-center gap-2">
-                            <Dumbbell className="h-5 w-5 text-gray-700" />
-                            <h3 className="text-md font-medium">Información del Entrenamiento</h3>
-                        </div>
-                        <div className="space-y-4">
-                            <div>
-                                <label htmlFor="client" className="block text-sm font-medium">
-                                    Cliente <span className="text-red-500">*</span>
-                                </label>
-                                <div className="space-y-2">
-                                    <div className="relative">
-                                        <Input
-                                            type="text"
-                                            placeholder="Buscar cliente por nombre o documento..."
-                                            className="w-full transition-all hover:border-black focus:border-black pl-9"
-                                            value={searchTerm}
-                                            onChange={(e) => {
-                                                const term = e.target.value
-                                                setSearchTerm(term)
-                                                // Filtrar clientes en tiempo real
-                                                const filtered = clientsWithActiveContracts.filter(
-                                                    (client) =>
-                                                        client.name.toLowerCase().includes(term.toLowerCase()) ||
-                                                        client.id.toLowerCase().includes(term.toLowerCase()),
-                                                )
-                                                setFilteredClients(filtered)
-                                                // Si solo hay un cliente que coincide, seleccionarlo automáticamente
-                                                if (filtered.length === 1) {
-                                                    setClientId(filtered[0].id)
-                                                    setSearchTerm(filtered[0].name) // Mostrar el nombre completo cuando se encuentra una coincidencia
-                                                }
-                                            }}
-                                        />
-                                        <CalendarIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                                    </div>
-                                    {clientId ? (
-                                        <div className="bg-white p-3 rounded-md border border-gray-200 shadow-sm hover:shadow transition-all">
-                                            <p className="text-sm text-gray-700 flex items-center">
-                                                <User className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
-                                                Cliente seleccionado: <span className="font-medium ml-1">{searchTerm}</span>
-                                            </p>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                className="mt-2 text-sm w-full text-gray-600 hover:bg-gray-50"
-                                                onClick={() => {
-                                                    setClientId("")
-                                                    setSearchTerm("")
-                                                }}
-                                            >
-                                                Cambiar cliente
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <Select
-                                            value={clientId}
-                                            onValueChange={(value) => {
-                                                setClientId(value)
-                                                const selectedClient = clientsWithActiveContracts.find((c) => c.id === value)
-                                                if (selectedClient) {
-                                                    setSearchTerm(selectedClient.name)
-                                                }
-                                            }}
-                                            required
-                                        >
-                                            <SelectTrigger className="w-full transition-all hover:border-black focus:border-black">
-                                                <SelectValue placeholder="Seleccionar cliente" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {filteredClients.map((client) => (
-                                                    <SelectItem key={client.id} value={client.id}>
-                                                        {client.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                    {clientsWithActiveContracts.length === 0 && (
-                                        <p className="text-xs text-amber-600 mt-1">No hay clientes con contratos activos disponibles</p>
-                                    )}
-                                    {clientsWithActiveContracts.length > 0 && filteredClients.length === 0 && (
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            No se encontraron clientes con ese criterio de búsqueda
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
+  const validateDate = (date: string) => {
+    const selectedDate = new Date(date);
+    if (isDailyView) {
+      return true;
+    }
+    return !isBefore(selectedDate, today);
+  };
 
-                            <div>
-                                <label htmlFor="service" className="block text-sm font-medium">
-                                    Servicio <span className="text-red-500">*</span>
-                                </label>
-                                <div className="relative">
-                                    <Select value={service} onValueChange={setService} required>
-                                        <SelectTrigger className="w-full transition-all hover:border-black focus:border-black pl-9">
-                                            <Dumbbell className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                                            <SelectValue placeholder="Seleccionar servicio" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {services.map((s) => (
-                                                <SelectItem key={s} value={s}>
-                                                    {s}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
+  // Validar que los arrays existen y no están vacíos
+  const validClients = Array.isArray(clients) ? clients.filter(client => client && client.id && client.id.toString().trim() !== '') : [];
+  const validTrainers = Array.isArray(trainers) ? trainers.filter(trainer => trainer && trainer.id && trainer.id.toString().trim() !== '') : [];
 
-                            
-                        </div>
-                    </div>
-                </div>
+  return (
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 p-4">
+      <div className="space-y-2">
+        <Label htmlFor="titulo">Título</Label>
+        <Input
+          id="titulo"
+          {...register("titulo")}
+          placeholder="Ingrese el título del entrenamiento"
+        />
+        {errors.titulo && (
+          <p className="text-sm text-red-500">{errors.titulo.message}</p>
+        )}
+      </div>
 
-                {/* Columna derecha */}
-                <div>
-                    {/* Entrenador y Horario */}
-                    <div className="rounded-lg bg-gray-50 p-6 mb-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300">
-                        <div className="mb-4 flex items-center gap-2">
-                            <Clock className="h-5 w-5 text-gray-700" />
-                            <h3 className="text-md font-medium">Entrenador y Horario</h3>
-                        </div>
-                        <div className="space-y-4">
-                            <div>
-                                <label htmlFor="trainer" className="block text-sm font-medium">
-                                    Entrenador <span className="text-red-500">*</span>
-                                </label>
-                                <div className="relative">
-                                    <Select value={trainer} onValueChange={setTrainer} required>
-                                        <SelectTrigger className="w-full transition-all hover:border-black focus:border-black pl-9">
-                                            <User className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                                            <SelectValue placeholder="Seleccionar entrenador" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {trainers.map((t) => (
-                                                <SelectItem key={t} value={t}>
-                                                    {t}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
+      <div className="space-y-2">
+        <Label htmlFor="descripcion">Descripción</Label>
+        <Textarea
+          id="descripcion"
+          {...register("descripcion")}
+          placeholder="Ingrese la descripción del entrenamiento"
+        />
+        {errors.descripcion && (
+          <p className="text-sm text-red-500">{errors.descripcion.message}</p>
+        )}
+      </div>
 
-                            <div>
-                                <label htmlFor="date" className="block text-sm font-medium">
-                                    Fecha <span className="text-red-500">*</span>
-                                </label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal transition-all hover:border-black focus:border-black",
-                                                !date && "text-muted-foreground",
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {date ? format(date, "PPP", { locale: es }) : <span>Seleccionar fecha</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar
-                                            mode="single"
-                                            selected={date}
-                                            onSelect={(date) => date && setDate(date)}
-                                            initialFocus
-                                            locale={es}
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="fecha_inicio">Fecha de inicio</Label>
+          <Input
+            id="fecha_inicio"
+            type="datetime-local"
+            {...register("fecha_inicio", {
+              validate: validateDate
+            })}
+          />
+          {errors.fecha_inicio && (
+            <p className="text-sm text-red-500">
+              {errors.fecha_inicio.type === "validate" 
+                ? "No se pueden agendar entrenamientos para fechas pasadas" 
+                : errors.fecha_inicio.message}
+            </p>
+          )}
+        </div>
 
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label htmlFor="startTime" className="block text-sm font-medium">
-                                        Hora inicio <span className="text-red-500">*</span>
-                                    </label>
-                                    <Input
-                                        id="startTime"
-                                        type="time"
-                                        value={startTime}
-                                        onChange={(e) => setStartTime(e.target.value)}
-                                        className="transition-all hover:border-black focus:border-black"
-                                        required
-                                    />
-                                </div>
+        <div className="space-y-2">
+          <Label htmlFor="fecha_fin">Fecha de fin</Label>
+          <Input
+            id="fecha_fin"
+            type="datetime-local"
+            {...register("fecha_fin", {
+              validate: validateDate
+            })}
+          />
+          {errors.fecha_fin && (
+            <p className="text-sm text-red-500">
+              {errors.fecha_fin.type === "validate" 
+                ? "No se pueden agendar entrenamientos para fechas pasadas" 
+                : errors.fecha_fin.message}
+            </p>
+          )}
+        </div>
+      </div>
 
-                                <div>
-                                    <label htmlFor="endTime" className="block text-sm font-medium">
-                                        Hora fin <span className="text-red-500">*</span>
-                                    </label>
-                                    <Input
-                                        id="endTime"
-                                        type="time"
-                                        value={endTime}
-                                        onChange={(e) => setEndTime(e.target.value)}
-                                        className="transition-all hover:border-black focus:border-black"
-                                        required
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <div className="space-y-2">
+        <Label htmlFor="cliente">Cliente</Label>
+        <Select onValueChange={handleClientChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccione un cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            {validClients.length > 0 ? (
+              validClients.map((client) => (
+                <SelectItem key={client.id} value={client.id.toString()}>
+                  {client.name || 'Sin nombre'}
+                </SelectItem>
+              ))
+            ) : (
+              <div className="px-8 py-6 text-center">
+                <p className="text-sm text-muted-foreground">No hay clientes disponibles</p>
+              </div>
+            )}
+          </SelectContent>
+        </Select>
+        {errors.id_cliente && (
+          <p className="text-sm text-red-500">{errors.id_cliente.message}</p>
+        )}
+      </div>
 
-            <div className="flex justify-end space-x-4 mt-8 border-t pt-6 px-6">
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={onCancel}
-                    className="transition-all hover:bg-gray-100 px-6 py-2.5 rounded-md w-[120px] md:w-[140px]"
-                >
-                    Cancelar
-                </Button>
-                <Button 
-                    type="submit" 
-                    className="bg-black text-white transition-all hover:bg-gray-800 px-6 py-2.5 rounded-md w-[120px] md:w-[180px] font-medium"
-                >
-                    {initialValues ? "Actualizar" : "Agendar"}
-                </Button>
-            </div>
-        </form>
-    )
+      <div className="space-y-2">
+        <Label htmlFor="entrenador">Entrenador</Label>
+        <Select onValueChange={handleTrainerChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccione un entrenador" />
+          </SelectTrigger>
+          <SelectContent>
+            {validTrainers.length > 0 ? (
+              validTrainers.map((trainer) => (
+                <SelectItem key={trainer.id} value={trainer.id.toString()}>
+                  {trainer.name || 'Sin nombre'}
+                </SelectItem>
+              ))
+            ) : (
+              <div className="px-8 py-6 text-center">
+                <p className="text-sm text-muted-foreground">No hay entrenadores disponibles</p>
+              </div>
+            )}
+          </SelectContent>
+        </Select>
+        {errors.id_entrenador && (
+          <p className="text-sm text-red-500">{errors.id_entrenador.message}</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="estado">Estado</Label>
+        <Select
+          onValueChange={(value) => setValue("estado", value as TrainingFormData["estado"])}
+          defaultValue="Programado"
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccione un estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Programado">Programado</SelectItem>
+            <SelectItem value="En proceso">En proceso</SelectItem>
+            <SelectItem value="Completado">Completado</SelectItem>
+            <SelectItem value="Cancelado">Cancelado</SelectItem>
+          </SelectContent>
+        </Select>
+        {errors.estado && (
+          <p className="text-sm text-red-500">{errors.estado.message}</p>
+        )}
+      </div>
+
+      <div className="flex justify-end space-x-2">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isLoading || validClients.length === 0 || validTrainers.length === 0}>
+          {isLoading ? "Guardando..." : "Guardar"}
+        </Button>
+      </div>
+    </form>
+  );
 }

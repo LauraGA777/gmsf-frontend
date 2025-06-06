@@ -3,7 +3,6 @@ import LoginPage from "../pages/loginPage";
 import ForgotPasswordPage from "../pages/forgotPasswordPage";
 import ResetPasswordPage from "../pages/resetPasswordPage";
 
-
 export const authRoutes: RouteObject[] = [
     {
         path: "/login",
@@ -14,7 +13,7 @@ export const authRoutes: RouteObject[] = [
         element: <ForgotPasswordPage />,
     },
     {
-        path: "/reset-password",
+        path: "/reset-password/:token",
         element: <ResetPasswordPage />,
     }
 ];

@@ -1,5 +1,5 @@
 import { attendanceRoutes } from "@/features/attendance/routes/attendanceRoutes";
-import { calendarRoutes } from "@/features/schedule/routes/scheduleRoutes";
+import { scheduleRoutes } from "@/features/schedule/routes/scheduleRoutes";
 import { clientRoutes } from "@/features/clients/routes/clientRoutes";
 import { clientsRoutes } from "@/features/clients/routes/clientsRoutes";
 import { contractsRoutes } from "@/features/contracts/routes/contractsRoutes";
@@ -12,7 +12,7 @@ import { userRoutes } from "@/features/users/routes/userRoutes";
 
 export const privateRoutes = [
     ...attendanceRoutes,
-    ...calendarRoutes,
+    ...scheduleRoutes,
     ...clientRoutes,
     ...clientsRoutes,
     ...contractsRoutes,

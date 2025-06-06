@@ -55,17 +55,35 @@ EmergencyContact.init(
         nombre_contacto: {
           type: DataTypes.STRING(100),
           allowNull: false,
+          validate: {
+            notEmpty: {
+              msg: 'El nombre del contacto no puede estar vacío'
+            },
+            len: {
+              args: [3, 100],
+              msg: 'El nombre del contacto debe tener entre 3 y 100 caracteres'
+            }
+          }
         },
         telefono_contacto: {
           type: DataTypes.STRING(15),
           allowNull: false,
           validate: {
-            is: /^\d{7,15}$/,
+            is: {
+              args: /^\d{7,15}$/,
+              msg: 'El teléfono debe contener entre 7 y 15 dígitos numéricos'
+            }
           },
         },
         relacion_contacto: {
           type: DataTypes.STRING(50),
           allowNull: true,
+          validate: {
+            len: {
+              args: [3, 50],
+              msg: 'La relación debe tener entre 3 y 50 caracteres cuando se proporciona'
+            }
+          }
         },
         es_mismo_beneficiario: {
           type: DataTypes.BOOLEAN,
@@ -76,11 +94,17 @@ EmergencyContact.init(
           type: DataTypes.DATE,
           allowNull: false,
           defaultValue: DataTypes.NOW,
+          validate: {
+            isDate: true
+          }
         },
         fecha_actualizacion: {
           type: DataTypes.DATE,
           allowNull: false,
           defaultValue: DataTypes.NOW,
+          validate: {
+            isDate: true
+          }
         },
       },
   {

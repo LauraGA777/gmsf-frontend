@@ -1,7 +1,5 @@
-import axios from 'axios';
+import apiClient from '@/shared/services/api';
 import type { User, UserFormData } from '../types/user';
-
-const API_URL = 'http://localhost:3001/api/users';
 
 interface ApiResponse<T> {
   status: string;
@@ -20,43 +18,43 @@ interface PaginatedResponse<T> {
 export const userService = {
   // Obtener todos los usuarios
   getUsers: async (page = 1, limit = 10): Promise<PaginatedResponse<User>> => {
-    const response = await axios.get<PaginatedResponse<User>>(`${API_URL}?page=${page}&limit=${limit}`);
+    const response = await apiClient.get<PaginatedResponse<User>>(`/users?page=${page}&limit=${limit}`);
     return response.data;
   },
 
   // Obtener usuario por ID
   getUserById: async (id: string): Promise<User> => {
-    const response = await axios.get<ApiResponse<{ usuario: User }>>(`${API_URL}/${id}`);
+    const response = await apiClient.get<ApiResponse<{ usuario: User }>>(`/users/${id}`);
     return response.data.data.usuario;
   },
 
   // Crear usuario
   createUser: async (userData: UserFormData): Promise<User> => {
-    const response = await axios.post<ApiResponse<{ user: User }>>(`${API_URL}/register`, userData);
+    const response = await apiClient.post<ApiResponse<{ user: User }>>('/users/register', userData);
     return response.data.data.user;
   },
 
   // Actualizar usuario
   updateUser: async (id: string, userData: Partial<UserFormData>): Promise<User> => {
-    const response = await axios.put<ApiResponse<{ usuario: User }>>(`${API_URL}/${id}`, userData);
+    const response = await apiClient.put<ApiResponse<{ usuario: User }>>(`/users/${id}`, userData);
     return response.data.data.usuario;
   },
 
   // Desactivar usuario (soft delete)
   deactivateUser: async (id: string): Promise<void> => {
-    await axios.delete(`${API_URL}/${id}`);
+    await apiClient.delete(`/users/${id}`);
   },
 
   // Eliminar usuario permanentemente
   deleteUserPermanently: async (id: string): Promise<void> => {
-    await axios.delete(`${API_URL}/${id}/permanent`);
+    await apiClient.delete(`/users/${id}/permanent`);
   },
 
   // Buscar usuarios
   searchUsers: async (query: string, page = 1, limit = 10): Promise<PaginatedResponse<User>> => {
-    const response = await axios.get<PaginatedResponse<User>>(
-      `${API_URL}/search?q=${query}&pagina=${page}&limite=${limit}`
+    const response = await apiClient.get<PaginatedResponse<User>>(
+      `/users/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
     );
     return response.data;
   }
-}; 
+};

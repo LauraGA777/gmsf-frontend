@@ -53,7 +53,10 @@ Contract.init(
             allowNull: false,
             unique: true,
             validate: {
-                is: /^C\d{4}$/,
+                is: {
+                    args: /^C\d{4}$/,
+                    msg: 'El código debe tener el formato C seguido de 4 números'
+                }
             },
         },
         id_persona: {
@@ -75,34 +78,64 @@ Contract.init(
         fecha_inicio: {
             type: DataTypes.DATE,
             allowNull: false,
+            validate: {
+                isDate: true,
+                isValidStartDate(value: Date) {
+                    if (new Date(value) < new Date()) {
+                        throw new Error('La fecha de inicio no puede ser anterior a la fecha actual');
+                    }
+                }
+            }
         },
         fecha_fin: {
             type: DataTypes.DATE,
             allowNull: false,
+            validate: {
+                isDate: true,
+                isAfterStartDate(value: unknown) {
+                    const endDate = new Date(value as string | number | Date);
+                    const startDate = new Date(this.fecha_inicio as string | number | Date);
+                    if (endDate <= startDate) {
+                        throw new Error('La fecha de fin debe ser posterior a la fecha de inicio');
+                    }
+                }
+            }
         },
         membresia_precio: {
             type: DataTypes.DECIMAL(10, 2),
             allowNull: false,
             validate: {
-                min: 0,
+                min: {
+                    args: [0.01],
+                    msg: 'El precio debe ser mayor a 0'
+                }
             },
         },
         estado: {
             type: DataTypes.STRING(20),
             allowNull: false,
             validate: {
-                isIn: [["Activo", "Congelado", "Vencido", "Cancelado", "Por vencer"]],
+                isIn: {
+                    args: [["Activo", "Congelado", "Vencido", "Cancelado", "Por vencer"]],
+                    msg: 'El estado debe ser uno de los siguientes: Activo, Congelado, Vencido, Cancelado, Por vencer'
+                }
             },
         },
         fecha_registro: {
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
+            validate: {
+                isDate: true
+            }
         },
         fecha_actualizacion: {
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
+            validate: {
+                isDate: true
+            }
         },
         usuario_registro: {
             type: DataTypes.INTEGER,

@@ -5,6 +5,8 @@ export const idSchema = z.object({
 });
 
 export const updateUserSchema = z.object({
+    codigo: z.string()
+        .regex(/^U\d{3}$/, "El código debe tener el formato U seguido de 3 dígitos"),
     nombre: z.string().min(3).max(100).optional(),
     apellido: z.string().min(3).max(100).optional(),
     correo: z.string().email().optional(),

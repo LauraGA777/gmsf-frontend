@@ -48,18 +48,49 @@ Training.init(
         titulo: {
             type: DataTypes.STRING(100),
             allowNull: false,
+            validate: {
+                notEmpty: {
+                    msg: 'El título no puede estar vacío'
+                },
+                len: {
+                    args: [3, 100],
+                    msg: 'El título debe tener entre 3 y 100 caracteres'
+                }
+            }
         },
         descripcion: {
             type: DataTypes.TEXT,
             allowNull: true,
+            validate: {
+                len: {
+                    args: [10, 1000],
+                    msg: 'La descripción debe tener entre 10 y 1000 caracteres cuando se proporciona'
+                }
+            }
         },
         fecha_inicio: {
             type: DataTypes.DATE,
             allowNull: false,
+            validate: {
+                isDate: true,
+                isValidStartDate(value: string) {
+                    if (new Date(value) < new Date()) {
+                        throw new Error('La fecha de inicio no puede ser anterior a la fecha actual');
+                    }
+                }
+            }
         },
         fecha_fin: {
             type: DataTypes.DATE,
             allowNull: false,
+            validate: {
+                isDate: true,
+                isAfterStartDate(value: string) {
+                    if (new Date(value) <= new Date(this.fecha_inicio)) {
+                        throw new Error('La fecha de fin debe ser posterior a la fecha de inicio');
+                    }
+                }
+            }
         },
         id_entrenador: {
             type: DataTypes.INTEGER,
@@ -82,17 +113,29 @@ Training.init(
             allowNull: false,
             defaultValue: "Programado",
             validate: {
-                isIn: [["Programado", "Completado", "Cancelado"]],
+                isIn: {
+                    args: [["Programado", "Completado", "Cancelado"]],
+                    msg: 'El estado debe ser uno de los siguientes: Programado, Completado, Cancelado'
+                }
             },
         },
         notas: {
             type: DataTypes.TEXT,
             allowNull: true,
+            validate: {
+                len: {
+                    args: [5, 500],
+                    msg: 'Las notas deben tener entre 5 y 500 caracteres cuando se proporcionan'
+                }
+            }
         },
         fecha_creacion: {
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
+            validate: {
+                isDate: true
+            }
         },
     },
     {

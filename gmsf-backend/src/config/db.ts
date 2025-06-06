@@ -1,12 +1,8 @@
 import { Sequelize } from 'sequelize';
 import { env } from './env';
-import path from 'path';
 
 const setupSequelize = () => {
-    let config;
-
     if (env.DATABASE_URL) {
-        console.log('📡 Using DATABASE_URL for connection');
         return new Sequelize(env.DATABASE_URL, {
             dialect: 'postgres',
             dialectModule: require('pg'),
@@ -19,34 +15,18 @@ const setupSequelize = () => {
             logging: env.NODE_ENV === 'development' ? console.log : false
         });
     }
-    
-//Configuración manual solo si no hay DATABASE_URL
-
-    const requiredConfig = {
-        database: env.DB_NAME,
-        username: env.DB_USER,
-        password: env.DB_PASSWORD,
-        host: env.DB_HOST,
-        port: env.DB_PORT,
-        ssl: env.DB_SSL
-    };
-
-    console.log('🔧 Using individual DB config:', {
-        ...requiredConfig,
-        password: '***' // Ocultamos la contraseña en logs
-    });
 
     return new Sequelize(
-        requiredConfig.database,
-        requiredConfig.username,
-        requiredConfig.password,
+        env.DB_NAME,
+        env.DB_USER,
+        env.DB_PASSWORD,
         {
-            host: requiredConfig.host,
-            port: requiredConfig.port,
+            host: env.DB_HOST,
+            port: env.DB_PORT,
             dialect: 'postgres',
             dialectModule: require('pg'),
             dialectOptions: {
-                ssl: requiredConfig.ssl ? {
+                ssl: env.DB_SSL ? {
                     require: true,
                     rejectUnauthorized: false
                 } : false
@@ -56,7 +36,7 @@ const setupSequelize = () => {
     );
 };
 
-const sequelize = setupSequelize(); 
+const sequelize = setupSequelize();
 
 // Función de test de conexión
 export const testConnection = async () => {

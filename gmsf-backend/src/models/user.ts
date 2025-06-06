@@ -1,5 +1,6 @@
 import { Model, DataTypes, Optional } from 'sequelize';
 import sequelize from '../config/db';
+import Role from './role';
 
 interface UserAttributes {
     id: number;
@@ -18,9 +19,10 @@ interface UserAttributes {
     fecha_nacimiento: Date;
     estado: boolean;
     id_rol?: number;
+    rol?: Role;
 }
 
-interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'fecha_actualizacion' | 'asistencias_totales' | 'estado'> {}
+interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'fecha_actualizacion' | 'asistencias_totales' | 'estado' | 'rol'> {}
 
 class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
     public id!: number;
@@ -39,6 +41,7 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
     public fecha_nacimiento!: Date;
     public estado!: boolean;
     public id_rol!: number;
+    public rol?: Role;
 }
 
 User.init({
@@ -52,21 +55,30 @@ User.init({
         allowNull: false,
         unique: true,
         validate: {
-            is: /^U\d{3}$/
+            is: {
+                args: /^U\d{3}$/,
+                msg: 'El código debe tener el formato U seguido de 3 números'
+            }
         }
     },
     nombre: {
         type: DataTypes.STRING(100),
         allowNull: false,
         validate: {
-            len: [3, 100]
+            len: {
+                args: [3, 100],
+                msg: 'El nombre debe tener entre 3 y 100 caracteres'
+            }
         }
     },
     apellido: {
         type: DataTypes.STRING(100),
         allowNull: false,
         validate: {
-            len: [3, 100]
+            len: {
+                args: [3, 100],
+                msg: 'El apellido debe tener entre 3 y 100 caracteres'
+            }
         }
     },
     correo: {
@@ -74,7 +86,13 @@ User.init({
         allowNull: false,
         unique: true,
         validate: {
-            isEmail: true
+            isEmail: {
+                msg: 'Debe proporcionar un correo electrónico válido'
+            },
+            is: {
+                args: /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-zA-Z]{2,}$/,
+                msg: 'El formato del correo electrónico no es válido'
+            }
         }
     },
     contrasena_hash: {
@@ -85,7 +103,10 @@ User.init({
         type: DataTypes.STRING(15),
         allowNull: true,
         validate: {
-            is: /^\d{7,15}$/
+            is: {
+                args: /^\d{7,15}$/,
+                msg: 'El teléfono debe contener entre 7 y 15 dígitos numéricos'
+            }
         }
     },
     direccion: {
@@ -96,14 +117,20 @@ User.init({
         type: DataTypes.CHAR(1),
         allowNull: true,
         validate: {
-            isIn: [['M', 'F', 'O']]
+            isIn: {
+                args: [['M', 'F', 'O']],
+                msg: 'El género debe ser M (Masculino), F (Femenino) u O (Otro)'
+            }
         }
     },
     tipo_documento: {
         type: DataTypes.STRING(10),
         allowNull: false,
         validate: {
-            isIn: [['CC', 'CE', 'TI', 'PP', 'DIE']]
+            isIn: {
+                args: [['CC', 'CE', 'TI', 'PP', 'DIE']],
+                msg: 'El tipo de documento debe ser CC, CE, TI, PP o DIE'
+            }
         }
     },
     numero_documento: {
@@ -119,7 +146,10 @@ User.init({
         type: DataTypes.INTEGER,
         defaultValue: 0,
         validate: {
-            min: 0
+            min: {
+                args: [0],
+                msg: 'Las asistencias totales no pueden ser negativas'
+            }
         }
     },
     fecha_nacimiento: {
@@ -127,7 +157,10 @@ User.init({
         allowNull: false,
         validate: {
             isDate: true,
-            isBefore: new Date(new Date().setFullYear(new Date().getFullYear() - 15)).toISOString()
+            isBefore: {
+                args: new Date(new Date().setFullYear(new Date().getFullYear() - 15)).toISOString(),
+                msg: 'Debe ser mayor de 15 años'
+            }
         }
     },
     estado: {
@@ -148,6 +181,12 @@ User.init({
     modelName: 'Usuario',
     tableName: 'usuarios',
     timestamps: false
+});
+
+// Definir la asociación con Role
+User.belongsTo(Role, {
+    foreignKey: 'id_rol',
+    as: 'rol'
 });
 
 export default User;

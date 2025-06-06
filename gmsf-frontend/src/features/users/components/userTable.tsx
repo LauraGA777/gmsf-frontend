@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
+
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
-import { Edit, Eye, Search, Power, Plus, Trash, Users } from "lucide-react"
+import { Edit, Eye, MoreHorizontal, Plus, Trash, Users } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import Swal from "sweetalert2"

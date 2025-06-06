@@ -49,15 +49,35 @@ ContractHistory.init(
     estado_anterior: {
       type: DataTypes.STRING(20),
       allowNull: true,
+      validate: {
+        isIn: {
+          args: [["Activo", "Congelado", "Vencido", "Cancelado", "Por vencer"]],
+          msg: 'El estado anterior debe ser uno de los siguientes: Activo, Congelado, Vencido, Cancelado, Por vencer'
+        }
+      }
     },
     estado_nuevo: {
       type: DataTypes.STRING(20),
       allowNull: false,
+      validate: {
+        isIn: {
+          args: [["Activo", "Congelado", "Vencido", "Cancelado", "Por vencer"]],
+          msg: 'El estado nuevo debe ser uno de los siguientes: Activo, Congelado, Vencido, Cancelado, Por vencer'
+        },
+        notEqualToPrevious(value: string) {
+          if (value === this.estado_anterior) {
+            throw new Error('El estado nuevo debe ser diferente al estado anterior');
+          }
+        }
+      }
     },
     fecha_cambio: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
+      validate: {
+        isDate: true
+      }
     },
     usuario_cambio: {
       type: DataTypes.INTEGER,
@@ -70,6 +90,12 @@ ContractHistory.init(
     motivo: {
       type: DataTypes.TEXT,
       allowNull: true,
+      validate: {
+        len: {
+          args: [10, 500],
+          msg: 'El motivo debe tener entre 10 y 500 caracteres cuando se proporciona'
+        }
+      }
     },
   },
   {

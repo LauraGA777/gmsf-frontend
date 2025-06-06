@@ -233,10 +233,10 @@ export const createMembership = async (req: Request<{}, {}, CreateMembershipData
 
         // Crear la membresía
         const newMembership = await Membership.create({
-            codigo,
             ...membershipData,
             fecha_creacion: new Date(),
-            estado: true
+            estado: true,
+            codigo
         });
 
         // Obtener la membresía creada sin campos sensibles

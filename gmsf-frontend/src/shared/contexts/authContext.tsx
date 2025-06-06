@@ -5,12 +5,14 @@ import { User } from "../types/index"; // Asegúrate de importar el tipo User co
 
 // Tipos
 interface AuthResponse {
-    mensaje: string;
+    status: string;
+    menssage: string;
     accessToken: string;
     refreshToken: string;
-    usuario: {
+    user: {
         id: number;
         nombre: string;
+        correo: string;
         id_rol: number;
     }
 }
@@ -24,6 +26,13 @@ interface AuthContextType {
     login: (correo: string, contrasena: string) => Promise<{ success: boolean; error?: string }>;
     logout: () => void;
     hasPermission: (requiredRoles: number[]) => boolean;
+}
+
+interface NormalizedUser {
+    id: number;
+    nombre: string;
+    correo: string;
+    id_rol: number | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -90,11 +99,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 throw new Error('Credenciales incorrectas');
             }
 
-            const authData: AuthResponse = await response.json();
-            handleSuccessfulLogin(authData, correo); // Pasar el correo como segundo argumento
+            const authData = await response.json();
+            console.log('Respuesta completa de la API:', authData); // Para depuración
+            
+            // Extraer datos del usuario de la respuesta
+            const userData = authData.data?.user || authData.user || {};
+            const tokens = {
+                accessToken: authData.data?.accessToken || authData.accessToken,
+                refreshToken: authData.data?.refreshToken || authData.refreshToken
+            };
+
+            // Validar que tengamos los tokens necesarios
+            if (!tokens.accessToken || !tokens.refreshToken) {
+                console.error('Tokens no encontrados en la respuesta:', authData);
+                throw new Error('Error en la autenticación: tokens no recibidos');
+            }
+
+            // Validar que tengamos los datos básicos del usuario
+            if (!userData || typeof userData !== 'object') {
+                console.error('Datos de usuario no encontrados en la respuesta:', authData);
+                throw new Error('Datos de usuario no encontrados en la respuesta');
+            }
+
+            // Normalizar la estructura de datos del usuario
+            const normalizedUser: NormalizedUser = {
+                id: userData.id,
+                nombre: userData.nombre || userData.nombre_usuario || '',
+                correo: userData.correo || correo,
+                id_rol: userData.id_rol || userData.rol_id || null
+            };
+
+            // Validar que tengamos los campos requeridos
+            const requiredFields = ['id', 'id_rol'];
+            const missingFields = requiredFields.filter(field => normalizedUser[field] === undefined || normalizedUser[field] === null);
+            
+            if (missingFields.length > 0) {
+                console.error('Faltan campos requeridos en los datos del usuario:', {
+                    missingFields,
+                    userData: normalizedUser,
+                    originalData: authData
+                });
+                throw new Error(`Faltan campos requeridos: ${missingFields.join(', ')}`);
+            }
+
+            // Crear la estructura normalizada para handleSuccessfulLogin
+            const normalizedData = {
+                ...authData,
+                ...tokens,
+                user: normalizedUser
+            };
+
+            handleSuccessfulLogin(normalizedData as AuthResponse, normalizedUser.correo);
             return { success: true };
         } catch (error) {
-            console.error("Error durante el inicio de sesión:", error);
+            console.error('Error detallado durante el inicio de sesión:', {
+                mensaje: error instanceof Error ? error.message : 'Error desconocido',
+                tipo: error instanceof Error ? error.name : typeof error,
+                error: error
+            });
             return {
                 success: false,
                 error: error instanceof Error ? error.message : "Error al iniciar sesión"
@@ -102,16 +164,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const handleSuccessfulLogin = (authData: AuthResponse, correo: string) => { // Añadir parámetro correo
+    const handleSuccessfulLogin = (authData: AuthResponse, correo: string) => { 
         // Validar que el rol sea uno de los permitidos usando type assertion
-        const validRoles = [1, 2, 3] as const;
-        if (!validRoles.includes(authData.usuario.id_rol as typeof validRoles[number])) {
-            console.error("Rol no válido:", authData.usuario.id_rol);
+        const validRoles = ["admin", 1 ,2, 3] as const;
+        if (!validRoles.includes(authData.user.id_rol as typeof validRoles[number])) {
+            console.error("Rol no válido:", authData.user.id_rol);
             throw new Error("Rol de usuario no válido");
         }
 
         const roleKey = Object.keys(ROLES).find(
-            key => ROLES[key as keyof typeof ROLES].id === authData.usuario.id_rol
+            key => ROLES[key as keyof typeof ROLES].id === authData.user.id_rol
         ) as keyof typeof ROLES;
 
         if (!roleKey) {
@@ -120,12 +182,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const userWithRole: User = {
-            id: authData.usuario.id.toString(),
-            nombre: authData.usuario.nombre,
-            correo: correo, // Usar el correo que recibimos como parámetro
-            id_rol: authData.usuario.id_rol,
+            id: authData.user.id.toString(),
+            nombre: authData.user.nombre,
+            correo: correo, 
+            id_rol: authData.user.id_rol,
             role: roleKey,
-            clientId: authData.usuario.id_rol === ROLES.CLIENTE.id ? authData.usuario.id.toString() : undefined
+            clientId: authData.user.id_rol === ROLES.CLIENTE.id ? authData.user.id.toString() : undefined
         };
 
         setUser(userWithRole);
@@ -136,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("accessToken", authData.accessToken);
         localStorage.setItem("refreshToken", authData.refreshToken);
         
-        redirectBasedOnRole(authData.usuario.id_rol);
+        redirectBasedOnRole(authData.user.id_rol);
     };
 
     const logout = () => {
@@ -186,19 +248,19 @@ export const useAuth = () => {
 export const ROLES = {
     ADMIN: {
         id: 1,
-        nombre: "Administrador",
+        nombre: "admin",
         ruta: "/dashboard",
         permisos: ["ver_usuarios", "editar_usuarios", "ver_estadisticas"]
     },
     ENTRENADOR: {
         id: 2,
-        nombre: "Entrenador",
+        nombre: "entrenador",
         ruta: "/trainer",
         permisos: ["ver_clientes", "editar_rutinas", "ver_horarios"]
     },
     CLIENTE: {
         id: 3,
-        nombre: "Cliente",
+        nombre: "cliente",
         ruta: "/client",
         permisos: ["ver_perfil", "ver_rutinas", "ver_membresia"]
     }

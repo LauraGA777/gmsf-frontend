@@ -50,7 +50,7 @@ Attendance.init(
             references: {
                 model: "personas",
                 key: "id_persona",
-            },
+            }
         },
         id_contrato: {
             type: DataTypes.INTEGER,
@@ -58,35 +58,59 @@ Attendance.init(
             references: {
                 model: "contratos",
                 key: "id",
-            },
+            }
         },
         fecha_uso: {
             type: DataTypes.DATEONLY,
             allowNull: false,
             defaultValue: DataTypes.NOW,
+            validate: {
+                isDate: true,
+                notInFuture(value: Date) {
+                    if (new Date(value) > new Date()) {
+                        throw new Error('La fecha de uso no puede ser futura');
+                    }
+                }
+            }
         },
         hora_registro: {
             type: DataTypes.TIME,
             allowNull: false,
             defaultValue: DataTypes.NOW,
+            validate: {
+                isValidTime(value: string) {
+                    if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/.test(value)) {
+                        throw new Error('La hora debe tener un formato válido (HH:MM:SS)');
+                    }
+                }
+            }
         },
         estado: {
             type: DataTypes.STRING(20),
             allowNull: false,
             defaultValue: "Activo",
             validate: {
-                isIn: [["Activo", "Eliminado"]],
-            },
+                isIn: {
+                    args: [["Activo", "Eliminado"]],
+                    msg: 'El estado debe ser "Activo" o "Eliminado"'
+                }
+            }
         },
         fecha_registro: {
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
+            validate: {
+                isDate: true
+            }
         },
         fecha_actualizacion: {
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
+            validate: {
+                isDate: true
+            }
         },
         usuario_registro: {
             type: DataTypes.INTEGER,
@@ -94,7 +118,7 @@ Attendance.init(
             references: {
                 model: "usuarios",
                 key: "id",
-            },
+            }
         },
         usuario_actualizacion: {
             type: DataTypes.INTEGER,
@@ -102,7 +126,7 @@ Attendance.init(
             references: {
                 model: "usuarios",
                 key: "id",
-            },
+            }
         },
     },
     {

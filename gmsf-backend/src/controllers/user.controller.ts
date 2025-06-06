@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import User from "../models/user";
+import Role from "../models/role";
 import bcrypt from 'bcrypt';
 import { generateAccessToken } from '../utils/jwt.utils';
 import { z } from 'zod';
 import { idSchema, updateUserSchema, searchUserSchema } from '../validators/user.validator';
 import { Op, WhereOptions } from 'sequelize';
+import ApiResponse from '../utils/apiResponse';
 
 
 interface UserData {
@@ -135,25 +137,45 @@ export const register = async (req: Request, res: Response): Promise<Response> =
     try {
         const userData: UserData = req.body;
 
-        // Check if email exists
+        // Verificar si el correo existe
         const existingUser = await User.findOne({ 
             where: { correo: userData.correo } 
         });
         
         if (existingUser) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'Email is already registered'
-            });
+            return ApiResponse.error(
+                res,
+                "El correo electrónico ya está registrado",
+                400
+            );
         }
 
-        // Generate unique code
+        // Verificar si el rol existe
+        if (userData.id_rol) {
+            const role = await Role.findByPk(userData.id_rol);
+            if (!role) {
+                return ApiResponse.error(
+                    res,
+                    "El rol especificado no existe",
+                    400
+                );
+            }
+            if (!role.estado) {
+                return ApiResponse.error(
+                    res,
+                    "El rol especificado está inactivo",
+                    400
+                );
+            }
+        }
+
+        // Generar código único
         const codigo = await generateUserCode();
 
-        // Hash password
+        // Encriptar contraseña
         const contrasena_hash = await bcrypt.hash(userData.contrasena, 10);
 
-        // Create user
+        // Crear usuario
         const user = await User.create({
             codigo,
             nombre: userData.nombre,
@@ -172,39 +194,48 @@ export const register = async (req: Request, res: Response): Promise<Response> =
             asistencias_totales: 0
         });
 
-        // Generate access token
+        // Generar token de acceso
         const accessToken = generateAccessToken(user.id);
 
-        // Get user without password
+        // Obtener usuario creado con información del rol
         const createdUser = await User.findByPk(user.id, {
             attributes: { 
                 exclude: ['contrasena_hash'] 
-            }
+            },
+            include: [{
+                model: Role,
+                as: 'rol',
+                attributes: ['id', 'codigo', 'nombre', 'descripcion']
+            }]
         });
 
-        return res.status(201).json({
-            status: 'success',
-            message: 'User registered successfully',
-            data: {
+        return ApiResponse.success(
+            res, 
+            {
                 user: createdUser,
                 accessToken
-            }
-        });
+            },
+            "Usuario registrado exitosamente",
+            undefined,
+            201
+        );
 
     } catch (error: any) {
-        console.error('Error in registration:', error);
+        console.error('Error en el registro:', error);
 
         if (error.name === 'SequelizeUniqueConstraintError') {
-            return res.status(400).json({
-                status: 'error',
-                message: 'Email or document number is already registered'
-            });
+            return ApiResponse.error(
+                res,
+                "El correo electrónico o número de documento ya está registrado",
+                400
+            );
         }
 
-        return res.status(500).json({
-            status: 'error',
-            message: 'Internal server error during registration'
-        });
+        return ApiResponse.error(
+            res,
+            "Error interno del servidor durante el registro",
+            500
+        );
     }
 };
 

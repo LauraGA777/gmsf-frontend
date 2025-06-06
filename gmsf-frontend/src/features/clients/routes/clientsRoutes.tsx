@@ -1,33 +1,14 @@
 import React from "react";
-import { ClientsTable } from "@/features/clients/components/clientsTable";
-import { ProtectedRoute } from "../../auth/components/protectedRoute"
-import { useGlobalClients } from "@/shared/contexts/clientsContext";
+import { ClientsPage } from "@/features/clients/pages/clientsPage";
+import { ProtectedRoute } from "../../auth/components/protectedRoute";
 
-// Componente contenedor para clientes que usa el contexto global
-export const ClientsContainer = () => {
-    // Usar el contexto global en lugar de estado local
-    const { clients, updateClient, addClient } = useGlobalClients();
-
-    // Función para manejar actualizaciones de clientes usando el contexto global
-    const handleUpdateClient = (clientId: string, updates: Partial<Client>) => {
-        updateClient(clientId, updates);
-    };
-
-    return (
-        <ClientsTable
-            clients={clients}
-            onUpdateClient={handleUpdateClient}
-            onAddClient={addClient}
-        />
-    );
-};
-
+// Rutas de clientes
 export const clientsRoutes = [
     {
         path: "/clients",
         element: (
-            <ProtectedRoute allowedRoles={[1,2]}>
-                <ClientsContainer />
+            <ProtectedRoute allowedRoles={[1, 2]}>
+                <ClientsPage />
             </ProtectedRoute>
         )
     }

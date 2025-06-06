@@ -12,7 +12,7 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('accessToken');
-        if (token) {
+        if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -45,7 +45,10 @@ apiClient.interceptors.response.use(
                     refreshToken,
                 });
 
-                const { accessToken, refreshToken: newRefreshToken } = response.data;
+                const { accessToken, refreshToken: newRefreshToken } = response.data as {
+                    accessToken: string;
+                    refreshToken: string;
+                };
 
                 // Store the new tokens
                 localStorage.setItem('accessToken', accessToken);
@@ -54,7 +57,9 @@ apiClient.interceptors.response.use(
                 }
 
                 // Update the Authorization header
-                originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+                if (originalRequest.headers) {
+                    originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+                }
 
                 // Retry the original request
                 return apiClient(originalRequest);
@@ -72,4 +77,6 @@ apiClient.interceptors.response.use(
     }
 );
 
+export const api = apiClient;
 export default apiClient;
+

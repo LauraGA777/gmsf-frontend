@@ -1,298 +1,138 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { mockClients, mockContracts, mockMemberships, MOCK_CLIENTS } from "@/features/data/mockData";
-import type { Client, Contract, Membership } from "@/shared/types";
+import { createContext, useContext, useState, useEffect } from "react";
+import { clientService } from "@/features/clients/services/client.service";
+import { contractService } from "@/features/contracts/services/contract.service";
+import type { Client, Contract } from "@/shared/types";
+import { mapDbClientToUiClient, mapDbContractToUiContract } from "@/shared/types";
 
-// Interfaz para el contexto
-export interface GlobalClientsContextType {
+interface ClientsContextType {
     clients: Client[];
     contracts: Contract[];
-    memberships: Membership[];
-    addClient: (newClient: Omit<Client, "id">) => string;
-    updateClient: (id: string, updates: Partial<Client>) => void;
-    addContract: (newContract: Omit<Contract, "id">) => void;
-    updateContract: (id: number, updates: Partial<Contract>) => void;
-    deleteContract: (id: number) => void;
+    loading: boolean;
+    error: string | null;
+    refreshClients: () => Promise<void>;
+    refreshContracts: () => Promise<void>;
 }
 
-// Crear el contexto
-export const GlobalClientsContext = createContext<GlobalClientsContextType | null>(null);
+export const GlobalClientsContext = createContext<ClientsContextType | null>(null);
 
-// Hook personalizado para usar el contexto
 export const useGlobalClients = () => {
     const context = useContext(GlobalClientsContext);
     if (!context) {
-        throw new Error('useGlobalClients debe usarse dentro de un GlobalClientsProvider');
+        throw new Error("useGlobalClients must be used within a GlobalClientsProvider");
     }
     return context;
 };
 
-// Proveedor del contexto
-export const GlobalClientsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // Estado para los clientes con datos iniciales
-    const [clients, setClients] = useState<Client[]>(
-        mockClients.map((c) => ({
-            id: c.id,
-            codigo: c.codigo || "",
-            name: `${c.nombre || ""} ${c.apellido || ""}`,
-            firstName: c.nombre,
-            lastName: c.apellido,
-            email: c.email || "",
-            phone: c.telefono || "",
-            documentType: c.tipo_documento,
-            documentNumber: c.numero_documento,
-            membershipType: c.membershipType,
-            membershipEndDate: c.membershipEndDate,
-            address: c.direccion || "",
-            emergencyContact: c.contacto_emergencia || "",
-            emergencyPhone: c.telefono_emergencia || "",
-            birthdate: c.fecha_nacimiento ? new Date(c.fecha_nacimiento) : undefined,
-            status: c.estado || "Activo",
-            isBeneficiary: false,
-            registrationDate: c.fecha_registro ? new Date(c.fecha_registro) : new Date()
-        }))
-    );
+export const GlobalClientsProvider = ({ children }: { children: React.ReactNode }) => {
+    const [clients, setClients] = useState<Client[]>([]);
+    const [contracts, setContracts] = useState<Contract[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    // Estado para los contratos con datos iniciales
-    const [contracts, setContracts] = useState<Contract[]>(
-        mockContracts.map((c) => ({
-            id: c.id,
-            codigo: c.codigo || "",
-            id_cliente: c.id_cliente,
-            id_membresia: c.id_membresia,
-            fecha_inicio: new Date(c.fecha_inicio),
-            fecha_fin: new Date(c.fecha_fin),
-            estado: c.estado,
-            cliente_nombre: c.cliente_nombre || "",
-            membresia_nombre: c.membresia_nombre || "",
-            membresia_precio: c.membresia_precio || 0,
-            precio_total: c.precio_total,
-            cliente_documento: c.cliente_documento,
-            cliente_documento_tipo: c.cliente_documento_tipo,
-            fecha_registro: c.fecha_registro ? new Date(c.fecha_registro) : new Date()
-        }))
-    );
-
-    // Convertir mockMemberships a tipo Membership
-    const memberships: Membership[] = mockMemberships.map((m) => ({
-        id: m.id,
-        nombre: m.nombre,
-        descripcion: m.descripcion || "",
-        duracion_dias: m.duracion_dias,
-        precio: m.precio,
-        estado: m.estado
-    }));
-
-    // Función para añadir un nuevo cliente
-    const handleAddClient = (newClient: Omit<Client, "id">) => {
-        // Generar ID único para el nuevo cliente
-        const newId = Math.max(...clients.map(c => Number(c.id)), 0) + 1;
-        const clientId = newId.toString();
-
-        // Crear el nuevo cliente con ID y código formateado correctamente
-        const clientWithId: Client = {
-            ...newClient,
-            id: clientId,
-            codigo: `P${clientId.padStart(4, '0')}`
-        };
-
-        // Actualizar el estado de clientes
-        setClients(prevClients => {
-            // Ordenar clientes por número de código (ordenamiento numérico)
-            const updatedClients = [...prevClients, clientWithId];
-            return updatedClients.sort((a, b) => {
-                const codeA = a.codigo ? parseInt(a.codigo.replace('P', '')) : Number(a.id);
-                const codeB = b.codigo ? parseInt(b.codigo.replace('P', '')) : Number(b.id);
-                return codeA - codeB;
-            });
-        });
-
-        console.log("Nuevo cliente añadido:", clientWithId);
-        return clientId;
-    };
-
-    // Función para actualizar un cliente existente
-    const handleUpdateClient = (clientId: string, updates: Partial<Client>) => {
-        setClients(prevClients =>
-            prevClients.map(client =>
-                client.id === clientId
-                    ? { ...client, ...updates }
-                    : client
-            )
-        );
-
-        console.log("Cliente actualizado:", clientId, updates);
-    };
-
-    // Función para añadir un nuevo contrato
-    const handleAddContract = (newContract: Omit<Contract, "id">) => {
-        // Generar ID único para el nuevo contrato
-        const newId = Math.max(...contracts.map(c => c.id), 0) + 1;
-
-        // Crear el nuevo contrato con ID y código formateado correctamente
-        const contractWithId: Contract = {
-            ...newContract,
-            id: newId,
-            codigo: `C${newId.toString().padStart(4, '0')}`,
-        };
-
-        // Actualizar el estado de contratos
-        setContracts(prevContracts => {
-            // Ordenar contratos por número de código (orden numérico)
-            const updatedContracts = [...prevContracts, contractWithId];
-            return updatedContracts.sort((a, b) => {
-                const codeA = a.codigo ? parseInt(a.codigo.replace('C', '')) : a.id;
-                const codeB = b.codigo ? parseInt(b.codigo.replace('C', '')) : b.id;
-                return codeA - codeB;
-            });
-        });
-
-        // Actualizar también la información de membresía en el cliente correspondiente
-        const clientId = newContract.id_cliente.toString();
-        const selectedMembership = memberships.find(m => m.id === newContract.id_membresia);
-
-        if (selectedMembership) {
-            setClients(prevClients => {
-                const updatedClients = prevClients.map(client => {
-                    if (client.id === clientId) {
-                        // Asegurarse de que el status sea uno de los valores permitidos
-                        const updatedClient: Client = {
-                            ...client,
-                            status: "Activo" as "Activo" | "Inactivo" | "Congelado" | "Pendiente de pago",
-                            membershipType: selectedMembership.nombre,
-                            membershipEndDate: newContract.fecha_fin,
-                        };
-                        return updatedClient;
+    const refreshClients = async () => {
+        try {
+            setLoading(true);
+            const response = await clientService.getClients({});
+            
+            // Verificar que la respuesta tiene la estructura esperada
+            const clientsData = response?.data || [];
+            if (Array.isArray(clientsData)) {
+                // Filtrar clientes válidos antes de mapear
+                const validClients = clientsData.filter(client => 
+                    client && (client.id_persona || client.id)
+                );
+                
+                // Mapear clientes de forma segura
+                const mappedClients = validClients.map(client => {
+                    try {
+                        return mapDbClientToUiClient(client);
+                    } catch (err) {
+                        console.warn('Error mapping client:', client, err);
+                        return null;
                     }
-                    return client;
-                });
-
-                return updatedClients;
-            });
-        }
-
-        console.log("Nuevo contrato añadido:", contractWithId);
-
-        // Forzar actualización de MOCK_CLIENTS para que otros componentes detecten el cambio
-        const updatedMockClients = [...MOCK_CLIENTS];
-        MOCK_CLIENTS.splice(0, MOCK_CLIENTS.length, ...updatedMockClients);
-    };
-
-    // Función para actualizar un contrato existente
-    const handleUpdateContract = (id: number, updates: Partial<Contract>) => {
-        // Primero obtenemos el contrato actual para tener acceso a sus datos
-        const currentContract = contracts.find(c => c.id === id);
-
-        setContracts(prevContracts =>
-            prevContracts.map(contract =>
-                contract.id === id
-                    ? { ...contract, ...updates }
-                    : contract
-            )
-        );
-
-        // Si estamos cambiando el estado del contrato, actualizar también el cliente correspondiente
-        if (updates.estado || updates.fecha_fin || updates.id_membresia) {
-            const clientId = currentContract?.id_cliente.toString();
-
-            if (clientId) {
-                // Preparar las actualizaciones para el cliente
-                const clientUpdates: Partial<Client> = {};
-
-                // Si cambia el estado
-                if (updates.estado) {
-                    clientUpdates.status =
-                        updates.estado === "Activo" ? "Activo" :
-                            updates.estado === "Congelado" ? "Congelado" :
-                                updates.estado === "Pendiente de pago" ? "Pendiente de pago" : "Inactivo";
-                }
-
-                // Si cambia la fecha de fin
-                if (updates.fecha_fin) {
-                    clientUpdates.membershipEndDate = updates.fecha_fin;
-                }
-
-                // Si cambia la membresía
-                if (updates.id_membresia) {
-                    const membership = memberships.find(m => m.id === updates.id_membresia);
-                    if (membership) {
-                        clientUpdates.membershipType = membership.nombre;
-                    }
-                }
-
-                // Actualizar el cliente
-                if (Object.keys(clientUpdates).length > 0) {
-                    handleUpdateClient(clientId, clientUpdates);
-
-                    // Actualizar también en MOCK_CLIENTS para sincronización en tiempo real
-                    const mockClientIndex = MOCK_CLIENTS.findIndex(c => c.id === clientId);
-                    if (mockClientIndex !== -1) {
-                        if (clientUpdates.status) {
-                            MOCK_CLIENTS[mockClientIndex].estado = clientUpdates.status as any;
-                        }
-                        if (clientUpdates.membershipEndDate) {
-                            MOCK_CLIENTS[mockClientIndex].membershipEndDate = clientUpdates.membershipEndDate;
-                        }
-                        if (clientUpdates.membershipType) {
-                            MOCK_CLIENTS[mockClientIndex].membershipType = clientUpdates.membershipType;
-                        }
-                    }
-                }
+                }).filter(Boolean); // Remover nulls
+                
+                setClients(mappedClients);
+                setError(null);
+            } else {
+                console.warn('Clients response is not an array:', response);
+                setClients([]);
+                setError("Formato de respuesta de clientes inválido");
             }
+        } catch (err) {
+            setError("Error al cargar los clientes");
+            console.error("Error loading clients:", err);
+            setClients([]);
+        } finally {
+            setLoading(false);
         }
-
-        console.log("Contrato actualizado:", id, updates);
     };
 
-    // Función para eliminar un contrato
-    const handleDeleteContract = (id: number) => {
-        // Primero obtenemos el contrato que se eliminará
-        const contractToDelete = contracts.find(c => c.id === id);
-
-        setContracts(prevContracts =>
-            prevContracts.filter(contract => contract.id !== id)
-        );
-
-        // Si el cliente no tiene más contratos activos, actualizar su estado
-        if (contractToDelete) {
-            const clientId = contractToDelete.id_cliente.toString();
-            const clientHasOtherActiveContracts = contracts.some(c =>
-                c.id !== id &&
-                c.id_cliente.toString() === clientId &&
-                c.estado === "Activo"
-            );
-
-            if (!clientHasOtherActiveContracts) {
-                handleUpdateClient(clientId, {
-                    status: "Inactivo",
-                    membershipEndDate: new Date()
-                });
-
-                // Actualizar también en MOCK_CLIENTS para sincronización en tiempo real
-                const mockClientIndex = MOCK_CLIENTS.findIndex(c => c.id === clientId);
-                if (mockClientIndex !== -1) {
-                    MOCK_CLIENTS[mockClientIndex].estado = "Inactivo";
-                    MOCK_CLIENTS[mockClientIndex].membershipEndDate = new Date();
-                }
+    const refreshContracts = async () => {
+        try {
+            setLoading(true);
+            const response = await contractService.getContracts();
+            
+            // Verificar que la respuesta tiene la estructura esperada
+            const contractsData = response?.data?.data || response?.data || [];
+            if (Array.isArray(contractsData)) {
+                // Filtrar contratos válidos antes de mapear
+                const validContracts = contractsData.filter(contract => 
+                    contract && contract.id
+                );
+                
+                // Mapear contratos de forma segura
+                const mappedContracts = validContracts.map(contract => {
+                    try {
+                        return mapDbContractToUiContract(contract);
+                    } catch (err) {
+                        console.warn('Error mapping contract:', contract, err);
+                        return null;
+                    }
+                }).filter(Boolean); // Remover nulls
+                
+                setContracts(mappedContracts);
+                setError(null);
+            } else {
+                console.warn('Contracts response is not an array:', response);
+                setContracts([]);
+                setError("Formato de respuesta de contratos inválido");
             }
+        } catch (err) {
+            setError("Error al cargar los contratos");
+            console.error("Error loading contracts:", err);
+            setContracts([]);
+        } finally {
+            setLoading(false);
         }
-
-        console.log("Contrato eliminado:", id);
     };
 
-    // Valor del contexto
-    const contextValue: GlobalClientsContextType = {
-        clients,
-        contracts,
-        memberships,
-        addClient: handleAddClient,
-        updateClient: handleUpdateClient,
-        addContract: handleAddContract,
-        updateContract: handleUpdateContract,
-        deleteContract: handleDeleteContract
-    };
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                setLoading(true);
+                // Cargar datos de forma independiente para evitar que un error afecte al otro
+                await Promise.allSettled([refreshClients(), refreshContracts()]);
+            } catch (err) {
+                console.error("Error loading initial data:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, []);
 
     return (
-        <GlobalClientsContext.Provider value={contextValue}>
+        <GlobalClientsContext.Provider
+            value={{
+                clients,
+                contracts,
+                loading,
+                error,
+                refreshClients,
+                refreshContracts,
+            }}
+        >
             {children}
         </GlobalClientsContext.Provider>
     );

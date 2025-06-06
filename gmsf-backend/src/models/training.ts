@@ -1,7 +1,7 @@
 import { DataTypes, Model, type Optional } from "sequelize"
 import sequelize from "../config/db"
 import User from "./user"
-import Person from "./person"
+import Person from "./client"
 
 interface TrainingAttributes {
     id: number
@@ -11,7 +11,7 @@ interface TrainingAttributes {
     fecha_fin: Date
     id_entrenador: number
     id_cliente: number
-    estado: "Programado" | "Completado" | "Cancelado"
+    estado: "Programado" | "En proceso" | "Completado" | "Cancelado"
     notas?: string
     fecha_creacion: Date
 }
@@ -29,7 +29,7 @@ class Training
     public fecha_fin!: Date
     public id_entrenador!: number
     public id_cliente!: number
-    public estado!: "Programado" | "Completado" | "Cancelado"
+    public estado!: "Programado" | "En proceso" | "Completado" | "Cancelado"
     public notas?: string
     public fecha_creacion!: Date
 
@@ -114,8 +114,8 @@ Training.init(
             defaultValue: "Programado",
             validate: {
                 isIn: {
-                    args: [["Programado", "Completado", "Cancelado"]],
-                    msg: 'El estado debe ser uno de los siguientes: Programado, Completado, Cancelado'
+                    args: [["Programado", "En proceso", "Completado", "Cancelado"]],
+                    msg: 'El estado debe ser uno de los siguientes: Programado, En proceso, Completado, Cancelado'
                 }
             },
         },

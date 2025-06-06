@@ -409,4 +409,112 @@ export class ScheduleService {
 
     return trainings;
   }
+
+  // Get daily schedule
+  async getDailySchedule(date: string) {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const trainings = await Training.findAll({
+      where: {
+        fecha_inicio: {
+          [Op.between]: [startOfDay, endOfDay],
+        },
+        estado: { [Op.ne]: "Cancelado" },
+      },
+      include: [
+        {
+          model: User,
+          as: "entrenador",
+          attributes: ["id", "nombre", "apellido", "correo", "telefono"],
+        },
+        {
+          model: Person,
+          as: "cliente",
+          include: [
+            {
+              model: User,
+              as: "usuario",
+              attributes: ["id", "nombre", "apellido", "correo", "telefono"],
+            },
+          ],
+        },
+      ],
+      order: [["fecha_inicio", "ASC"]],
+    });
+
+    return trainings;
+  }
+
+  // Get weekly schedule
+  async getWeeklySchedule(startDate: string, endDate: string) {
+    const trainings = await Training.findAll({
+      where: {
+        fecha_inicio: {
+          [Op.between]: [new Date(startDate), new Date(endDate)],
+        },
+        estado: { [Op.ne]: "Cancelado" },
+      },
+      include: [
+        {
+          model: User,
+          as: "entrenador",
+          attributes: ["id", "nombre", "apellido", "correo", "telefono"],
+        },
+        {
+          model: Person,
+          as: "cliente",
+          include: [
+            {
+              model: User,
+              as: "usuario",
+              attributes: ["id", "nombre", "apellido", "correo", "telefono"],
+            },
+          ],
+        },
+      ],
+      order: [["fecha_inicio", "ASC"]],
+    });
+
+    return trainings;
+  }
+
+  // Get monthly schedule
+  async getMonthlySchedule(year: number, month: number) {
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+
+    const trainings = await Training.findAll({
+      where: {
+        fecha_inicio: {
+          [Op.between]: [startOfMonth, endOfMonth],
+        },
+        estado: { [Op.ne]: "Cancelado" },
+      },
+      include: [
+        {
+          model: User,
+          as: "entrenador",
+          attributes: ["id", "nombre", "apellido", "correo", "telefono"],
+        },
+        {
+          model: Person,
+          as: "cliente",
+          include: [
+            {
+              model: User,
+              as: "usuario",
+              attributes: ["id", "nombre", "apellido", "correo", "telefono"],
+            },
+          ],
+        },
+      ],
+      order: [["fecha_inicio", "ASC"]],
+    });
+
+    return trainings;
+  }
 }

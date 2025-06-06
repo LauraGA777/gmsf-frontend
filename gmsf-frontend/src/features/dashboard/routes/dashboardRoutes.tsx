@@ -1,11 +1,11 @@
 import React from "react";
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
+import { GymDashboard } from "@/features/dashboard/pages/gymDashboard";
 import { DashboardPage } from "@/features/dashboard/pages/dashboardPage";
 import { AttendanceChart } from "../components/attendanceChart";
 import { PopularMembershipsChart } from "../components/popularMembershipsChart";
 import { SatisfactionChart } from "../components/satisfactionChart";
 import { ServiceSatisfactionChart } from "../components/servicesSatisfactionChart";
-import { mockTrainings, mockClients } from "@/features/data/mockData";
 
 // Datos simulados para ServiceSatisfactionChart
 const serviceSatisfactionData = [
@@ -23,12 +23,22 @@ const satisfactionData = [
     { categoria: "Atención al Cliente", calificacion: 4.8, color: "#ff8042" },
 ];
 
-
-
 export const dashboardRoutes = [
     {
         path: "dashboard",
-        element: <DashboardPage />
+        element: (
+            <ProtectedRoute allowedRoles={[1, 2]}>
+                <DashboardPage />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "dashboard/gym",
+        element: (
+            <ProtectedRoute allowedRoles={[1, 2]}>
+                <GymDashboard />
+            </ProtectedRoute>
+        )
     },
     // Mantenemos rutas individuales para acceso directo a componentes específicos
     {
@@ -66,5 +76,4 @@ export const dashboardRoutes = [
             </ProtectedRoute>
         ),
     },
-
 ];

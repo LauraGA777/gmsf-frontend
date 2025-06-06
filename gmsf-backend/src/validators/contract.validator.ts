@@ -10,10 +10,10 @@ const contractBaseSchema = z.object({
     ),
   id_persona: z.number(),
   id_membresia: z.number(),
-  fecha_inicio: z.string().refine((date) => !isNaN(Date.parse(date)), {
+  fecha_inicio: z.string().refine((date: string) => !isNaN(Date.parse(date)), {
     message: "Fecha de inicio inválida",
   }),
-  fecha_fin: z.string().refine((date) => !isNaN(Date.parse(date)), {
+  fecha_fin: z.string().refine((date: string) => !isNaN(Date.parse(date)), {
     message: "Fecha de fin inválida",
   }),
   membresia_precio: z.number().positive(),
@@ -28,6 +28,14 @@ export const createContractSchema = contractBaseSchema;
 export const updateContractSchema = contractBaseSchema.partial().extend({
   usuario_actualizacion: z.number().optional(),
   motivo: z.string().optional(),
+  membresia_precio: z
+    .preprocess((val: unknown) => {
+      if (typeof val === "string" && val.trim() !== "") {
+        return parseFloat(val);
+      }
+      return val;
+    }, z.number().positive())
+    .optional(),
 });
 
 // Schema for contract query parameters
@@ -45,17 +53,17 @@ export const contractQuerySchema = z.object({
 
 // Schema for contract ID parameter
 export const contractIdSchema = z.object({
-  id: z.string().transform((val) => Number(val)),
+  id: z.string().transform((val: string) => Number(val)),
 });
 
 // Schema for renewing a contract
 export const renewContractSchema = z.object({
   id_contrato: z.number(),
   id_membresia: z.number(),
-  fecha_inicio: z.string().refine((date) => !isNaN(Date.parse(date)), {
+  fecha_inicio: z.string().refine((date: string) => !isNaN(Date.parse(date)), {
     message: "Fecha de inicio inválida",
   }),
-  fecha_fin: z.string().refine((date) => !isNaN(Date.parse(date)), {
+  fecha_fin: z.string().refine((date: string) => !isNaN(Date.parse(date)), {
     message: "Fecha de fin inválida",
   }),
   membresia_precio: z.number().positive(),

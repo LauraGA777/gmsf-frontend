@@ -9,15 +9,20 @@ export interface Client {
   estado: boolean;
   usuario?: {
     id: number;
+    codigo: string;
     nombre: string;
     apellido: string;
     correo: string;
     telefono?: string;
     direccion?: string;
-    genero?: "M" | "F" | "O";
-    tipo_documento?: string;
+    genero?: 'M' | 'F' | 'O';
+    tipo_documento: 'CC' | 'CE' | 'TI' | 'PP' | 'DIE';
     numero_documento: string;
     fecha_nacimiento: Date;
+    fecha_actualizacion?: Date;
+    asistencias_totales?: number;
+    estado: boolean;
+    id_rol?: number;
   };
   contactos_emergencia?: EmergencyContact[];
   titular?: Client;

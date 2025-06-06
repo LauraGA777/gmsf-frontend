@@ -50,16 +50,16 @@ interface ContractFilters {
 }
 
 export function ContractsTable({
-  contracts,
-  memberships,
-  clients,
+  contracts = [],
+  memberships = [],
+  clients = [],
   onAddContract,
   onUpdateContract,
   onDeleteContract,
   onAddClient,
 }: ContractsTableProps) {
   const { user } = useAuth()
-  const [filteredContracts, setFilteredContracts] = useState<Contract[]>([])
+  const [filteredContracts, setFilteredContracts] = useState<Contract[]>(contracts || [])
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null)
@@ -470,13 +470,24 @@ export function ContractsTable({
                 return (
                   <TableRow key={contract.id} className="hover:bg-gray-50">
                     <TableCell>{contract.codigo || `C${contract.id.toString().padStart(4, "0")}`}</TableCell>
-                    <TableCell className="font-medium">{contract.cliente_nombre}</TableCell>
+                    <TableCell className="font-medium">
+                      <div>{contract.cliente_nombre}</div>
+                      <div className="text-xs text-gray-500">
+                        {contract.cliente_documento_tipo || "CC"} {contract.cliente_documento || ""}
+                      </div>
+                    </TableCell>
                     <TableCell>
-                      <div>{contract.membresia_nombre}</div>
+                      <div className="font-medium">{contract.membresia_nombre}</div>
                       <div className="text-xs text-gray-500">{formatCOP(contract.membresia_precio || 0)}</div>
                     </TableCell>
-                    <TableCell>{format(new Date(contract.fecha_inicio), "dd/MM/yyyy")}</TableCell>
-                    <TableCell>{format(new Date(contract.fecha_fin), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>
+                      <div className="font-medium">{format(new Date(contract.fecha_inicio), "dd/MM/yyyy")}</div>
+                      <div className="text-xs text-gray-500">Inicio</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">{format(new Date(contract.fecha_fin), "dd/MM/yyyy")}</div>
+                      <div className="text-xs text-gray-500">Vencimiento</div>
+                    </TableCell>
                     <TableCell>
                       <Badge className={`flex items-center ${status.color}`} style={{ pointerEvents: "none" }}>
                         {status.icon}
@@ -489,18 +500,23 @@ export function ContractsTable({
                           variant="ghost"
                           size="icon"
                           onClick={() => handleViewContract(contract)}
-                          title="Ver detalles"
+                          title="Ver detalles del contrato"
+                          aria-label="Ver detalles del contrato"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditContract(contract)}
-                          title="Editar membresía"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        
+                        {user?.role === "ADMIN" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditContract(contract)}
+                            title="Editar contrato"
+                            aria-label="Editar contrato"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
 
                         {contract.estado === "Activo" && (
                           <Button
@@ -508,6 +524,7 @@ export function ContractsTable({
                             size="icon"
                             onClick={() => handleRenewContract(contract)}
                             title="Renovar contrato"
+                            aria-label="Renovar contrato"
                           >
                             <RefreshCw className="h-4 w-4" />
                           </Button>
@@ -519,6 +536,7 @@ export function ContractsTable({
                             size="icon"
                             onClick={() => handleToggleContractStatus(contract)}
                             title="Cambiar estado"
+                            aria-label="Cambiar estado del contrato"
                             className="text-gray-600 hover:text-gray-900"
                           >
                             <Power className="h-4 w-4" />

@@ -1,269 +1,224 @@
-import type React from "react"
-import { useState, useEffect } from "react"
-import { Button } from "@/shared/components/ui/button"
-import { Label } from "@/shared/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
-import { format, addDays, differenceInDays } from "date-fns"
-import { es } from "date-fns/locale"
-import { CalendarIcon, User, CalendarPlus2Icon as CalendarIcon2, AlertTriangle, CheckCircle, Clock } from "lucide-react"
-import type { Client } from "@/shared/types"
-import { Badge } from "@/shared/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
-import { DatePicker } from "@/shared/components/ui/date-picker"
-import { mockMemberships } from "@/features/data/mockData"
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Button } from "@/shared/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/shared/components/ui/form";
+import { Input } from "@/shared/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { DatePicker } from "@/shared/components/ui/date-picker";
+import { membershipService } from "@/features/memberships/services/membership.service";
+import type { Client, Membership } from "@/shared/types";
 
+const formSchema = z.object({
+  membershipId: z.string().min(1, "Selecciona una membresía"),
+  startDate: z.date({
+    required_error: "La fecha de inicio es requerida",
+  }),
+  endDate: z.date({
+    required_error: "La fecha de fin es requerida",
+  }),
+  price: z.string().min(1, "El precio es requerido"),
+  paymentMethod: z.string().min(1, "El método de pago es requerido"),
+  notes: z.string().optional(),
+});
 
 interface RenewMembershipModalProps {
-  client: Client
-  onSubmit: (clientId: string, updates: Partial<Client>) => void
-  onClose: () => void
+  client: Client;
+  onSubmit: (data: any) => void;
+  onClose: () => void;
 }
 
 export function RenewMembershipModal({ client, onSubmit, onClose }: RenewMembershipModalProps) {
-  const [membershipType, setMembershipType] = useState(client.membershipType || "")
-  const [startDate, setStartDate] = useState<Date>(
-    client.membershipEndDate && client.membershipEndDate > new Date() ? client.membershipEndDate : new Date(),
-  )
-  const [endDate, setEndDate] = useState<Date | null>(null)
-  const [selectedDuration, setSelectedDuration] = useState<number>(30)
-  const [isProcessing, setIsProcessing] = useState(false)
-  
-  // Usar las membresías del sistema
-  const memberships = mockMemberships
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Obtener el estado actual de la membresía
-  const getMembershipStatus = () => {
-    if (!client.membershipEndDate || client.status === "Inactivo") {
-      return { label: "Sin membresía activa", color: "bg-gray-100 text-gray-800", icon: AlertTriangle }
-    }
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      membershipId: "",
+      startDate: new Date(),
+      endDate: new Date(),
+      price: "",
+      paymentMethod: "",
+      notes: "",
+    },
+  });
 
-    const today = new Date()
-    const daysRemaining = differenceInDays(client.membershipEndDate, today)
-
-    if (daysRemaining < 0) {
-      return {
-        label: "Membresía vencida",
-        color: "bg-red-100 text-red-800",
-        icon: AlertTriangle,
-        detail: `Venció hace ${Math.abs(daysRemaining)} días`,
-      }
-    }
-
-    if (daysRemaining <= 7) {
-      return {
-        label: "Por vencer pronto",
-        color: "bg-yellow-100 text-yellow-800",
-        icon: Clock,
-        detail: `Vence en ${daysRemaining} días`,
-      }
-    }
-
-    return {
-      label: "Activa",
-      color: "bg-green-100 text-green-800",
-      icon: CheckCircle,
-      detail: `Vence en ${daysRemaining} días`,
-    }
-  }
-
-  const membershipStatus = getMembershipStatus()
-  const MembershipIcon = membershipStatus.icon
-
-  // Calcular fecha de fin según la membresía seleccionada
   useEffect(() => {
-    const membership = memberships.find((m) => m.nombre === membershipType)
-    if (membership) {
-      setSelectedDuration(membership.duracion_dias)
-      setEndDate(addDays(startDate, membership.duracion_dias))
-    } else {
-      // Si no se encuentra la membresía, usar 30 días por defecto
-      setSelectedDuration(30)
-      setEndDate(addDays(startDate, 30))
-    }
-  }, [membershipType, startDate])
+    const fetchMemberships = async () => {
+      try {
+        const response = await membershipService.getMemberships();
+        setMemberships(response.data);
+      } catch (error) {
+        console.error("Error fetching memberships:", error);
+      }
+    };
 
-  // Formatear precio en COP
-  const formatCOP = (price: number): string => {
-    return new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price)
-  }
+    fetchMemberships();
+  }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsProcessing(true)
-
-    // Simular procesamiento
-    setTimeout(() => {
-      const updatedClient: Client = {
-        ...client,
-        membershipType,
-        membershipEndDate: endDate,
-        status: "Activo",
+  const handleSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsLoading(true);
+    try {
+      const selectedMembership = memberships.find(m => m.id === values.membershipId);
+      if (!selectedMembership) {
+        throw new Error("Membresía no encontrada");
       }
 
-      onSubmit(client.id, updatedClient)
-      setIsProcessing(false)
-    }, 500)
-  }
+      const contractData = {
+        clientId: client.id,
+        membershipId: values.membershipId,
+        startDate: values.startDate,
+        endDate: values.endDate,
+        price: parseFloat(values.price),
+        paymentMethod: values.paymentMethod,
+        notes: values.notes,
+        status: "Activo",
+      };
+
+      await onSubmit(contractData);
+      onClose();
+    } catch (error) {
+      console.error("Error creating contract:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-3">Renovar Membresía</h2>
-
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <Tabs defaultValue="client" className="w-full">
-          <TabsList className="grid grid-cols-2 mb-3">
-            <TabsTrigger value="client">Cliente</TabsTrigger>
-            <TabsTrigger value="membership">Nueva Membresía</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="client" className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Información del cliente */}
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <User className="h-4 w-4 text-gray-600" />
-                  <h3 className="font-semibold text-sm">Información del Cliente</h3>
-                </div>
-
-                <div className="space-y-2">
-                  <div>
-                    <p className="text-xs text-gray-500 font-medium">Nombre</p>
-                    <p className="text-sm font-medium">{client.name}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <p className="text-xs text-gray-500 font-medium">Documento</p>
-                      <p className="text-sm font-medium">
-                        {client.documentType} {client.documentNumber}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500 font-medium">Teléfono</p>
-                      <p className="text-sm font-medium">{client.phone || "No especificado"}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-500 font-medium">Email</p>
-                    <p className="text-sm font-medium">{client.email}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Estado actual de la membresía */}
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <CalendarIcon className="h-4 w-4 text-gray-600" />
-                  <h3 className="font-semibold text-sm">Membresía Actual</h3>
-                </div>
-
-                <div className="space-y-2">
-                  <div>
-                    <p className="text-xs text-gray-500 font-medium">Tipo de Membresía</p>
-                    <p className="text-sm font-medium">{client.membershipType || "Sin membresía"}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-500 font-medium">Estado</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge className={membershipStatus.color}>
-                        <MembershipIcon className="h-3.5 w-3.5 mr-1" />
-                        {membershipStatus.label}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {client.membershipEndDate && (
-                    <div>
-                      <p className="text-xs text-gray-500 font-medium">Fecha de Vencimiento</p>
-                      <div className="flex items-center gap-2">
-                        <CalendarIcon2 className="h-3.5 w-3.5 text-gray-500" />
-                        <p className="text-sm font-medium">
-                          {format(client.membershipEndDate, "dd MMMM, yyyy", { locale: es })}
-                        </p>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">{membershipStatus.detail}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="membership" className="space-y-3">
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-              <div className="flex items-center gap-2 mb-2">
-                <CalendarIcon className="h-4 w-4 text-gray-600" />
-                <h3 className="font-semibold text-sm">Nueva Membresía</h3>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="membershipType" className="text-xs font-medium">
-                    Tipo de Membresía
-                  </Label>
-                  <Select value={membershipType} onValueChange={setMembershipType}>
-                    <SelectTrigger id="membershipType" className="h-8 text-sm">
-                      <SelectValue placeholder="Seleccionar tipo" />
-                    </SelectTrigger>
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Renovar Membresía</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="membershipId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Membresía</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona una membresía" />
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {memberships.map((membership) => (
-                        <SelectItem key={membership.id} value={membership.nombre}>
-                          {membership.nombre} - {formatCOP(membership.precio)}
+                        <SelectItem key={membership.id} value={membership.id}>
+                          {membership.nombre} - ${membership.precio}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-                  <div className="text-xs bg-blue-50 p-2 rounded-md mt-2">
-                    <p className="font-medium">Descripción:</p>
-                    <p className="text-gray-700">
-                      {memberships.find((m) => m.nombre === membershipType)?.descripcion || ""}
-                    </p>
-                  </div>
-                </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="startDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha de Inicio</FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        date={field.value}
+                        onSelect={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <div className="space-y-2">
-                  <DatePicker
-                    date={startDate}
-                    setDate={(date) => date && setStartDate(date)}
-                    label="Fecha de Inicio"
-                    placeholder="Seleccionar fecha"
-                    size="sm"
-                    fromYear={new Date().getFullYear() - 1}
-                    toYear={new Date().getFullYear() + 5}
-                    subtitle="Seleccione la fecha de inicio de la membresía"
-                  />
-
-                  <div className="mt-3">
-                    <Label htmlFor="endDate" className="text-xs font-medium">
-                      Fecha de Finalización
-                    </Label>
-                    <div className="flex items-center gap-2 mt-1 p-2 border rounded-md bg-gray-100 text-sm">
-                      <CalendarIcon className="h-4 w-4 text-gray-500" />
-                      <span>{endDate ? format(endDate, "dd MMMM, yyyy", { locale: es }) : "Calculando..."}</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Duración: {selectedDuration} días</p>
-                  </div>
-                </div>
-              </div>
+              <FormField
+                control={form.control}
+                name="endDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha de Fin</FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        date={field.value}
+                        onSelect={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
-          </TabsContent>
-        </Tabs>
 
-        <div className="flex justify-end space-x-2 pt-3 border-t mt-3">
-          <Button type="submit" className="bg-black hover:bg-gray-800" disabled={isProcessing} size="sm">
-            {isProcessing ? "Procesando..." : "Renovar Membresía"}
-          </Button>
-        </div>
-      </form>
-    </div>
-  )
+            <FormField
+              control={form.control}
+              name="price"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Precio</FormLabel>
+                  <FormControl>
+                    <Input type="number" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="paymentMethod"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Método de Pago</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona método de pago" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="efectivo">Efectivo</SelectItem>
+                      <SelectItem value="tarjeta">Tarjeta</SelectItem>
+                      <SelectItem value="transferencia">Transferencia</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notas</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Guardando..." : "Guardar"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
 }

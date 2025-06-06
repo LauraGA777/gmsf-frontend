@@ -6,7 +6,7 @@ export interface Contract {
   fecha_inicio: Date;
   fecha_fin: Date;
   membresia_precio: number;
-  estado: "Activo" | "Congelado" | "Vencido" | "Cancelado" | "Por vencer";
+  estado: 'Activo' | 'Congelado' | 'Vencido' | 'Cancelado' | 'Por vencer';
   fecha_registro: Date;
   fecha_actualizacion: Date;
   usuario_registro?: number;
@@ -16,19 +16,25 @@ export interface Contract {
     codigo: string;
     usuario?: {
       id: number;
+      codigo: string;
       nombre: string;
       apellido: string;
       correo: string;
       telefono?: string;
+      tipo_documento: 'CC' | 'CE' | 'TI' | 'PP' | 'DIE';
+      numero_documento: string;
     };
   };
   membresia?: {
     id: number;
     codigo: string;
     nombre: string;
+    descripcion?: string;
     dias_acceso: number;
     vigencia_dias: number;
     precio: number;
+    fecha_creacion: Date;
+    estado: boolean;
   };
   historial?: ContractHistory[];
 }

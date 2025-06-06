@@ -26,82 +26,182 @@ export interface User {
   };
 }
 
-// Client related types
+// Client/Person related types
 export interface Client {
-  id: string;
-  codigo?: string;
-  name: string;
-  firstName?: string;
-  lastName?: string;
-  email: string;
-  phone?: string;
-  documentType?: "CC" | "TI";
-  documentNumber?: string;
-  address?: string;
-  birthdate?: Date;
-  emergencyContact?: string;
-  emergencyPhone?: string;
-  membershipType?: string;
-  membershipEndDate?: Date | null;
-  status: "Activo" | "Inactivo" | "Congelado" | "Pendiente de pago";
-  isBeneficiary?: boolean;
-  beneficiaryRelation?: string;
-  beneficiaryName?: string;
-  beneficiaryDocumentType?: "CC" | "TI";
-  beneficiaryDocumentNumber?: string;
-  beneficiaryPhone?: string;
-  beneficiaryEmail?: string;
-  registrationDate?: Date | string;
-  notes?: string;
-  medicalInfo?: string;
-  genero?: "Masculino" | "Femenino" | "Otro";
-  asistencias_totales?: number;
-  id_titular?: string;
+  id_persona: number;
+  codigo: string;
+  id_usuario?: number;
+  id_titular?: number;
+  relacion?: string;
+  fecha_registro: Date;
+  fecha_actualizacion: Date;
+  estado: boolean;
+  // Relaciones populadas
+  usuario?: {
+    id: number;
+    codigo: string;
+    nombre: string;
+    apellido: string;
+    correo: string;
+    telefono?: string;
+    direccion?: string;
+    genero?: 'M' | 'F' | 'O';
+    tipo_documento: 'CC' | 'CE' | 'TI' | 'PP' | 'DIE';
+    numero_documento: string;
+    fecha_nacimiento: Date;
+    asistencias_totales: number;
+  };
+  titular?: {
+    id_persona: number;
+    codigo: string;
+    usuario?: {
+      id: number;
+      nombre: string;
+      apellido: string;
+    };
+  };
+  beneficiarios?: Array<{
+    id_persona: number;
+    codigo: string;
+    relacion?: string;
+    usuario?: {
+      id: number;
+      nombre: string;
+      apellido: string;
+      correo: string;
+      telefono?: string;
+      tipo_documento: string;
+      numero_documento: string;
+    };
+  }>;
+  contactos_emergencia?: Array<{
+    id: number;
+    nombre_contacto: string;
+    telefono_contacto: string;
+    relacion_contacto?: string;
+    es_mismo_beneficiario: boolean;
+  }>;
 }
 
 // Training related types
 export interface Training {
   id: number;
-  client: string;
-  clientId?: string;
-  trainer: string;
-  trainerId?: string;
-  service: string;
-  date: Date;
-  startTime: Date;
-  endTime?: Date;
-  maxCapacity: number;
-  occupiedSpots: number;
-  status: "Activo" | "Pendiente" | "Completado" | "Cancelado";
-  notes?: string;
-  location?: string;
+  titulo: string;
+  descripcion?: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  id_entrenador: number;
+  id_cliente: number;
+  estado: 'Programado' | 'En proceso' | 'Completado' | 'Cancelado';
+  notas?: string;
+  fecha_creacion: string;
+  created_at: string;
+  updated_at: string;
+  entrenador?: {
+    id: number;
+    nombre: string;
+    apellido: string;
+    correo: string;
+    telefono?: string;
+  };
+  cliente?: {
+    id_persona: number;
+    codigo: string;
+    usuario?: {
+      id: number;
+      nombre: string;
+      apellido: string;
+      correo: string;
+      telefono?: string;
+    };
+  };
 }
 
 // Contract related types
 export interface Contract {
   id: number;
-  codigo?: string;
-  id_cliente: number;
+  codigo: string;
+  id_persona: number;
   id_membresia: number;
   fecha_inicio: Date;
   fecha_fin: Date;
-  estado:
-    | "Activo"
-    | "Cancelado"
-    | "Vencido"
-    | "Por vencer"
-    | "Congelado"
-    | "Pendiente de pago";
-  cliente_nombre: string;
-  membresia_nombre: string;
-  membresia_precio?: number;
-  cliente_documento?: string;
-  cliente_documento_tipo?: string;
-  precio_total: number;
-  fecha_registro?: Date;
-  fecha_actualizacion?: Date;
+  membresia_precio: number;
+  estado: "Activo" | "Congelado" | "Vencido" | "Cancelado" | "Por vencer";
+  fecha_registro: Date;
+  fecha_actualizacion: Date;
   usuario_registro?: number;
   usuario_actualizacion?: number;
+  // Relaciones populadas
+  persona?: {
+    id_persona: number;
+    codigo: string;
+    usuario?: {
+      id: number;
+      nombre: string;
+      apellido: string;
+      correo: string;
+      telefono?: string;
+    };
+  };
+  membresia?: {
+    id: number;
+    codigo: string;
+    nombre: string;
+    descripcion?: string;
+    dias_acceso: number;
+    vigencia_dias: number;
+    precio: number;
+    estado: boolean;
+  };
+  registrador?: {
+    id: number;
+    nombre: string;
+    apellido: string;
+  };
+  actualizador?: {
+    id: number;
+    nombre: string;
+    apellido: string;
+  };
+}
+
+// Contract History types
+export interface ContractHistory {
+  id: number;
+  id_contrato: number;
+  estado_anterior?: "Activo" | "Congelado" | "Vencido" | "Cancelado" | "Por vencer";
+  estado_nuevo: "Activo" | "Congelado" | "Vencido" | "Cancelado" | "Por vencer";
+  fecha_cambio: Date;
+  usuario_cambio?: number;
+  motivo?: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+// Contract form data types
+export interface ContractFormData {
+  id_persona: number;
+  id_membresia: number;
+  fecha_inicio: string;
+  membresia_precio?: number;
+  usuario_registro?: number;
+}
+
+// Contract renewal data
+export interface ContractRenewalData {
+  id_contrato: number;
+  id_membresia: number;
+  fecha_inicio: string;
+  fecha_fin: string;
+  membresia_precio: number;
+  usuario_registro: number;
+}
+
+// Contract freeze data
+export interface ContractFreezeData {
+  id_contrato: number;
+  motivo: string;
+  usuario_actualizacion: number;
 }
 
 // Search related types
@@ -163,12 +263,15 @@ export interface Attendance {
 
 // Tipos de membresía
 export interface Membership {
-  id: number;
+  id: string;
+  codigo: string;
   nombre: string;
-  descripcion: string;
+  descripcion?: string;
+  dias_acceso: number;
+  vigencia_dias: number;
   precio: number;
-  duracion_dias: number;
-  estado?: boolean;
+  fecha_creacion: string;
+  estado: boolean;
 }
 
 // Tipos de programación
@@ -237,51 +340,149 @@ export interface PersonalizedService {
   cliente_nombre?: string;
 }
 
-// Funciones de utilidad para mapear entre formatos de BD y UI
-export const mapDbClientToUiClient = (dbClient: any): Client => {
+// Client form data types
+export interface ClientFormData {
+  id_titular?: number;
+  relacion?: string;
+  estado?: boolean;
+  usuario?: {
+    nombre: string;
+    apellido: string;
+    correo: string;
+    telefono?: string;
+    direccion?: string;
+    genero?: 'M' | 'F' | 'O';
+    tipo_documento: 'CC' | 'CE' | 'TI' | 'PP' | 'DIE';
+    numero_documento: string;
+    fecha_nacimiento: string;
+    contrasena?: string;
+  };
+  contactos_emergencia?: Array<{
+    nombre_contacto: string;
+    telefono_contacto: string;
+    relacion_contacto?: string;
+    es_mismo_beneficiario: boolean;
+  }>;
+}
+
+// Emergency Contact types
+export interface EmergencyContact {
+  id: number;
+  id_persona: number;
+  nombre_contacto: string;
+  telefono_contacto: string;
+  relacion_contacto?: string;
+  es_mismo_beneficiario: boolean;
+  fecha_registro: Date;
+  fecha_actualizacion: Date;
+}
+
+export interface EmergencyContactFormData {
+  nombre_contacto: string;
+  telefono_contacto: string;
+  relacion_contacto?: string;
+  es_mismo_beneficiario: boolean;
+}
+
+// UI Client types (for backward compatibility with existing components)
+export interface UIClient {
+  id: string;
+  codigo: string;
+  name: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  documentType: string;
+  documentNumber: string;
+  gender?: 'M' | 'F' | 'O';
+  birthDate?: Date;
+  status: 'Activo' | 'Inactivo' | 'Congelado' | 'Pendiente de pago';
+  membershipType?: string;
+  membershipEndDate?: Date;
+  // Beneficiary info (if applicable)
+  beneficiaryName?: string;
+  beneficiaryEmail?: string;
+  beneficiaryPhone?: string;
+  beneficiaryDocumentNumber?: string;
+  beneficiaryRelation?: string;
+}
+
+// Function to map DB Client to UI Client
+export const mapDbClientToUiClient = (dbClient: any): UIClient => {
+  if (!dbClient) {
+    throw new Error('Client data is required');
+  }
+
+  const usuario = dbClient.usuario || {};
+  const titular = dbClient.titular || {};
+  const beneficiarios = dbClient.beneficiarios || [];
+  
+  // If this is a beneficiary, show both titular and beneficiary info
+  const isBeneficiary = !!dbClient.id_titular;
+  const primaryBeneficiary = beneficiarios.length > 0 ? beneficiarios[0] : null;
+
   return {
-    id: dbClient.id.toString(),
-    codigo: dbClient.codigo || `P${dbClient.id.toString().padStart(4, "0")}`,
-    name: `${dbClient.nombre || ""} ${dbClient.apellido || ""}`.trim(),
-    firstName: dbClient.nombre,
-    lastName: dbClient.apellido,
-    email: dbClient.email,
-    phone: dbClient.telefono,
-    documentType: dbClient.tipo_documento,
-    documentNumber: dbClient.numero_documento,
-    address: dbClient.direccion,
-    birthdate: dbClient.fecha_nacimiento
-      ? new Date(dbClient.fecha_nacimiento)
-      : undefined,
-    status: dbClient.estado ? "Activo" : "Inactivo",
-    genero: dbClient.genero,
-    emergencyContact: dbClient.contacto_emergencia,
-    emergencyPhone: dbClient.telefono_emergencia,
-    medicalInfo: dbClient.informacion_medica,
-    registrationDate: dbClient.fecha_registro
-      ? new Date(dbClient.fecha_registro)
-      : undefined,
-    notes: dbClient.notas,
-    asistencias_totales: dbClient.asistencias_totales,
-    id_titular: dbClient.id_titular?.toString(),
-    isBeneficiary: !!dbClient.id_titular,
+    id: (dbClient.id_persona || dbClient.id)?.toString() || '',
+    codigo: dbClient.codigo || `P${(dbClient.id_persona || dbClient.id)?.toString().padStart(3, "0")}`,
+    name: usuario.nombre && usuario.apellido 
+      ? `${usuario.nombre} ${usuario.apellido}`
+      : usuario.nombre || 'Sin nombre',
+    firstName: usuario.nombre || '',
+    lastName: usuario.apellido || '',
+    email: usuario.correo || '',
+    phone: usuario.telefono || '',
+    address: usuario.direccion || '',
+    documentType: usuario.tipo_documento || 'CC',
+    documentNumber: usuario.numero_documento || '',
+    gender: usuario.genero,
+    birthDate: usuario.fecha_nacimiento ? new Date(usuario.fecha_nacimiento) : undefined,
+    status: dbClient.estado === false ? 'Inactivo' : 'Activo',
+    
+    // Beneficiary information (show if this client has beneficiaries OR if this is a beneficiary)
+    beneficiaryName: isBeneficiary 
+      ? `${usuario.nombre} ${usuario.apellido}` 
+      : primaryBeneficiary?.usuario 
+        ? `${primaryBeneficiary.usuario.nombre} ${primaryBeneficiary.usuario.apellido}`
+        : undefined,
+    beneficiaryEmail: isBeneficiary 
+      ? usuario.correo 
+      : primaryBeneficiary?.usuario?.correo,
+    beneficiaryPhone: isBeneficiary 
+      ? usuario.telefono 
+      : primaryBeneficiary?.usuario?.telefono,
+    beneficiaryDocumentNumber: isBeneficiary 
+      ? usuario.numero_documento 
+      : primaryBeneficiary?.usuario?.numero_documento,
+    beneficiaryRelation: isBeneficiary 
+      ? dbClient.relacion 
+      : primaryBeneficiary?.relacion,
   };
 };
 
 export const mapDbContractToUiContract = (dbContract: any): Contract => {
+  // Verificar que dbContract existe
+  if (!dbContract) {
+    throw new Error('dbContract is null or undefined');
+  }
+
+  const id = dbContract.id;
+  if (!id) {
+    console.warn('Contract without ID found:', dbContract);
+    throw new Error('Contract must have an ID');
+  }
+
   return {
     id: dbContract.id,
     codigo:
       dbContract.codigo || `C${dbContract.id.toString().padStart(4, "0")}`,
-    id_cliente: dbContract.id_cliente,
+    id_persona: dbContract.id_persona || dbContract.id_persona,
     id_membresia: dbContract.id_membresia,
     fecha_inicio: new Date(dbContract.fecha_inicio),
     fecha_fin: new Date(dbContract.fecha_fin),
-    estado: dbContract.estado,
-    cliente_nombre: dbContract.cliente_nombre,
-    membresia_nombre: dbContract.membresia_nombre,
     membresia_precio: dbContract.membresia_precio,
-    precio_total: dbContract.precio_total,
+    estado: dbContract.estado,
     fecha_registro: dbContract.fecha_registro
       ? new Date(dbContract.fecha_registro)
       : undefined,
@@ -290,8 +491,10 @@ export const mapDbContractToUiContract = (dbContract: any): Contract => {
       : undefined,
     usuario_registro: dbContract.usuario_registro,
     usuario_actualizacion: dbContract.usuario_actualizacion,
-    cliente_documento: dbContract.cliente_documento,
-    cliente_documento_tipo: dbContract.cliente_documento_tipo,
+    persona: dbContract.persona,
+    membresia: dbContract.membresia,
+    registrador: dbContract.registrador,
+    actualizador: dbContract.actualizador,
   };
 };
 

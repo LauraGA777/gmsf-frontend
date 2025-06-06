@@ -1,6 +1,6 @@
 import { DataTypes, Model, type Optional } from "sequelize"
 import sequelize from "../config/db"
-import Person from "./person"
+import Person from "./client"
 import Membership from "./membership"
 import User from "./user"
 

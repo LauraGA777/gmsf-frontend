@@ -1,5 +1,5 @@
 import User from "./user"
-import Person from "./person"
+import Person from "./client"
 import EmergencyContact from "./emergencyContact"
 import Membership from "./membership"
 import Contract from "./contract"

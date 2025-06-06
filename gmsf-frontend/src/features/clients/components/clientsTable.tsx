@@ -17,6 +17,8 @@ import {
   Snowflake,
   AlertCircle,
   CreditCard,
+  Users,
+  UserPlus,
 } from "lucide-react"
 import { format } from "date-fns"
 import { ClientDetails } from "./clientDetails"
@@ -190,6 +192,58 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
     }
   }
 
+  const handleViewBeneficiary = (client: Client) => {
+    if (client.beneficiaryName) {
+      Swal.fire({
+        title: "Información del Beneficiario",
+        html: `
+          <div class="text-left p-3 bg-gray-50 rounded-lg mb-3 text-sm">
+            <p class="mb-2"><strong>Nombre:</strong> ${client.beneficiaryName}</p>
+            ${client.beneficiaryEmail ? `<p class="mb-2"><strong>Email:</strong> ${client.beneficiaryEmail}</p>` : ''}
+            ${client.beneficiaryPhone ? `<p class="mb-2"><strong>Teléfono:</strong> ${client.beneficiaryPhone}</p>` : ''}
+            ${client.beneficiaryDocumentNumber ? `<p class="mb-2"><strong>Documento:</strong> ${client.beneficiaryDocumentNumber}</p>` : ''}
+            ${client.beneficiaryRelation ? `<p class="mb-2"><strong>Relación:</strong> ${client.beneficiaryRelation}</p>` : ''}
+          </div>
+        `,
+        icon: "info",
+        confirmButtonColor: "#000",
+        confirmButtonText: "Cerrar",
+        width: '500px'
+      })
+    } else {
+      Swal.fire({
+        title: "Sin beneficiario",
+        text: "Este cliente no tiene beneficiario asignado.",
+        icon: "info",
+        confirmButtonColor: "#000",
+        confirmButtonText: "Cerrar"
+      })
+    }
+  }
+
+  const handleEditBeneficiary = (client: Client) => {
+    if (!client.beneficiaryName) {
+      Swal.fire({
+        title: "Sin beneficiario",
+        text: "Este cliente no tiene beneficiario asignado. ¿Deseas editar el cliente principal?",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#000",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Editar cliente",
+        cancelButtonText: "Cancelar"
+      }).then((result) => {
+        if (result.isConfirmed) {
+          handleEditClient(client)
+        }
+      })
+      return
+    }
+
+    // Si tiene beneficiario, abrir modal para editar información del beneficiario
+    handleEditClient(client)
+  }
+
   const getPaginatedClients = () => {
     const startIndex = (currentPage - 1) * clientsPerPage
     const endIndex = startIndex + clientsPerPage
@@ -294,6 +348,7 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
               <TableHead>DOCUMENTO</TableHead>
               <TableHead>EMAIL</TableHead>
               <TableHead>MEMBRESÍA</TableHead>
+              <TableHead>BENEFICIARIO</TableHead>
               <TableHead>ESTADO</TableHead>
               <TableHead className="text-right">ACCIONES</TableHead>
             </TableRow>
@@ -306,18 +361,39 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
                   <TableRow key={client.id} className="hover:bg-gray-50">
                     <TableCell>{client.codigo || `P${client.id.toString().padStart(4, "0")}`}</TableCell>
                     <TableCell className="font-medium">
-                      {client.firstName && client.lastName ? `${client.firstName} ${client.lastName}` : client.name}
+                      <div>{client.firstName && client.lastName ? `${client.firstName} ${client.lastName}` : client.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {client.phone && (
+                          <span>📞 {client.phone}</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
-                      {client.documentType || "CC"} {client.documentNumber || ""}
+                      <div className="font-medium">{client.documentType || "CC"} {client.documentNumber || ""}</div>
+                      <div className="text-xs text-gray-500">Documento</div>
                     </TableCell>
-                    <TableCell>{client.email}</TableCell>
                     <TableCell>
-                      {client.membershipType || "Sin membresía"}
+                      <div className="font-medium">{client.email}</div>
+                      <div className="text-xs text-gray-500">Correo electrónico</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">{client.membershipType || "Sin membresía"}</div>
                       {client.membershipEndDate && (
                         <div className="text-xs text-gray-500">
                           Vence: {format(new Date(client.membershipEndDate), "dd/MM/yyyy")}
                         </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {client.beneficiaryName ? (
+                        <div>
+                          <div className="font-medium text-sm">{client.beneficiaryName}</div>
+                          <div className="text-xs text-gray-500">
+                            {client.beneficiaryRelation && <span>{client.beneficiaryRelation}</span>}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-400">Sin beneficiario</div>
                       )}
                     </TableCell>
                     <TableCell>
@@ -332,12 +408,12 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
+                      <div className="flex justify-end space-x-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => handleViewClient(client)}
-                          title="Ver detalles"
+                          title="Ver detalles del cliente"
                           aria-label="Ver detalles del cliente"
                         >
                           <Eye className="h-4 w-4" aria-hidden="true" />
@@ -351,6 +427,26 @@ export function ClientsTable({ clients, onUpdateClient, onAddClient }: ClientsTa
                           aria-label="Editar cliente"
                         >
                           <Edit className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleViewBeneficiary(client)}
+                          title="Ver beneficiario"
+                          aria-label="Ver información del beneficiario"
+                        >
+                          <Users className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditBeneficiary(client)}
+                          title="Editar beneficiario"
+                          aria-label="Editar información del beneficiario"
+                        >
+                          <UserPlus className="h-4 w-4" aria-hidden="true" />
                         </Button>
 
                         {client.status === "Activo" && (

@@ -1,138 +1,220 @@
-import { useState, useMemo, useEffect } from "react"
-import type { Membership, MembershipFormData, FilterStatus } from "@/shared/types/membership"
-import { mockMemberships, generateMembershipCode } from "@/features/data/mockMembershipData"
+import { useState, useCallback } from 'react';
+import { useGym } from '@/shared/contexts/gymContext';
+import { membershipService } from '@/features/memberships/services/membership.service';
+import type { Membership } from '@/shared/types';
+import Swal from 'sweetalert2';
 
-export function useMemberships() {
-  const [memberships, setMemberships] = useState<Membership[]>(mockMemberships)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all")
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10 // Cambiado a 10 items por página para coincidir con la UI
+export const useMemberships = () => {
+  const {
+    memberships,
+    membershipsLoading,
+    refreshMemberships,
+    contracts
+  } = useGym();
 
-  // Filtrar membresías basado en búsqueda y estado
-  const filteredMemberships = useMemo(() => {
-    return memberships.filter((membership) => {
-      const matchesSearch =
-        !searchTerm ||
-        membership.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        membership.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        membership.description.toLowerCase().includes(searchTerm.toLowerCase())
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-      const matchesStatus =
-        filterStatus === "all" ||
-        (filterStatus === "active" && membership.isActive) ||
-        (filterStatus === "inactive" && !membership.isActive)
+  // Get membership statistics
+  const getMembershipStats = useCallback((membershipId: string) => {
+    const activeContracts = contracts.filter(c => 
+      Number(c.id_membresia) === Number(membershipId) && c.estado === 'Activo'
+    );
+    
+    const totalRevenue = activeContracts.reduce((sum, contract) => 
+      sum + contract.membresia_precio, 0
+    );
 
-      return matchesSearch && matchesStatus
-    })
-  }, [memberships, searchTerm, filterStatus])
+    return {
+      activeContracts: activeContracts.length,
+      totalRevenue,
+      averagePrice: activeContracts.length > 0 ? totalRevenue / activeContracts.length : 0
+    };
+  }, [contracts]);
 
-  // Calcular total de páginas
-  const totalPages = Math.max(1, Math.ceil(filteredMemberships.length / itemsPerPage))
+  // Get all membership statistics
+  const getAllMembershipStats = useCallback(() => {
+    return memberships.map(membership => ({
+      ...membership,
+      stats: getMembershipStats(membership.id)
+    }));
+  }, [memberships, getMembershipStats]);
 
-  // Resetear a la primera página cuando cambian los filtros
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, filterStatus])
-
-  // Asegurar que la página actual es válida
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages)
+  // Create membership with integrated error handling
+  const createMembership = useCallback(async (data: Partial<Membership>) => {
+    setIsCreating(true);
+    try {
+      const newMembership = await membershipService.createMembership(data);
+      await refreshMemberships();
+      
+      Swal.fire({
+        title: '¡Éxito!',
+        text: `Membresía "${newMembership.nombre}" creada correctamente`,
+        icon: 'success',
+        confirmButtonColor: '#000',
+        timer: 3000,
+        showConfirmButton: false
+      });
+      
+      return newMembership;
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || 'Error al crear la membresía';
+      
+      Swal.fire({
+        title: 'Error',
+        text: errorMessage,
+        icon: 'error',
+        confirmButtonColor: '#000',
+      });
+      
+      throw error;
+    } finally {
+      setIsCreating(false);
     }
-  }, [totalPages, currentPage])
+  }, [refreshMemberships]);
 
-  // Obtener membresías paginadas
-  const paginatedMemberships = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage
-    return filteredMemberships.slice(startIndex, startIndex + itemsPerPage)
-  }, [filteredMemberships, currentPage, itemsPerPage])
+  // Update membership with integrated error handling
+  const updateMembership = useCallback(async (id: string, data: Partial<Membership>) => {
+    setIsUpdating(true);
+    try {
+      const updatedMembership = await membershipService.updateMembership(id, data);
+      await refreshMemberships();
+      
+      Swal.fire({
+        title: '¡Éxito!',
+        text: `Membresía "${updatedMembership.nombre}" actualizada correctamente`,
+        icon: 'success',
+        confirmButtonColor: '#000',
+        timer: 3000,
+        showConfirmButton: false
+      });
+      
+      return updatedMembership;
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || 'Error al actualizar la membresía';
+      
+      Swal.fire({
+        title: 'Error',
+        text: errorMessage,
+        icon: 'error',
+        confirmButtonColor: '#000',
+      });
+      
+      throw error;
+    } finally {
+      setIsUpdating(false);
+    }
+  }, [refreshMemberships]);
 
-  const createMembership = (data: MembershipFormData): Membership => {
-    const newMembership: Membership = {
-      id: Date.now().toString(),
-      code: generateMembershipCode(),
-      ...data,
-      isActive: true,
-      createdAt: new Date(),
-      activeContracts: 0,
+  // Toggle membership status with confirmation
+  const toggleMembershipStatus = useCallback(async (membership: Membership) => {
+    const action = membership.estado ? 'desactivar' : 'reactivar';
+    const stats = getMembershipStats(membership.id);
+    
+    // Show warning if there are active contracts
+    let warningText = membership.estado ? 
+      'Al desactivar la membresía, no se podrán crear nuevos contratos con ella.' :
+      'Al reactivar la membresía, estará disponible para nuevos contratos.';
+      
+    if (membership.estado && stats.activeContracts > 0) {
+      warningText += `\n\nActualmente tiene ${stats.activeContracts} contrato(s) activo(s) que no se verán afectados.`;
     }
 
-    setMemberships((prev) => [...prev, newMembership])
-    return newMembership
-  }
+    const result = await Swal.fire({
+      title: `¿Está seguro de ${action} esta membresía?`,
+      text: warningText,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#000',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: `Sí, ${action}`,
+      cancelButtonText: 'Cancelar',
+    });
 
-  const updateMembership = (id: string, data: Partial<Membership>): Membership | null => {
-    const updatedMembership = memberships.find((m) => m.id === id)
-    if (!updatedMembership) return null
+    if (result.isConfirmed) {
+      try {
+        if (membership.estado) {
+          await membershipService.deactivateMembership(membership.id);
+        } else {
+          await membershipService.reactivateMembership(membership.id);
+        }
+          
+          await refreshMemberships();
+          
+          Swal.fire({
+            title: '¡Éxito!',
+            text: `Membresía "${membership.nombre}" ${action}da correctamente`,
+            icon: 'success',
+            confirmButtonColor: '#000',
+            timer: 3000,
+            showConfirmButton: false
+          });
+        } catch (error: any) {
+          const errorMessage = error?.response?.data?.message || `Error al ${action} la membresía`;
+          
+          Swal.fire({
+            title: 'Error',
+            text: errorMessage,
+            icon: 'error',
+            confirmButtonColor: '#000',
+          });
+        }
+      }
+  }, [getMembershipStats, refreshMemberships]);
 
-    const updated = { ...updatedMembership, ...data }
-    setMemberships((prev) => prev.map((m) => (m.id === id ? updated : m)))
-    return updated
-  }
+  // Get membership by ID
+  const getMembershipById = useCallback((id: string) => {
+    return memberships.find(m => m.id === id);
+  }, [memberships]);
 
-  const toggleMembershipStatus = (id: string): boolean => {
-    const membership = memberships.find((m) => m.id === id)
-    if (!membership) return false
+  // Check if name is unique
+  const isNameUnique = useCallback((name: string, excludeId?: string) => {
+    return !memberships.some(m => 
+      m.nombre.toLowerCase() === name.toLowerCase() && m.id !== excludeId
+    );
+  }, [memberships]);
 
-    if (membership.isActive && membership.activeContracts > 0) {
-      return false // Cannot deactivate with active contracts
-    }
+  // Get active memberships for selects
+  const getActiveMemberships = useCallback(() => {
+    return memberships.filter(m => m.estado);
+  }, [memberships]);
 
-    setMemberships((prev) => prev.map((m) => (m.id === id ? { ...m, isActive: !m.isActive } : m)))
-    return true
-  }
+  // Get most popular memberships (by active contracts)
+  const getPopularMemberships = useCallback((limit: number = 5) => {
+    const membershipStats = getAllMembershipStats();
+    return membershipStats
+      .sort((a, b) => b.stats.activeContracts - a.stats.activeContracts)
+      .slice(0, limit);
+  }, [getAllMembershipStats]);
 
-  const getMembershipById = (id: string): Membership | undefined => {
-    return memberships.find((m) => m.id === id)
-  }
-
-  const isNameUnique = (name: string, excludeId?: string): boolean => {
-    return !memberships.some((m) => m.name.toLowerCase() === name.toLowerCase() && m.id !== excludeId)
-  }
-
-  // Funciones de paginación
-  const goToPage = (page: number) => {
-    const targetPage = Math.max(1, Math.min(page, totalPages))
-    setCurrentPage(targetPage)
-  }
-
-  const nextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(prev => prev + 1)
-    }
-  }
-
-  const previousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(prev => prev - 1)
-    }
-  }
+  // Validate membership data
+  const validateMembershipData = useCallback((data: Partial<Membership>) => {
+    return membershipService.validateMembershipData(data);
+  }, []);
 
   return {
-    // Datos paginados y filtrados
-    memberships: paginatedMemberships,
-    totalItems: filteredMemberships.length,
-    currentPage,
-    totalPages,
-    itemsPerPage,
-
-    // Funciones de paginación
-    setCurrentPage: goToPage,
-    nextPage,
-    previousPage,
-
-    // Búsqueda y filtros
-    searchTerm,
-    setSearchTerm,
-    filterStatus,
-    setFilterStatus,
-
-    // Operaciones CRUD
+    // Data
+    memberships,
+    activeMemberships: getActiveMemberships(),
+    membershipStats: getAllMembershipStats(),
+    popularMemberships: getPopularMemberships(),
+    
+    // Loading states
+    membershipsLoading,
+    isCreating,
+    isUpdating,
+    
+    // Actions
     createMembership,
     updateMembership,
     toggleMembershipStatus,
+    refreshMemberships,
+    
+    // Utilities
     getMembershipById,
+    getMembershipStats,
+    getPopularMemberships,
+    validateMembershipData,
     isNameUnique,
-  }
-}
+  };
+};

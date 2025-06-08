@@ -2,22 +2,28 @@ import { z } from "zod";
 
 // Base schema for contract data
 const contractBaseSchema = z.object({
-  codigo: z
+  id_persona: z.number({
+    required_error: "El ID de la persona es requerido",
+  }),
+  id_membresia: z.number({
+    required_error: "El ID de la membresía es requerida",
+  }),
+  fecha_inicio: z
     .string()
-    .regex(
-      /^C\d{4}$/,
-      "El código debe tener el formato C seguido de 4 dígitos"
+    .refine((date: string) => !isNaN(Date.parse(date)), {
+      message: "Fecha de inicio inválida",
+    })
+    .refine(
+      (date: string) => {
+        const startDate = new Date(date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return startDate >= today;
+      },
+      {
+        message: "La fecha de inicio no puede ser anterior a la fecha actual",
+      }
     ),
-  id_persona: z.number(),
-  id_membresia: z.number(),
-  fecha_inicio: z.string().refine((date: string) => !isNaN(Date.parse(date)), {
-    message: "Fecha de inicio inválida",
-  }),
-  fecha_fin: z.string().refine((date: string) => !isNaN(Date.parse(date)), {
-    message: "Fecha de fin inválida",
-  }),
-  membresia_precio: z.number().positive(),
-  estado: z.enum(["Activo", "Congelado", "Vencido", "Cancelado", "Por vencer"]),
   usuario_registro: z.number().optional(),
 });
 
@@ -25,18 +31,33 @@ const contractBaseSchema = z.object({
 export const createContractSchema = contractBaseSchema;
 
 // Schema for updating an existing contract
-export const updateContractSchema = contractBaseSchema.partial().extend({
-  usuario_actualizacion: z.number().optional(),
-  motivo: z.string().optional(),
-  membresia_precio: z
-    .preprocess((val: unknown) => {
-      if (typeof val === "string" && val.trim() !== "") {
-        return parseFloat(val);
-      }
-      return val;
-    }, z.number().positive())
-    .optional(),
-});
+export const updateContractSchema = z
+  .object({
+    id_membresia: z.number().optional(),
+    fecha_inicio: z
+      .string()
+      .refine((date: string) => !isNaN(Date.parse(date)), {
+        message: "Fecha de inicio inválida",
+      })
+      .refine(
+        (date: string) => {
+          const startDate = new Date(date);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          return startDate >= today;
+        },
+        {
+          message: "La fecha de inicio no puede ser anterior a la fecha actual",
+        }
+      )
+      .optional(),
+    estado: z
+      .enum(["Activo", "Congelado", "Vencido", "Cancelado", "Por vencer"])
+      .optional(),
+    usuario_actualizacion: z.number().optional(),
+    motivo: z.string().optional(),
+  })
+  .partial();
 
 // Schema for contract query parameters
 export const contractQuerySchema = z.object({
@@ -58,21 +79,42 @@ export const contractIdSchema = z.object({
 
 // Schema for renewing a contract
 export const renewContractSchema = z.object({
-  id_contrato: z.number(),
-  id_membresia: z.number(),
-  fecha_inicio: z.string().refine((date: string) => !isNaN(Date.parse(date)), {
-    message: "Fecha de inicio inválida",
+  id_contrato: z.number({
+    required_error: "El ID del contrato es requerido",
   }),
-  fecha_fin: z.string().refine((date: string) => !isNaN(Date.parse(date)), {
-    message: "Fecha de fin inválida",
+  id_membresia: z.number({
+    required_error: "El ID de la membresía es requerido",
   }),
-  membresia_precio: z.number().positive(),
-  usuario_registro: z.number(),
+  fecha_inicio: z
+    .string()
+    .refine((date: string) => !isNaN(Date.parse(date)), {
+      message: "Fecha de inicio inválida",
+    })
+    .refine(
+      (date: string) => {
+        const startDate = new Date(date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return startDate >= today;
+      },
+      {
+        message: "La fecha de inicio no puede ser anterior a la fecha actual",
+      }
+    ),
+  usuario_registro: z.number({
+    required_error: "El ID del usuario que registra es requerido",
+  }),
 });
 
 // Schema for freezing a contract
 export const freezeContractSchema = z.object({
-  id_contrato: z.number(),
-  motivo: z.string(),
-  usuario_actualizacion: z.number(),
+  id_contrato: z.number({
+    required_error: "El ID del contrato es requerido",
+  }),
+  motivo: z.string({
+    required_error: "El motivo es requerido",
+  }),
+  usuario_actualizacion: z.number({
+    required_error: "El ID del usuario que actualiza es requerido",
+  }),
 });

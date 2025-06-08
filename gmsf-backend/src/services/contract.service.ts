@@ -486,7 +486,8 @@ export class ContractService {
     }
   }
 
-  // Get contract history  async getHistory(id: number) {
+  // Get contract history
+  async getHistory(id: number) {
     const history = await ContractHistory.findAll({
       where: { id_contrato: id },
       include: [

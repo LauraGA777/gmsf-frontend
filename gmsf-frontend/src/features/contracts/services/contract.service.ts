@@ -29,6 +29,14 @@ interface ContractHistoryResponse {
 }
 
 export const contractService = {
+  // Verificar autenticación
+  checkAuth() {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      throw new Error('No hay token de autenticación');
+    }
+  },
+
   // Get all contracts with pagination and filters
   getContracts: async (params?: {
     page?: number;
@@ -39,18 +47,21 @@ export const contractService = {
     fecha_inicio?: string;
     fecha_fin?: string;
   }) => {
+    contractService.checkAuth();
     const response = await api.get<ContractsResponse>('/contracts', { params });
     return response.data;
   },
 
   // Get contract by ID
   getContract: async (id: number) => {
+    contractService.checkAuth();
     const response = await api.get<ContractResponse>(`/contracts/${id}`);
     return response.data;
   },
 
   // Create new contract
   createContract: async (data: ContractFormData) => {
+    contractService.checkAuth();
     // Auto-generate contract code
     const contractData = {
       ...data,
@@ -63,30 +74,35 @@ export const contractService = {
 
   // Update contract
   updateContract: async (id: number, data: Partial<Contract>) => {
+    contractService.checkAuth();
     const response = await api.put<ContractResponse>(`/contracts/${id}`, data);
     return response.data;
   },
 
   // Delete/Cancel contract
   deleteContract: async (id: number) => {
+    contractService.checkAuth();
     const response = await api.delete<{ success: boolean; message: string }>(`/contracts/${id}`);
     return response.data;
   },
 
   // Renew contract
   renewContract: async (data: ContractRenewalData) => {
+    contractService.checkAuth();
     const response = await api.post<ContractResponse>('/contracts/renew', data);
     return response.data;
   },
 
   // Freeze contract
   freezeContract: async (data: ContractFreezeData) => {
+    contractService.checkAuth();
     const response = await api.post<ContractResponse>('/contracts/freeze', data);
     return response.data;
   },
 
   // Get contract history
   getContractHistory: async (id: number) => {
+    contractService.checkAuth();
     const response = await api.get<ContractHistoryResponse>(`/contracts/${id}/history`);
     return response.data;
   },
@@ -130,6 +146,7 @@ export const contractService = {
 
   // Get active contracts for a client
   getActiveContractsByClient: async (clientId: number) => {
+    contractService.checkAuth();
     const response = await api.get<ContractsResponse>('/contracts', {
       params: {
         id_persona: clientId,
@@ -141,6 +158,7 @@ export const contractService = {
 
   // Get contracts expiring soon
   getExpiringContracts: async (days: number = 30) => {
+    contractService.checkAuth();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + days);
     

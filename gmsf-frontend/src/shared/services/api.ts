@@ -12,7 +12,13 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('accessToken');
-        if (token && config.headers) {
+        if (!token) {
+            // Si no hay token, redirigir al login
+            window.location.href = '/login';
+            return Promise.reject('No hay token de autenticación');
+        }
+        
+        if (config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
         }
         return config;

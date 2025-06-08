@@ -1,7 +1,24 @@
-import { api } from "@/shared/services/api";
+import axios from 'axios';
 import type { Membership } from "@/shared/types";
 
-// Interface para parámetros de consulta
+// Configuración base de axios
+const API_URL = import.meta.env.VITE_API_URL || 'https://gmsf-backend.vercel.app';
+
+// Interfaces
+interface ApiResponse<T> {
+  status: string;
+  message: string;
+  data: T;
+}
+
+interface PaginatedData {
+  memberships: any[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 interface QueryParams {
   page?: number;
   limit?: number;
@@ -10,19 +27,12 @@ interface QueryParams {
   estado?: boolean;
 }
 
-// Interface para parámetros de búsqueda
-interface SearchParams {
+interface SearchParams extends QueryParams {
   codigo?: string;
   nombre?: string;
   descripcion?: string;
-  estado?: boolean;
-  page?: number;
-  limit?: number;
-  orderBy?: string;
-  direction?: 'ASC' | 'DESC';
 }
 
-// Interface para respuesta paginada
 interface PaginatedResponse<T> {
   data: T[];
   pagination: {
@@ -33,62 +43,98 @@ interface PaginatedResponse<T> {
   };
 }
 
-// Mapear respuesta de la API al formato del frontend
-const mapApiResponseToMembership = (data: any): Membership => {
-  // Manejar respuesta anidada si existe
-  const membershipData = data.membership || data;
-  
-  return {
-    id: membershipData.id?.toString() || '',
-    codigo: membershipData.codigo || `M${membershipData.id?.toString().padStart(3, "0")}`,
-    nombre: membershipData.nombre || '',
-    descripcion: membershipData.descripcion || '',
-    dias_acceso: Number(membershipData.dias_acceso) || 0,
-    vigencia_dias: Number(membershipData.vigencia_dias) || 0,
-    precio: Number(membershipData.precio) || 0,
-    fecha_creacion: membershipData.fecha_creacion || new Date().toISOString(),
-    estado: Boolean(membershipData.estado)
-  };
-};
-
-// Mapear datos del frontend al formato de la API
-const mapMembershipToApiData = (membership: Partial<Membership>) => {
-  return {
-    nombre: membership.nombre,
-    descripcion: membership.descripcion,
-    precio: membership.precio,
-    dias_acceso: membership.dias_acceso,
-    vigencia_dias: membership.vigencia_dias
-  };
-};
-
+// Clase base para el servicio de membresías
 class MembershipService {
-  // Obtener todas las membresías con paginación
+  private api;
+
+  constructor() {
+    this.api = axios.create({
+      baseURL: `${API_URL}/memberships`,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    // Interceptor para agregar el token
+    this.api.interceptors.request.use(
+      (config) => {
+        const token = localStorage.getItem('accessToken');
+        if (token && config.headers) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+
+    // Interceptor para manejar errores
+    this.api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        console.error('Error en la petición:', error);
+        if (error.response?.status === 401) {
+          // Manejar error de autenticación
+          localStorage.removeItem('accessToken');
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  private checkAuth(): void {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      throw new Error('No hay token de autenticación');
+    }
+  }
+
+  private mapApiResponseToMembership(data: any): Membership {
+    const membershipData = data.membership || data;
+    return {
+      id: membershipData.id?.toString() || '',
+      codigo: membershipData.codigo || `M${membershipData.id?.toString().padStart(3, "0")}`,
+      nombre: membershipData.nombre || '',
+      descripcion: membershipData.descripcion || '',
+      dias_acceso: Number(membershipData.dias_acceso) || 0,
+      vigencia_dias: Number(membershipData.vigencia_dias) || 0,
+      precio: Number(membershipData.precio) || 0,
+      fecha_creacion: membershipData.fecha_creacion || new Date().toISOString(),
+      estado: Boolean(membershipData.estado)
+    };
+  }
+
+  private mapMembershipToApiData(membership: Partial<Membership>) {
+    return {
+      nombre: membership.nombre,
+      descripcion: membership.descripcion,
+      precio: membership.precio,
+      dias_acceso: membership.dias_acceso,
+      vigencia_dias: membership.vigencia_dias
+    };
+  }
+
   async getMemberships(params: QueryParams = {}): Promise<PaginatedResponse<Membership>> {
     try {
-      console.log('🎯 MembershipService: Obteniendo membresías con parámetros:', params);
+      this.checkAuth();
+      console.log('🎯 Obteniendo membresías con parámetros:', params);
       
       const searchParams = new URLSearchParams();
-      
-      if (params.page) searchParams.append('page', params.page.toString());
-      if (params.limit) searchParams.append('limit', params.limit.toString());
-      if (params.orderBy) searchParams.append('orderBy', params.orderBy);
-      if (params.direction) searchParams.append('direction', params.direction);
-      if (params.estado !== undefined) searchParams.append('estado', params.estado.toString());
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          searchParams.append(key, value.toString());
+        }
+      });
 
-      const url = `/memberships${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-      console.log('🌐 URL de la petición:', url);
-      
-      const response = await api.get(url);
-      console.log('📥 Respuesta completa de la API:', response);
-      console.log('📊 Datos de respuesta:', response.data);
+      const url = searchParams.toString() ? `?${searchParams.toString()}` : '';
+      const response = await this.api.get<ApiResponse<PaginatedData>>(url);
       
       const apiData = response.data.data;
-      console.log('📦 Datos extraídos:', apiData);
-      
-      const result = {
+      return {
         data: Array.isArray(apiData.memberships) 
-          ? apiData.memberships.map(mapApiResponseToMembership)
+          ? apiData.memberships.map(this.mapApiResponseToMembership)
           : [],
         pagination: {
           total: apiData.total || 0,
@@ -97,37 +143,28 @@ class MembershipService {
           totalPages: apiData.totalPages || 1
         }
       };
-      
-      console.log('✅ Resultado final procesado:', result);
-      return result;
     } catch (error) {
       console.error('❌ Error en getMemberships:', error);
-      console.error('🔍 Detalles del error:', (error as any)?.response?.data);
       throw error;
     }
   }
 
-  // Buscar membresías
   async searchMemberships(params: SearchParams = {}): Promise<PaginatedResponse<Membership>> {
     try {
+      this.checkAuth();
       const searchParams = new URLSearchParams();
-      
-      if (params.codigo) searchParams.append('codigo', params.codigo);
-      if (params.nombre) searchParams.append('nombre', params.nombre);
-      if (params.descripcion) searchParams.append('descripcion', params.descripcion);
-      if (params.estado !== undefined) searchParams.append('estado', params.estado.toString());
-      if (params.page) searchParams.append('page', params.page.toString());
-      if (params.limit) searchParams.append('limit', params.limit.toString());
-      if (params.orderBy) searchParams.append('orderBy', params.orderBy);
-      if (params.direction) searchParams.append('direction', params.direction);
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          searchParams.append(key, value.toString());
+        }
+      });
 
-      const url = `/memberships/search?${searchParams.toString()}`;
-      const response = await api.get(url);
-      
+      const response = await this.api.get<ApiResponse<PaginatedData>>(`/search?${searchParams.toString()}`);
       const apiData = response.data.data;
+      
       return {
         data: Array.isArray(apiData.memberships) 
-          ? apiData.memberships.map(mapApiResponseToMembership)
+          ? apiData.memberships.map(this.mapApiResponseToMembership)
           : [],
         pagination: {
           total: apiData.total || 0,
@@ -142,66 +179,66 @@ class MembershipService {
     }
   }
 
-  // Obtener una membresía por ID
   async getMembershipById(id: string): Promise<Membership> {
     try {
-      const response = await api.get(`/memberships/${id}`);
-      return mapApiResponseToMembership(response.data.data);
+      this.checkAuth();
+      const response = await this.api.get<ApiResponse<any>>(`/${id}`);
+      return this.mapApiResponseToMembership(response.data.data);
     } catch (error) {
       console.error(`Error fetching membership ${id}:`, error);
       throw error;
     }
   }
 
-  // Crear nueva membresía
   async createMembership(membershipData: Partial<Membership>): Promise<Membership> {
     try {
-      const apiData = mapMembershipToApiData(membershipData);
-      const response = await api.post("/memberships/new-membership", apiData);
-      return mapApiResponseToMembership(response.data.data);
+      this.checkAuth();
+      const apiData = this.mapMembershipToApiData(membershipData);
+      const response = await this.api.post<ApiResponse<any>>("/new-membership", apiData);
+      return this.mapApiResponseToMembership(response.data.data);
     } catch (error) {
       console.error('Error creating membership:', error);
       throw error;
     }
   }
 
-  // Actualizar membresía
   async updateMembership(id: string, membershipData: Partial<Membership>): Promise<Membership> {
     try {
-      const apiData = mapMembershipToApiData(membershipData);
-      const response = await api.put(`/memberships/${id}`, apiData);
-      return mapApiResponseToMembership(response.data.data);
+      this.checkAuth();
+      const apiData = this.mapMembershipToApiData(membershipData);
+      const response = await this.api.put<ApiResponse<any>>(`/${id}`, apiData);
+      return this.mapApiResponseToMembership(response.data.data);
     } catch (error) {
       console.error(`Error updating membership ${id}:`, error);
       throw error;
     }
   }
 
-  // Desactivar membresía
   async deactivateMembership(id: string): Promise<Membership> {
     try {
-      const response = await api.delete(`/memberships/${id}`);
-      return mapApiResponseToMembership(response.data.data);
+      this.checkAuth();
+      const response = await this.api.delete<ApiResponse<any>>(`/${id}`);
+      return this.mapApiResponseToMembership(response.data.data);
     } catch (error) {
       console.error(`Error deactivating membership ${id}:`, error);
       throw error;
     }
   }
 
-  // Reactivar membresía
   async reactivateMembership(id: string): Promise<Membership> {
     try {
-      const response = await api.patch(`/memberships/${id}/reactivate`);
-      return mapApiResponseToMembership(response.data.data);
+      this.checkAuth();
+      const response = await this.api.patch<ApiResponse<any>>(`/${id}/reactivate`);
+      return this.mapApiResponseToMembership(response.data.data);
     } catch (error) {
       console.error(`Error reactivating membership ${id}:`, error);
       throw error;
     }
   }
 
-  // Obtener membresías activas (para selects)
   async getActiveMemberships(): Promise<Membership[]> {
     try {
+      this.checkAuth();
       const response = await this.getMemberships({ estado: true, limit: 1000 });
       return response.data.filter(m => m.estado);
     } catch (error) {
@@ -210,7 +247,6 @@ class MembershipService {
     }
   }
 
-  // Validar datos de membresía
   validateMembershipData(data: Partial<Membership>): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 

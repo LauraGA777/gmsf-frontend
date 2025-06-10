@@ -2,15 +2,20 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/shared/components/ui/form"
 import { Input } from "@/shared/components/ui/input"
-import { useToast } from "@/shared/hooks/useToast"
+import { useToast } from "@/shared/components/ui/use-toast"
 import { formSchemaReset, FormValuesReset } from "@/shared/lib/formSchemasLogin"
 import { authService } from "../services/authService"
+
+interface ApiResponse {
+    status: string;
+    message: string;
+}
 
 export default function ResetPasswordCard() {
     const [isLoading, setIsLoading] = useState(false)
@@ -18,6 +23,7 @@ export default function ResetPasswordCard() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
     const { toast } = useToast()
     const navigate = useNavigate()
+    const { token } = useParams()
 
     const form = useForm<FormValuesReset>({
         resolver: zodResolver(formSchemaReset),
@@ -29,20 +35,29 @@ export default function ResetPasswordCard() {
     })
 
     async function onSubmit(data: FormValuesReset) {
+        if (!token) {
+            toast({
+                title: "Error",
+                description: "Token no válido",
+                variant: "destructive",
+            });
+            return;
+        }
+
         setIsLoading(true)
 
         try {
             const response = await authService.restablecerContrasena(
-                window.location.search.split("token=")[1] || "",
+                token,
                 data.contrasena
-            );
+            ) as ApiResponse;
 
-            if (response.mensaje === "Contraseña actualizada") {
+            if (response.status === "success") {
                 toast({
                     title: "Éxito",
                     description: "Contraseña actualizada correctamente",
                 });
-                navigate("/", { replace: true });
+                navigate("/login", { replace: true });
             }
         } catch (error) {
             toast({

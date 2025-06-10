@@ -1,31 +1,38 @@
 export interface User {
-    id: string
-    tipoDocumento: "CC" | "CE" | "TI" | "TE"
-    numeroDocumento: string
+    id: number
+    codigo: string
     nombre: string
     apellido: string
     correo: string
-    telefono?: string
-    direccion?: string
-    rol: "Administrador" | "Entrenador" | "Cliente" | "Beneficiario"
-    fechaNacimiento: string
+    numero_documento: string
+    fecha_actualizacion: string
+    asistencias_totales: number
     estado: boolean
-    fechaRegistro: string
-    ultimaActividad?: string
-    contratosActivos?: number
-  }
+    id_rol: number
+    tipo_documento: string
+    fecha_nacimiento: string
+    telefono: string
+    direccion: string
+    genero: string
+}
 
 export interface UserFormData {
-    tipoDocumento: string
-    numeroDocumento: string
-    nombre: string
-    apellido: string
-    correo: string
-    contraseña: string
-    confirmarContraseña: string
-    rol: string
-    fechaNacimiento: string
-    telefono?: string
-    direccion?: string
-  }
+    codigo?: string;
+    nombre?: string;
+    apellido?: string;
+    correo?: string;
+    telefono?: string;
+    direccion?: string;
+    genero?: 'M' | 'F' | 'O';
+    tipo_documento?: 'CC' | 'CE' | 'TI' | 'PP' | 'DIE';
+    numero_documento?: string;
+    fecha_nacimiento?: string;
+    id_rol?: number;
+    contrasena?: string;
+    confirmarContrasena?: string;
+}
+
+export interface UpdateUserFormData extends Partial<UserFormData> {
+    id: number
+}
   

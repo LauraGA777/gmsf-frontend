@@ -2,9 +2,15 @@
 import { ROLES } from "@/shared/contexts/authContext";
 
 export interface User {
-  id: string;
+  id: number;
+  codigo: string;
   nombre: string;
+  apellido: string;
   correo: string;
+  numero_documento: string;
+  fecha_actualizacion: string;
+  asistencias_totales: number;
+  estado: boolean;
   id_rol: number;
   role?: keyof typeof ROLES;
   clientId?: string;

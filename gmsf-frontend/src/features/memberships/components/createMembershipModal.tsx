@@ -115,7 +115,7 @@ export function CreateMembershipModal({ isOpen, onClose, onSubmit }: CreateMembe
               type="number"
               min="1"
               placeholder="Precio de la membresía"
-              onChange={(e) => setFormData({ ...formData, price: Number.parseFloat(e.target.value) || 0 })}
+              onChange={(e) => setFormData({ ...formData, price: Number.parseFloat(e.target.value)})}
               className={errors.price ? "border-red-500" : ""}
             />
             {errors.price && <p className="text-red-500 text-sm mt-1">{errors.price}</p>}

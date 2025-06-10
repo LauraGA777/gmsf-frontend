@@ -1,5 +1,5 @@
 import apiClient from '@/shared/services/api';
-import type { User, UserFormData } from '../types/user';
+import type { User, UserFormData, UpdateUserFormData } from '../types/user';
 
 interface ApiResponse<T> {
   status: string;
@@ -23,31 +23,41 @@ export const userService = {
   },
 
   // Obtener usuario por ID
-  getUserById: async (id: string): Promise<User> => {
-    const response = await apiClient.get<ApiResponse<{ usuario: User }>>(`/users/${id}`);
-    return response.data.data.usuario;
+  getUserById: async (id: number): Promise<User> => {
+    const response = await apiClient.get<ApiResponse<User>>(`/users/${id}`);
+    return response.data.data;
   },
 
   // Crear usuario
   createUser: async (userData: UserFormData): Promise<User> => {
-    const response = await apiClient.post<ApiResponse<{ user: User }>>('/users/register', userData);
-    return response.data.data.user;
+    const response = await apiClient.post<ApiResponse<User>>('/users/register', userData);
+    return response.data.data;
   },
 
   // Actualizar usuario
-  updateUser: async (id: string, userData: Partial<UserFormData>): Promise<User> => {
-    const response = await apiClient.put<ApiResponse<{ usuario: User }>>(`/users/${id}`, userData);
-    return response.data.data.usuario;
+  updateUser: async (id: number, userData: Partial<UserFormData>): Promise<User> => {
+    const response = await apiClient.put<ApiResponse<User>>(`/users/${id}`, userData);
+    return response.data.data;
   },
 
-  // Desactivar usuario (soft delete)
-  deactivateUser: async (id: string): Promise<void> => {
+  // Desactivar usuario
+  deactivateUser: async (id: number): Promise<void> => {
+    await apiClient.post(`/users/${id}/deactivate`);
+  },
+
+  // Activar usuario
+  activateUser: async (id: number): Promise<void> => {
+    await apiClient.post(`/users/${id}/activate`);
+  },
+
+  // Eliminar usuario
+  deleteUser: async (id: number): Promise<void> => {
     await apiClient.delete(`/users/${id}`);
   },
 
   // Eliminar usuario permanentemente
-  deleteUserPermanently: async (id: string): Promise<void> => {
-    await apiClient.delete(`/users/${id}/permanent`);
+  deleteUserPermanently: async (id: number, motivo: string): Promise<void> => {
+    await apiClient.delete(`/users/${id}/permanent`, { data: { motivo } });
   },
 
   // Buscar usuarios

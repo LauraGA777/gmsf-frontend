@@ -6,7 +6,7 @@ import { Button } from "@/shared/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/shared/components/ui/form"
 import { Input } from "@/shared/components/ui/input"
-import { useToast } from "@/shared/hooks/useToast"
+import { useToast } from "@/shared/components/ui/use-toast"
 import { formSchemaLogin, FormValuesLogin } from "@/shared/lib/formSchemasLogin"
 import { useAuth } from "@/shared/contexts/authContext" // Importar useAuth
 
@@ -27,22 +27,26 @@ export default function LoginCard() {
     async function onSubmit(data: FormValuesLogin) {
         setIsLoading(true);
         try {
-            // Usar el método login del AuthProvider en lugar de llamar directamente al servicio
-            await login(data.correo, data.contrasena);
+            const result = await login(data.correo, data.contrasena);
             
-            // El AuthProvider ya maneja el almacenamiento del token y la redirección
-            toast({
-                title: "Inicio exitoso",
-                description: "Bienvenido a tu cuenta",
-            });
-            
-            /* // La redirección ahora la maneja el AuthProvider, pero podemos mantenerla aquí como respaldo
-            navigate("/dashboard", { replace: true }); */
-        } catch (error) {
+            if (result.success) {
+                toast({
+                    title: "Inicio exitoso",
+                    description: "Bienvenido a tu cuenta",
+                    type: "success"
+                });
+            } else {
+                toast({
+                    title: "Error",
+                    description: result.error || "Ha ocurrido un error inesperado",
+                    type: "error"
+                });
+            }
+        } catch (error: any) {
             toast({
                 title: "Error",
-                description: error instanceof Error ? error.message : "Ha ocurrido un error inesperado",
-                variant: "destructive",
+                description: error.message || "Ha ocurrido un error inesperado",
+                type: "error"
             });
         } finally {
             setIsLoading(false);

@@ -96,12 +96,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 body: JSON.stringify({ correo, contrasena })
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                throw new Error('Credenciales incorrectas');
+                throw new Error(data.message || 'Credenciales incorrectas');
             }
 
-            const authData = await response.json();
-            console.log('Respuesta completa de la API:', authData); // Para depuración
+            const authData = data;
+            console.log('Respuesta completa de la API:', authData);
             
             // Extraer datos del usuario de la respuesta
             const userData = authData.data?.user || authData.user || {};
@@ -158,10 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 tipo: error instanceof Error ? error.name : typeof error,
                 error: error
             });
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : "Error al iniciar sesión"
-            };
+            throw error; // Propagar el error para que sea manejado por el componente
         }
     };
 

@@ -1,7 +1,6 @@
 import { RequestHandler, Router } from 'express';
 import { login, logout, forgotPassword, resetPassword, changePassword, getProfile, updateProfile } from '../controllers/auth.controller';
 import { verifyToken } from '../middlewares/auth.middleware';
-import { register } from '../controllers/user.controller';
 
 const router = Router();
 

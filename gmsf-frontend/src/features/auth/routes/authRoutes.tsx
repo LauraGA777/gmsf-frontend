@@ -15,5 +15,9 @@ export const authRoutes: RouteObject[] = [
     {
         path: "/reset-password/:token",
         element: <ResetPasswordPage />,
+    },
+    {
+        path: "/auth/reset-password/:token",
+        element: <ResetPasswordPage />,
     }
 ];

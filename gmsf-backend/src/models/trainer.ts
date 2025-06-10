@@ -1,6 +1,5 @@
 import { Model, DataTypes, Optional } from 'sequelize';
 import sequelize from '../config/db';
-import User from './user';
 
 interface TrainerAttributes {
     id: number;
@@ -11,10 +10,9 @@ interface TrainerAttributes {
     estado: boolean;
     createdAt?: Date;
     updatedAt?: Date;
-    usuario?: User;
 }
 
-interface TrainerCreationAttributes extends Optional<TrainerAttributes, 'id' | 'createdAt' | 'updatedAt' | 'usuario'> {}
+interface TrainerCreationAttributes extends Optional<TrainerAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
 
 class Trainer extends Model<TrainerAttributes, TrainerCreationAttributes> {
     public id!: number;
@@ -25,8 +23,6 @@ class Trainer extends Model<TrainerAttributes, TrainerCreationAttributes> {
     public estado!: boolean;
     public readonly createdAt!: Date;
     public readonly updatedAt!: Date;
-
-    public usuario?: User;
 }
 
 Trainer.init({
@@ -78,12 +74,6 @@ Trainer.init({
     modelName: 'Trainer',
     tableName: 'entrenadores',
     timestamps: true
-});
-
-// Definir relaciones
-Trainer.belongsTo(User, {
-    foreignKey: 'id_usuario',
-    as: 'usuario'
 });
 
 export default Trainer; 

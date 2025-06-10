@@ -85,8 +85,13 @@ Training.init(
             allowNull: false,
             validate: {
                 isDate: true,
-                isAfterStartDate(value: string) {
-                    if (new Date(value) <= new Date(this.fecha_inicio)) {
+                isAfterStartDate(value: string | Date) {
+                    if (!(this as any).fecha_inicio) {
+                        throw new Error('La fecha de inicio es requerida');
+                    }
+                    const endDate = new Date(value);
+                    const startDate = new Date((this as any).fecha_inicio);
+                    if (endDate <= startDate) {
                         throw new Error('La fecha de fin debe ser posterior a la fecha de inicio');
                     }
                 }

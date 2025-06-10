@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { Outlet, useLocation } from "react-router-dom"
-import { Sidebar } from "../layout/sidebar"
-import { Header } from "../layout/header"
+import { Sidebar } from "./sidebar"
+import { Header } from "./header"
 import { useMobile } from "../hooks/useMediaQuery"
 import { useAuth } from "../contexts/authContext"
 

@@ -25,9 +25,9 @@ import {
   Settings,
   BadgeCheck,
 } from "lucide-react"
-import { Button } from "../components/ui/button"
-import { cn } from "../lib/formatCop"
-import { useAuth } from "../contexts/authContext"
+import { Button } from "@/shared/components/ui/button"
+import { cn } from "@/shared/lib/formatCop"
+import { useAuth } from "@/shared/contexts/authContext"
 
 interface SidebarProps {
   isOpen: boolean

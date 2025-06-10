@@ -1,10 +1,10 @@
 import { useLocation } from "react-router-dom"
-import { UserMenu } from "../layout/userMenu"
+import { UserMenu } from "./userMenu"
 import { Menu, Home, Users, UserCog, Dumbbell, FileSignature, User, ClipboardCheck, MessageSquare } from "lucide-react"
-import { Button } from "../components/ui/button"
-import { cn } from "../lib/formatCop"
+import { Button } from "@/shared/components/ui/button"
+import { cn } from "@/shared/lib/formatCop"
 import { useEffect, useState } from "react"
-import { useAuth, ROLES } from "../contexts/authContext"
+import { useAuth, ROLES } from "@/shared/contexts/authContext"
 
 interface HeaderProps {
   toggleSidebar: () => void

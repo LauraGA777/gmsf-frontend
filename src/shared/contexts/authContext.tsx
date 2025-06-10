@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { User } from "../types/index"; // Asegúrate de importar el tipo User correct
-import { authService } from '../../features/auth/services/authService';
+import { authService } from '@/features/auth/services/authService';
 
 // Tipos
 interface AuthResponse {

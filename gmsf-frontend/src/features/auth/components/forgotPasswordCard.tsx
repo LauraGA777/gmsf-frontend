@@ -7,7 +7,7 @@ import { Button } from "@/shared/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/shared/components/ui/form"
 import { Input } from "@/shared/components/ui/input"
-import { useToast } from "@/shared/hooks/useToast"
+import { useToast } from "@/shared/components/ui/use-toast"
 import { formSchemaForgot, FormValuesForgot } from "@/shared/lib/formSchemasLogin"
 import { authService } from "../services/authService"
 
@@ -27,22 +27,18 @@ export default function ForgotPasswordCard() {
         setIsLoading(true)
 
         try {
-            const response = await authService.recuperarContrasena(data.email);
-
-            if (response.mensaje === "Correo de recuperación enviado") {
-                setIsSuccess(true);
-                toast({
-                    title: "Correo enviado",
-                    description: "Revisa tu bandeja de entrada",
-                });
-            } else {
-                throw new Error(response.message);
-            }
-        } catch (error) {
+            await authService.recuperarContrasena(data.email);
+            setIsSuccess(true);
+            toast({
+                title: "Correo enviado",
+                description: "Revisa tu bandeja de entrada",
+                variant: "default"
+            });
+        } catch (error: any) {
             toast({
                 title: "Error",
-                description: error instanceof Error ? error.message : "Error al enviar el correo",
-                variant: "destructive",
+                description: error.message || "Ha ocurrido un error inesperado",
+                variant: "destructive"
             });
         } finally {
             setIsLoading(false)

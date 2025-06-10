@@ -3,7 +3,7 @@ import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/shared/components/ui/dialog"
 import { 
   Plus, 
   Search, 
@@ -26,7 +26,7 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { useGym } from "@/shared/contexts/gymContext"
 import { NewContractForm } from "@/features/contracts/components/newContractForm"
-import type { Contract } from "@/shared/types"
+import type { Contract, Membership } from "@/shared/types"
 import Swal from "sweetalert2"
 import {
   DropdownMenu,
@@ -57,6 +57,8 @@ export function ContractsPage() {
     freezeContract,
     getContractClient,
     navigateToContractClient,
+    memberships,
+    renewContract,
   } = useGym();
 
   const [filteredContracts, setFilteredContracts] = useState<Contract[]>([])
@@ -67,6 +69,12 @@ export function ContractsPage() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
   const [editableContract, setEditableContract] = useState<Partial<Contract>>({})
+
+  // State for renew modal
+  const [isRenewModalOpen, setIsRenewModalOpen] = useState(false)
+  const [contractToRenew, setContractToRenew] = useState<Contract | null>(null)
+  const [selectedRenewMembershipId, setSelectedRenewMembershipId] = useState<string>("")
+  const [renewStartDate, setRenewStartDate] = useState<string>("")
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -148,66 +156,72 @@ export function ContractsPage() {
     navigateToContractClient(contract.id)
   }
 
-  const handleRenewContract = async (contract: Contract) => {
-    try {
-      const result = await Swal.fire({
-        title: 'Renovar Contrato',
-        text: `¿Está seguro de renovar el contrato ${contract.codigo}?`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#000',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Sí, renovar',
-        cancelButtonText: 'Cancelar',
-      })
+  const handleRenewContract = (contract: Contract) => {
+    setContractToRenew(contract);
+    setIsRenewModalOpen(true);
+    setRenewStartDate(format(new Date(), "yyyy-MM-dd"));
+    setSelectedRenewMembershipId("");
+  };
 
-      if (result.isConfirmed) {
-        // Implementation would require renewal form
-        Swal.fire({
-          title: 'Funcionalidad en desarrollo',
-          text: 'La renovación de contratos estará disponible próximamente',
-          icon: 'info',
-          confirmButtonColor: '#000',
-        })
-      }
-    } catch (error) {
-      console.error('Error renewing contract:', error)
+  const handleConfirmRenewal = async () => {
+    if (!contractToRenew || !selectedRenewMembershipId || !renewStartDate) {
+      Swal.fire(
+        "Error",
+        "Por favor, seleccione una membresía y una fecha de inicio.",
+        "error",
+      );
+      return;
     }
-  }
+
+    try {
+      await renewContract({
+        id_contrato: contractToRenew.id,
+        id_membresia: Number(selectedRenewMembershipId),
+        fecha_inicio: renewStartDate,
+      });
+      Swal.fire(
+        "Renovado",
+        "El contrato ha sido renovado exitosamente.",
+        "success",
+      );
+      setIsRenewModalOpen(false);
+      refreshContracts();
+    } catch (error) {
+      console.error("Error renewing contract:", error);
+      Swal.fire("Error", "No se pudo renovar el contrato.", "error");
+    }
+  };
 
   const handleFreezeContract = async (contract: Contract) => {
     try {
-      const result = await Swal.fire({
-        title: 'Congelar Contrato',
+      const { value: motivo } = await Swal.fire({
+        title: "Congelar Contrato",
         text: `¿Está seguro de congelar el contrato ${contract.codigo}?`,
-        input: 'textarea',
-        inputLabel: 'Motivo del congelamiento',
-        inputPlaceholder: 'Escriba el motivo...',
+        input: "textarea",
+        inputLabel: "Motivo del congelamiento",
+        inputPlaceholder: "Escriba el motivo...",
         inputValidator: (value) => {
           if (!value) {
-            return 'Debe proporcionar un motivo'
+            return "Debe proporcionar un motivo";
           }
         },
         showCancelButton: true,
-        confirmButtonColor: '#000',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Congelar',
-        cancelButtonText: 'Cancelar',
-      })
+        confirmButtonColor: "#000",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Congelar",
+        cancelButtonText: "Cancelar",
+      });
 
-      if (result.isConfirmed && result.value) {
-        // Using context function that handles the API call
-        await Swal.fire({
-          title: 'Funcionalidad en desarrollo',
-          text: 'El congelamiento de contratos estará disponible próximamente',
-          icon: 'info',
-          confirmButtonColor: '#000',
-        })
+      if (motivo) {
+        await freezeContract(contract.id, { motivo });
+        Swal.fire("Congelado", "El contrato ha sido congelado.", "success");
+        refreshContracts();
       }
     } catch (error) {
-      console.error('Error freezing contract:', error)
+      console.error("Error freezing contract:", error);
+      Swal.fire("Error", "No se pudo congelar el contrato.", "error");
     }
-  }
+  };
 
   const handleCancelContract = async (contract: Contract) => {
     try {
@@ -298,7 +312,7 @@ export function ContractsPage() {
               <RotateCcw className="mr-2 h-4 w-4" />
               Renovar
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleUpdateStatus(contract, 'Congelado')}>
+            <DropdownMenuItem onClick={() => handleFreezeContract(contract)}>
               <Pause className="mr-2 h-4 w-4" />
               Congelar
             </DropdownMenuItem>
@@ -701,6 +715,73 @@ export function ContractsPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Renew Contract Modal */}
+      <Dialog open={isRenewModalOpen} onOpenChange={setIsRenewModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Renovar Contrato</DialogTitle>
+          </DialogHeader>
+          {contractToRenew && (
+            <div className="grid gap-4 py-4">
+              <p>
+                Está renovando el contrato{" "}
+                <strong>{contractToRenew.codigo}</strong> para{" "}
+                <strong>
+                  {contractToRenew.persona?.usuario?.nombre}{" "}
+                  {contractToRenew.persona?.usuario?.apellido}
+                </strong>
+                .
+              </p>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="membership" className="text-right">
+                  Membresía
+                </Label>
+                <Select
+                  value={selectedRenewMembershipId}
+                  onValueChange={setSelectedRenewMembershipId}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Seleccione una membresía" />
+                  </SelectTrigger>
+                  <SelectContent id="membership">
+                    {memberships?.map((membership) => (
+                      <SelectItem
+                        key={membership.id}
+                        value={String(membership.id)}
+                      >
+                        {membership.nombre} - $
+                        {membership.precio.toLocaleString()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="start-date" className="text-right">
+                  Fecha de Inicio
+                </Label>
+                <Input
+                  id="start-date"
+                  type="date"
+                  value={renewStartDate}
+                  onChange={(e) => setRenewStartDate(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsRenewModalOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmRenewal}>Confirmar Renovación</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -38,8 +38,10 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
     (response) => response,
     (error) => {
-        // Solo manejamos el error 401 si no estamos en la página de login
-        if (error.response?.status === 401 && window.location.pathname !== '/login') {
+        // Solo manejamos el error 401 si no estamos en la página de login o reset-password
+        if (error.response?.status === 401 && 
+            !window.location.pathname.includes('/login') && 
+            !window.location.pathname.includes('/reset-password')) {
             localStorage.removeItem('accessToken');
             window.location.href = '/login';
         }
@@ -130,8 +132,15 @@ export const authService = {
     },
 
     async recuperarContrasena(correo: string) {
-        const response = await axiosInstance.post('/forgot-password', { correo });
-        return response.data;
+        try {
+            const response = await axiosInstance.post('/forgot-password', { correo });
+            return response.data;
+        } catch (error: any) {
+            if (error.response?.data?.message) {
+                throw new Error(error.response.data.message);
+            }
+            throw new Error('Error al recuperar la contraseña');
+        }
     },
 
     async restablecerContrasena(token: string, nuevaContrasena: string) {

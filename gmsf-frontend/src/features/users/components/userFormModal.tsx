@@ -19,17 +19,18 @@ interface UserFormModalProps {
 
 export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: UserFormModalProps) {
   const [formData, setFormData] = useState<UserFormData>({
-    tipoDocumento: "",
-    numeroDocumento: "",
+    tipo_documento: "",
+    numero_documento: "",
     nombre: "",
     apellido: "",
     correo: "",
-    contraseña: "",
-    confirmarContraseña: "",
-    rol: "",
-    fechaNacimiento: "",
+    contrasena: "",
+    confirmarContrasena: "",
+    id_rol: 0,
+    fecha_nacimiento: "",
     telefono: "",
     direccion: "",
+    genero: ""
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -38,31 +39,33 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
   useEffect(() => {
     if (user) {
       setFormData({
-        tipoDocumento: user.tipoDocumento,
-        numeroDocumento: user.numeroDocumento,
+        tipo_documento: user.tipo_documento,
+        numero_documento: user.numero_documento,
         nombre: user.nombre,
         apellido: user.apellido,
         correo: user.correo,
-        contraseña: "",
-        confirmarContraseña: "",
-        rol: user.rol,
-        fechaNacimiento: user.fechaNacimiento,
+        contrasena: "",
+        confirmarContrasena: "",
+        id_rol: user.id_rol,
+        fecha_nacimiento: user.fecha_nacimiento,
         telefono: user.telefono || "",
         direccion: user.direccion || "",
+        genero: user.genero || ""
       })
     } else {
       setFormData({
-        tipoDocumento: "",
-        numeroDocumento: "",
+        tipo_documento: "",
+        numero_documento: "",
         nombre: "",
         apellido: "",
         correo: "",
-        contraseña: "",
-        confirmarContraseña: "",
-        rol: "",
-        fechaNacimiento: "",
+        contrasena: "",
+        confirmarContrasena: "",
+        id_rol: 0,
+        fecha_nacimiento: "",
         telefono: "",
         direccion: "",
+        genero: ""
       })
     }
     setErrors({})
@@ -71,59 +74,60 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
-    // Required fields
-    if (!formData.tipoDocumento) newErrors.tipoDocumento = "Tipo de documento es requerido"
-    if (!formData.numeroDocumento) newErrors.numeroDocumento = "Número de documento es requerido"
-    if (!formData.nombre || formData.nombre.length < 3) newErrors.nombre = "Nombre debe tener al menos 3 caracteres"
-    if (!formData.apellido || formData.apellido.length < 3)
-      newErrors.apellido = "Apellido debe tener al menos 3 caracteres"
-    if (!formData.correo) newErrors.correo = "Correo es requerido"
-    if (!formData.rol) newErrors.rol = "Rol es requerido"
-    if (!formData.fechaNacimiento) newErrors.fechaNacimiento = "Fecha de nacimiento es requerida"
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (formData.correo && !emailRegex.test(formData.correo)) {
-      newErrors.correo = "Formato de correo inválido"
+    // Validación del código (solo para nuevos usuarios)
+    if (!user && !formData.codigo) {
+      newErrors.codigo = "El código es requerido"
+    } else if (!user && !/^U\d{3}$/.test(formData.codigo || '')) {
+      newErrors.codigo = "El código debe seguir el formato U seguido de 3 dígitos (ej: U001)"
     }
 
-    // Check unique email
-    const emailExists = existingUsers.some((u) => u.correo === formData.correo && (!user || u.id !== user.id))
-    if (emailExists) {
-      newErrors.correo = "Correo ya registrado"
+    // Validación del teléfono
+    if (formData.telefono && !/^\d{7,15}$/.test(formData.telefono)) {
+      newErrors.telefono = "El teléfono debe tener entre 7 y 15 dígitos"
     }
 
-    // Check unique document
-    const documentExists = existingUsers.some(
-      (u) => u.numeroDocumento === formData.numeroDocumento && (!user || u.id !== user.id),
-    )
-    if (documentExists) {
-      newErrors.numeroDocumento = "Número de documento ya registrado"
+    // Validación del género
+    if (formData.genero && !['M', 'F', 'O'].includes(formData.genero)) {
+      newErrors.genero = "El género debe ser M, F u O"
     }
 
-    // Password validation (only for new users or when changing password)
-    if (!user || formData.contraseña) {
-      if (!formData.contraseña) newErrors.contraseña = "Contraseña es requerida"
-      if (!formData.confirmarContraseña) newErrors.confirmarContraseña = "Confirmar contraseña es requerida"
-      if (formData.contraseña !== formData.confirmarContraseña) {
-        newErrors.confirmarContraseña = "Las contraseñas no coinciden"
+    // Validación del tipo de documento
+    if (formData.tipo_documento && !['CC', 'CE', 'TI', 'PP', 'DIE'].includes(formData.tipo_documento)) {
+      newErrors.tipo_documento = "Tipo de documento inválido"
+    }
+
+    // Validación del número de documento
+    if (formData.numero_documento && (formData.numero_documento.length < 5 || formData.numero_documento.length > 20)) {
+      newErrors.numero_documento = "El número de documento debe tener entre 5 y 20 caracteres"
+    }
+
+    // Validación de la fecha de nacimiento
+    if (formData.fecha_nacimiento) {
+      const birthDate = new Date(formData.fecha_nacimiento)
+      if (isNaN(birthDate.getTime())) {
+        newErrors.fecha_nacimiento = "Fecha de nacimiento inválida"
       }
     }
 
-    // Age validation for trainers
-    if (formData.rol === "Entrenador" && formData.fechaNacimiento) {
-      const birthDate = new Date(formData.fechaNacimiento)
-      const today = new Date()
-      let age = today.getFullYear() - birthDate.getFullYear()
-      const monthDiff = today.getMonth() - birthDate.getMonth()
-
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        age--
+    // Validación del correo
+    if (formData.correo) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(formData.correo)) {
+        newErrors.correo = "Formato de correo inválido"
       }
+    }
 
-      if (age < 18) {
-        newErrors.fechaNacimiento = "Los entrenadores deben ser mayores de 18 años"
-      }
+    // Validación de nombre y apellido
+    if (formData.nombre && formData.nombre.length < 3) {
+      newErrors.nombre = "El nombre debe tener al menos 3 caracteres"
+    }
+    if (formData.apellido && formData.apellido.length < 3) {
+      newErrors.apellido = "El apellido debe tener al menos 3 caracteres"
+    }
+
+    // Validación del rol
+    if (formData.id_rol && ![1, 2, 3, 4].includes(formData.id_rol)) {
+      newErrors.id_rol = "Rol inválido"
     }
 
     setErrors(newErrors)
@@ -138,11 +142,23 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
     setIsSubmitting(true)
 
     try {
-      onSave(formData)
+      // Solo enviamos el código y los campos que tienen valor
+      const userDataToSend = {
+        codigo: user?.codigo,
+        ...Object.fromEntries(
+          Object.entries(formData)
+            .filter(([key, value]) => {
+              // Solo incluimos campos que tienen valor y no son el código o confirmarContrasena
+              return value !== "" && value !== 0 && key !== 'codigo' && key !== 'confirmarContrasena';
+            })
+        )
+      };
+
+      onSave(userDataToSend)
 
       await Swal.fire({
         title: "¡Éxito!",
-        text: `Usuario ${user ? "actualizado" : "registrado"} correctamente`,
+        text: "Usuario actualizado correctamente",
         icon: "success",
         timer: 1500,
         showConfirmButton: false,
@@ -152,7 +168,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
     } catch (error) {
       await Swal.fire({
         title: "Error",
-        text: "Ocurrió un error al guardar el usuario",
+        text: "Ocurrió un error al actualizar el usuario",
         icon: "error",
         confirmButtonColor: "#000000",
       })
@@ -161,7 +177,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
     }
   }
 
-  const handleInputChange = (field: keyof UserFormData, value: string) => {
+  const handleInputChange = (field: keyof UserFormData, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
 
     // Clear error when user starts typing
@@ -176,17 +192,31 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             {user ? "Editar Usuario" : "Registrar Usuario"}
-            </DialogTitle>
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Código (solo para nuevos usuarios) */}
+          {!user && (
+            <div>
+              <Label htmlFor="codigo">Código *</Label>
+              <Input
+                id="codigo"
+                value={formData.codigo}
+                onChange={(e) => handleInputChange("codigo", e.target.value)}
+                placeholder="Ej: U001"
+              />
+              {errors.codigo && <p className="text-red-500 text-xs mt-1">{errors.codigo}</p>}
+            </div>
+          )}
+
           {/* Document Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="tipoDocumento">Tipo de Documento *</Label>
+              <Label htmlFor="tipo_documento">Tipo de Documento</Label>
               <Select
-                value={formData.tipoDocumento}
-                onValueChange={(value) => handleInputChange("tipoDocumento", value)}
+                value={formData.tipo_documento}
+                onValueChange={(value) => handleInputChange("tipo_documento", value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar tipo" />
@@ -195,29 +225,42 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
                   <SelectItem value="CC">Cédula de Ciudadanía</SelectItem>
                   <SelectItem value="CE">Cédula de Extranjería</SelectItem>
                   <SelectItem value="TI">Tarjeta de Identidad</SelectItem>
-                  <SelectItem value="TE">Tarjeta de Extranjería</SelectItem>
+                  <SelectItem value="PP">Pasaporte</SelectItem>
+                  <SelectItem value="DIE">Documento de Identidad Extranjero</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.tipoDocumento && <p className="text-red-500 text-xs mt-1">{errors.tipoDocumento}</p>}
+              {errors.tipo_documento && <p className="text-red-500 text-xs mt-1">{errors.tipo_documento}</p>}
             </div>
 
-            <div>
-              <Label htmlFor="numeroDocumento">Número de Documento *</Label>
+            <div className="space-y-2">
+              <Label htmlFor="numero_documento">Número de Documento</Label>
               <Input
-                id="numeroDocumento"
-                type="text"
-                value={formData.numeroDocumento}
-                onChange={(e) => handleInputChange("numeroDocumento", e.target.value)}
-                placeholder="Ingrese número de documento"
+                id="numero_documento"
+                value={formData.numero_documento}
+                onChange={(e) => handleInputChange("numero_documento", e.target.value)}
+                placeholder="Ingrese el número de documento"
               />
-              {errors.numeroDocumento && <p className="text-red-500 text-xs mt-1">{errors.numeroDocumento}</p>}
+              {errors.numero_documento && <p className="text-red-500 text-sm">{errors.numero_documento}</p>}
             </div>
           </div>
+
+          {!user && (
+            <div className="space-y-2">
+              <Label htmlFor="fecha_nacimiento">Fecha de Nacimiento</Label>
+              <Input
+                id="fecha_nacimiento"
+                type="date"
+                value={formData.fecha_nacimiento}
+                onChange={(e) => handleInputChange("fecha_nacimiento", e.target.value)}
+              />
+              {errors.fecha_nacimiento && <p className="text-red-500 text-sm">{errors.fecha_nacimiento}</p>}
+            </div>
+          )}
 
           {/* Name Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="nombre">Nombre *</Label>
+              <Label htmlFor="nombre">Nombre</Label>
               <Input
                 id="nombre"
                 value={formData.nombre}
@@ -228,7 +271,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
             </div>
 
             <div>
-              <Label htmlFor="apellido">Apellido *</Label>
+              <Label htmlFor="apellido">Apellido</Label>
               <Input
                 id="apellido"
                 value={formData.apellido}
@@ -241,7 +284,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
 
           {/* Contact Section */}
           <div>
-            <Label htmlFor="correo">Correo Electrónico *</Label>
+            <Label htmlFor="correo">Correo Electrónico</Label>
             <Input
               id="correo"
               type="email"
@@ -252,66 +295,6 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
             {errors.correo && <p className="text-red-500 text-xs mt-1">{errors.correo}</p>}
           </div>
 
-          {/* Password Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="contraseña">
-                Contraseña {!user && "*"}
-                {user && <span className="text-xs text-gray-500">(dejar vacío para mantener actual)</span>}
-              </Label>
-              <Input
-                id="contraseña"
-                type="password"
-                value={formData.contraseña}
-                onChange={(e) => handleInputChange("contraseña", e.target.value)}
-                placeholder="Ingrese contraseña"
-              />
-              {errors.contraseña && <p className="text-red-500 text-xs mt-1">{errors.contraseña}</p>}
-            </div>
-
-            <div>
-              <Label htmlFor="confirmarContraseña">Confirmar Contraseña {!user && "*"}</Label>
-              <Input
-                id="confirmarContraseña"
-                type="password"
-                value={formData.confirmarContraseña}
-                onChange={(e) => handleInputChange("confirmarContraseña", e.target.value)}
-                placeholder="Confirme contraseña"
-              />
-              {errors.confirmarContraseña && <p className="text-red-500 text-xs mt-1">{errors.confirmarContraseña}</p>}
-            </div>
-          </div>
-
-          {/* Role and Birth Date */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="rol">Rol *</Label>
-              <Select value={formData.rol} onValueChange={(value) => handleInputChange("rol", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar rol" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Administrador">Administrador</SelectItem>
-                  <SelectItem value="Entrenador">Entrenador</SelectItem>
-                  <SelectItem value="Cliente">Cliente</SelectItem>
-                  <SelectItem value="Beneficiario">Beneficiario</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.rol && <p className="text-red-500 text-xs mt-1">{errors.rol}</p>}
-            </div>
-
-            <div>
-              <Label htmlFor="fechaNacimiento">Fecha de Nacimiento *</Label>
-              <Input
-                id="fechaNacimiento"
-                type="date"
-                value={formData.fechaNacimiento}
-                onChange={(e) => handleInputChange("fechaNacimiento", e.target.value)}
-              />
-              {errors.fechaNacimiento && <p className="text-red-500 text-xs mt-1">{errors.fechaNacimiento}</p>}
-            </div>
-          </div>
-
           {/* Optional Fields */}
           <div>
             <Label htmlFor="telefono">Teléfono</Label>
@@ -319,8 +302,9 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
               id="telefono"
               value={formData.telefono}
               onChange={(e) => handleInputChange("telefono", e.target.value)}
-              placeholder="Ingrese numero de telefono"
+              placeholder="Ingrese número de teléfono"
             />
+            {errors.telefono && <p className="text-red-500 text-xs mt-1">{errors.telefono}</p>}
           </div>
 
           <div>
@@ -330,8 +314,44 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
               value={formData.direccion}
               onChange={(e) => handleInputChange("direccion", e.target.value)}
               placeholder="Ingrese dirección completa"
-              
             />
+          </div>
+
+          {/* Role, Birth Date and Gender */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="id_rol">Rol</Label>
+              <Select 
+                value={formData.id_rol ? formData.id_rol.toString() : ""} 
+                onValueChange={(value) => handleInputChange("id_rol", parseInt(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Administrador</SelectItem>
+                  <SelectItem value="2">Entrenador</SelectItem>
+                  <SelectItem value="3">Cliente</SelectItem>
+                  <SelectItem value="4">Beneficiario</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.id_rol && <p className="text-red-500 text-xs mt-1">{errors.id_rol}</p>}
+            </div>
+
+            <div>
+              <Label htmlFor="genero">Género</Label>
+              <Select value={formData.genero} onValueChange={(value) => handleInputChange("genero", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar género" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="M">Masculino</SelectItem>
+                  <SelectItem value="F">Femenino</SelectItem>
+                  <SelectItem value="O">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.genero && <p className="text-red-500 text-xs mt-1">{errors.genero}</p>}
+            </div>
           </div>
 
           {/* Form Actions */}

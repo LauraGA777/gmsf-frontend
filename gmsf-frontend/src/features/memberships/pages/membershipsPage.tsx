@@ -369,7 +369,6 @@ export function MembershipsPage() {
           <Button
             variant="outline"
             onClick={() => {
-              setRetryCount(0);
               setError(null);
               refreshMemberships();
             }}
@@ -403,89 +402,6 @@ export function MembershipsPage() {
           </Button>
         </div>
       </div>
-
-      {/* Debugging Info - Temporal */}
-      {/*<Card className="mb-6 border-orange-200 bg-orange-50">
-        <CardContent className="pt-6">
-           <div className="space-y-2 text-sm">
-            <h3 className="font-semibold text-orange-800">🔍 Información de Debug (Temporal)</h3>
-            <p><strong>Loading:</strong> {membershipsLoading ? 'Sí' : 'No'}</p>
-            <p><strong>Cantidad de membresías:</strong> {memberships?.length || 0}</p>
-            <p><strong>Datos en bruto:</strong> {JSON.stringify(memberships, null, 2).substring(0, 200)}...</p>
-            <p><strong>Estado del contexto:</strong> {memberships ? 'Definido' : 'Undefined'}</p>
-            <p><strong>API URL:</strong> https://gmsf-backend.vercel.app</p>
-            <p><strong>Token disponible:</strong> {localStorage.getItem('accessToken') ? 'Sí' : 'No'}</p>
-            <p><strong>Usuario logueado:</strong> {localStorage.getItem('user') ? 'Sí' : 'No'}</p>
-            <div className="flex gap-2 mt-3"> 
-              
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => {
-                  console.log('🧪 Datos completos de membresías:', memberships);
-                  console.log('🧪 Estado de loading:', membershipsLoading);
-                  refreshMemberships();
-                }}
-              >
-                🔄 Refrescar y Log
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={async () => {
-                  try {
-                    console.log('🧪 Intentando crear membresía de prueba...');
-                    const testMembership = {
-                      nombre: 'Membresía de Prueba',
-                      descripcion: 'Esta es una membresía de prueba para verificar la conexión',
-                      precio: 50000,
-                      dias_acceso: 30,
-                      vigencia_dias: 30
-                    };
-                    const result = await membershipService.createMembership(testMembership);
-                    console.log('✅ Membresía de prueba creada:', result);
-                    refreshMemberships();
-                  } catch (error) {
-                    console.error('❌ Error creando membresía de prueba:', error);
-                  }
-                }}
-              >
-                🧪 Crear Prueba
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={async () => {
-                  try {
-                    console.log('🌐 Probando conexión básica con backend...');
-                    const response = await fetch('https://gmsf-backend.vercel.app/memberships', {
-                      method: 'GET',
-                      headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-                        'Content-Type': 'application/json'
-                      }
-                    });
-                    console.log('📡 Response status:', response.status);
-                    console.log('📡 Response headers:', [...response.headers.entries()]);
-                    
-                    if (!response.ok) {
-                      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    const data = await response.json();
-                    console.log('📦 Data received:', data);
-                  } catch (error) {
-                    console.error('❌ Error en conexión:', error);
-                  }
-                }}
-              >
-                🌐 Test API
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>*/}
-
       {/* Filters */}
       <Card className="mb-6">
         <CardContent className="pt-6">

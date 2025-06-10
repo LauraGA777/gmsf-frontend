@@ -1,5 +1,5 @@
 import { useAuth } from "../contexts/authContext"
-import { Button } from "../components/ui/button"
+import { Button } from "@/shared/components/ui/button"
 import { LogOut, User, ChevronRight } from "lucide-react"
 import {
   DropdownMenu,
@@ -8,9 +8,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuGroup,
-} from "../components/ui/dropdown-menu"
-import { Avatar, AvatarFallback } from "../components/ui/avatar"
-import { cn } from "../lib/formatCop"
+} from "@/shared/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar"
+import { cn } from "@/shared/lib/formatCop"
 import { Link } from 'react-router-dom';
 
 export function UserMenu() {

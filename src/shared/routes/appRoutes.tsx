@@ -1,6 +1,6 @@
 import { useRoutes, Navigate } from "react-router-dom";
-import { publicRoutes } from "../routes/publicRoutes";
-import { privateRoutes } from "../routes/privateRoutes";
+import { publicRoutes } from "./publicRoutes";
+import { privateRoutes } from "./privateRoutes";
 import { useAuth } from "../contexts/authContext";
 import { AppLayout } from "../layout/appLayout";
 import { NotFoundPage } from "../pages/NotFoundPage";

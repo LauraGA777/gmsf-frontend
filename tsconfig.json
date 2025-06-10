@@ -17,8 +17,8 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@/shared/*": ["./src/shared/*"],
+      "@/*": ["src/*"],
+      "@/shared/*": ["src/shared/*"],
     },
     "allowJs": true,
     "incremental": true,

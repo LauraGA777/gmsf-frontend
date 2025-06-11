@@ -244,82 +244,6 @@ export function ContractsTable({
     })
   }
 
-  const handleRenewContract = (contract: Contract) => {
-    // Encontrar la membresía correspondiente
-    const membership = memberships.find((m) => m.id === contract.id_membresia)
-
-    if (!membership) {
-      Swal.fire({
-        title: "Error",
-        text: "No se encontró la membresía asociada a este contrato.",
-        icon: "error",
-        confirmButtonColor: "#000",
-        timer: 5000,
-        timerProgressBar: true,
-        showConfirmButton: false
-      })
-      return
-    }
-
-    // Calcular nueva fecha de fin basada en la duración de la membresía
-    const newStartDate = new Date(contract.fecha_fin)
-    const newEndDate = new Date(newStartDate)
-    newEndDate.setDate(newEndDate.getDate() + membership.duracion_dias)
-
-    Swal.fire({
-      title: "Renovar contrato",
-      html: `
-      <div class="text-left p-3 bg-gray-50 rounded-lg mb-3 text-sm">
-        <p class="mb-2">¿Deseas renovar este contrato por ${membership.duracion_dias} días más?</p>
-        <p class="mb-1"><strong>Membresía:</strong> ${membership.nombre}</p>
-        <p class="mb-1"><strong>Precio:</strong> ${formatCOP(membership.precio)}</p>
-        <p class="mb-1"><strong>Nueva fecha de inicio:</strong> ${format(newStartDate, "dd/MM/yyyy")}</p>
-        <p><strong>Nueva fecha de fin:</strong> ${format(newEndDate, "dd/MM/yyyy")}</p>
-      </div>
-    `,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#000",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Sí, renovar",
-      cancelButtonText: "Cancelar",
-      timer: 15000, // Longer timer for confirmation dialogs
-      timerProgressBar: true,
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Crear un nuevo contrato como renovación
-        const newContract: Omit<Contract, "id"> = {
-          id_cliente: contract.id_cliente,
-          id_membresia: contract.id_membresia,
-          fecha_inicio: newStartDate,
-          fecha_fin: newEndDate,
-          estado: "Activo",
-          cliente_nombre: contract.cliente_nombre,
-          membresia_nombre: contract.membresia_nombre,
-          membresia_precio: contract.membresia_precio,
-          precio_total: contract.membresia_precio || membership.precio,
-          cliente_documento: contract.cliente_documento,
-          cliente_documento_tipo: contract.cliente_documento_tipo,
-          fecha_registro: new Date(),
-        }
-
-        // Añadir el nuevo contrato
-        onAddContract(newContract)
-
-        // Mostrar mensaje de éxito
-        Swal.fire({
-          title: "Contrato renovado",
-          text: "El contrato ha sido renovado exitosamente.",
-          icon: "success",
-          confirmButtonColor: "#000",
-          timer: 5000,
-          timerProgressBar: true,
-          showConfirmButton: false
-        })
-      }
-    })
-  }
-
   const getPaginatedContracts = () => {
     const startIndex = (currentPage - 1) * contractsPerPage
     const endIndex = startIndex + contractsPerPage
@@ -396,16 +320,16 @@ export function ContractsTable({
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold">Contratos de Membresía</h2>
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-500">
-            Mostrando {filteredContracts.length} de {contracts.length} contratos
+        <div className="flex w-full md:w-auto items-center gap-4">
+          <div className="text-sm text-gray-500 whitespace-nowrap">
+            {filteredContracts.length} de {contracts.length} contratos
           </div>
           {user?.role === "ADMIN" && (
             <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
               <DialogTrigger asChild>
-                <Button className="flex items-center gap-2 bg-black hover:bg-gray-800" size="sm">
+                <Button className="flex-grow w-full md:w-auto flex items-center gap-2 bg-black hover:bg-gray-800" size="sm">
                   <Plus className="h-4 w-4" />
                   Nuevo Contrato
                 </Button>
@@ -428,13 +352,13 @@ export function ContractsTable({
         </div>
       </div>
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Input
             type="text"
             value={filters.cliente}
             onChange={(e) => handleFilterChange("cliente", e.target.value)}
-            placeholder="Buscar en todos los campos (cliente, código, membresía, fechas, estado...)"
+            placeholder="Buscar en todos los campos..."
             className="w-full h-9 pl-9"
           />
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -450,7 +374,8 @@ export function ContractsTable({
         </Button>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Vista de Tabla para Pantallas Medianas y Grandes */}
+      <div className="overflow-x-auto hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -518,18 +443,6 @@ export function ContractsTable({
                           </Button>
                         )}
 
-                        {contract.estado === "Activo" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRenewContract(contract)}
-                            title="Renovar contrato"
-                            aria-label="Renovar contrato"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                        )}
-
                         {user?.role === "ADMIN" && (
                           <Button
                             variant="ghost"
@@ -560,6 +473,73 @@ export function ContractsTable({
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Vista de Tarjetas para Pantallas Pequeñas */}
+      <div className="md:hidden space-y-4">
+        {getPaginatedContracts().length > 0 ? (
+          getPaginatedContracts().map(contract => {
+            const status = getContractStatus(contract);
+            return (
+              <div key={contract.id} className="bg-white p-4 rounded-lg border shadow-sm space-y-3">
+                <div className="flex justify-between items-start">
+                  <div className="font-bold text-lg">{contract.cliente_nombre}</div>
+                  <Badge className={`flex items-center text-xs ${status.color}`} style={{ pointerEvents: "none" }}>
+                    {status.icon}
+                    <span>{status.label}</span>
+                  </Badge>
+                </div>
+                <div className="text-sm text-gray-600 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-800">Membresía:</span>
+                    <span>{contract.membresia_nombre}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-800">Código:</span>
+                    <span className="font-mono">{contract.codigo || `C${contract.id.toString().padStart(4, "0")}`}</span>
+                  </div>
+                   <div className="flex justify-between">
+                    <span className="font-medium text-gray-800">Precio:</span>
+                    <span>{formatCOP(contract.membresia_precio || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-800">Inicio:</span>
+                    <span>{format(new Date(contract.fecha_inicio), "dd/MM/yyyy")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-800">Fin:</span>
+                    <span>{format(new Date(contract.fecha_fin), "dd/MM/yyyy")}</span>
+                  </div>
+                </div>
+                <div className="border-t pt-3 flex justify-end space-x-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewContract(contract)}
+                    >
+                      <Eye className="h-4 w-4 mr-1" /> Ver
+                    </Button>
+                    
+                    {user?.role === "ADMIN" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditContract(contract)}
+                      >
+                        <Edit className="h-4 w-4 mr-1" /> Editar
+                      </Button>
+                    )}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
+            <p className="text-lg font-medium">No se encontraron contratos</p>
+            <p className="text-sm">Intenta con otros criterios de búsqueda</p>
+          </div>
+        )}
       </div>
 
       {/* Paginación */}
@@ -640,8 +620,6 @@ export function ContractsTable({
               memberships={memberships}
               clients={clients}
               onClose={() => setIsViewModalOpen(false)}
-              onRenew={handleRenewContract}
-              onCancel={(id) => handleToggleContractStatus(selectedContract)}
             />
           )}
         </DialogContent>
@@ -649,7 +627,7 @@ export function ContractsTable({
 
       {/* Modal para editar membresía del contrato */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-lg" aria-describedby="edit-contract-description">
+        <DialogContent className="sm:max-w-3xl" aria-describedby="edit-contract-description">
           <VisuallyHidden>
             <DialogTitle>Editar Contrato</DialogTitle>
             <DialogDescription id="edit-contract-description">Modifique la información del contrato según sea necesario.</DialogDescription>

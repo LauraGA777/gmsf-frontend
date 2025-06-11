@@ -1,5 +1,5 @@
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Label } from "@/shared/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
@@ -7,302 +7,279 @@ import { Calendar } from "@/shared/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
 import { format, addDays } from "date-fns"
 import { es } from "date-fns/locale"
-import { CalendarIcon, User, CreditCard } from "lucide-react"
-import { cn } from "@/shared/lib/utils"
-import { formatCOP } from "@/shared/lib/utils"
+import { Calendar as CalendarIcon, FileSignature, DollarSign, List, User, Info, Terminal, CalendarDays } from "lucide-react"
+import { cn, formatCOP } from "@/shared/lib/utils"
 import type { Contract, Membership } from "@/shared/types"
-import { Badge } from "@/shared/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
-import Swal from "sweetalert2"
+import { useForm, Controller } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+import { useAuth } from "@/shared/contexts/authContext"
+import { Input } from "@/shared/components/ui/input"
+import { Card, CardHeader, CardTitle, CardContent } from "@/shared/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/shared/components/ui/alert"
+
+const updateContractFormSchema = z.object({
+  id_membresia: z.number({ required_error: "Debe seleccionar una membresía" }),
+  fecha_inicio: z.date({ required_error: "La fecha de inicio es requerida" }),
+  estado: z.enum(["Activo", "Congelado", "Vencido", "Cancelado", "Por vencer"]),
+  motivo: z.string().optional(),
+})
+.refine(data => {
+    if (data.estado === 'Congelado') {
+        return data.motivo && data.motivo.trim().length >= 10 && data.motivo.trim().length <= 500;
+    }
+    return true;
+}, {
+    message: "El motivo debe tener entre 10 y 500 caracteres.",
+    path: ["motivo"],
+});
+
+type UpdateContractFormValues = z.infer<typeof updateContractFormSchema>
 
 interface EditContractModalProps {
   contract: Contract
   memberships: Membership[]
-  onUpdateContract: (updatedData: Partial<Contract>) => void
+  onUpdateContract: (data: Partial<UpdateContractFormValues> & { fecha_inicio: string; usuario_actualizacion?: number }) => void
   onClose: () => void
 }
 
 export function EditContractModal({ contract, memberships, onUpdateContract, onClose }: EditContractModalProps) {
-  const [membershipId, setMembershipId] = useState<string>(contract.id_membresia.toString())
-  const [startDate, setStartDate] = useState<Date>(new Date(contract.fecha_inicio))
-  const [endDate, setEndDate] = useState<Date>(new Date(contract.fecha_fin))
-  const [selectedDuration, setSelectedDuration] = useState<number>(
-    memberships.find((m) => m.id === contract.id_membresia)?.duracion_dias || 30,
-  )
-  const [isProcessing, setIsProcessing] = useState(false)
+  const { user } = useAuth()
 
-  // Calcular fecha de fin según la membresía seleccionada
+  const {
+    handleSubmit,
+    control,
+    watch,
+    formState: { errors, isSubmitting },
+    reset,
+  } = useForm<UpdateContractFormValues>({
+    resolver: zodResolver(updateContractFormSchema),
+    defaultValues: {
+      id_membresia: contract.id_membresia,
+      fecha_inicio: new Date(contract.fecha_inicio),
+      estado: contract.estado,
+      motivo: "",
+    },
+  })
+
+  const watchMembershipId = watch("id_membresia")
+  const watchStartDate = watch("fecha_inicio")
+  const watchStatus = watch("estado")
+
+  const activeMemberships = useMemo(() => memberships.filter(m => {
+    if (typeof m.estado === 'boolean') return m.estado;
+    if (typeof m.estado === 'string') {
+        const state = m.estado.toLowerCase();
+        return state === 'true' || state === 'activo';
+    }
+    return false;
+  }), [memberships]);
+
+
+  const summaryData = useMemo(() => {
+    const membership = memberships.find(m => String(m.id) === String(watchMembershipId));
+    const startDate = watchStartDate;
+
+    if (!membership || !startDate) {
+        const originalMembership = memberships.find(m => String(m.id) === String(contract.id_membresia));
+        return {
+            endDate: new Date(contract.fecha_fin),
+            price: contract.membresia_precio,
+            nombreMembresia: originalMembership?.nombre,
+            vigencia: originalMembership?.vigencia_dias,
+            diasAcceso: originalMembership?.dias_acceso,
+        };
+    }
+
+    const newEndDate = addDays(startDate, membership.vigencia_dias);
+
+    return {
+        endDate: newEndDate,
+        price: membership.precio,
+        nombreMembresia: membership.nombre,
+        vigencia: membership.vigencia_dias,
+        diasAcceso: membership.dias_acceso,
+    };
+  }, [watchMembershipId, watchStartDate, memberships, contract]);
+
   useEffect(() => {
-    const membership = memberships.find((m) => m.id.toString() === membershipId)
-    if (membership) {
-      setSelectedDuration(membership.duracion_dias)
-      setEndDate(addDays(startDate, membership.duracion_dias))
-    }
-  }, [membershipId, startDate, memberships])
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsProcessing(true)
-
-    const selectedMembership = memberships.find((m) => m.id.toString() === membershipId)
-
-    if (!selectedMembership) {
-      setIsProcessing(false)
-      Swal.fire({
-        title: "Error",
-        text: "No se pudo encontrar la membresía seleccionada",
-        icon: "error",
-        confirmButtonColor: "#000",
-        timer: 5000,
-        timerProgressBar: true,
-        showConfirmButton: false
-      })
-      return
-    }
-
-    // Preparar los datos actualizados
-    const updatedData: Partial<Contract> = {
-      id_membresia: Number(membershipId),
-      fecha_inicio: startDate,
-      fecha_fin: endDate,
-      membresia_nombre: selectedMembership.nombre,
-      membresia_precio: selectedMembership.precio,
-      estado: "Activo", // Asumimos que al editar, el contrato se activa
-      precio_total: selectedMembership.precio // Actualizar el precio total también
-    }
-
-    // Mostrar mensaje de espera
-    Swal.fire({
-      title: "Actualizando contrato",
-      text: "Por favor espere mientras se actualiza el contrato...",
-      allowOutsideClick: false,
-      showConfirmButton: false,
-      didOpen: () => {
-        Swal.showLoading()
-      }
+    reset({
+      id_membresia: contract.id_membresia,
+      fecha_inicio: new Date(contract.fecha_inicio),
+      estado: contract.estado,
+      motivo: "",
     })
+  }, [contract, reset])
 
-    // Actualizar el contrato
-    onUpdateContract(updatedData)
-    
-    // Cerrar mensaje de espera y mostrar éxito
-    setTimeout(() => {
-      Swal.fire({
-        title: "¡Contrato actualizado!",
-        html: `
-        <div class="text-left p-3 bg-gray-50 rounded-lg mb-3">
-          <p class="mb-2"><strong>Cliente:</strong> ${contract.cliente_nombre}</p>
-          <p class="mb-2"><strong>Membresía:</strong> ${selectedMembership.nombre}</p>
-          <p class="mb-2"><strong>Nuevo periodo:</strong> ${format(startDate, "dd/MM/yyyy")} - ${format(endDate, "dd/MM/yyyy")}</p>
-          <p><strong>Valor:</strong> ${formatCOP(selectedMembership.precio)}</p>
-        </div>
-        `,
-        icon: "success",
-        confirmButtonColor: "#000",
-        timer: 5000,
-        timerProgressBar: true,
-        showConfirmButton: false
-      }).then(() => {
-        setIsProcessing(false)
-        onClose() // Cerrar el modal después de actualizar
-      })
-    }, 800)
+  const onSubmit = (data: UpdateContractFormValues) => {
+    const updateData: Partial<UpdateContractFormValues> & { fecha_inicio: string; usuario_actualizacion?: number } = {
+      ...data, 
+      fecha_inicio: format(data.fecha_inicio, "yyyy-MM-dd"),
+      usuario_actualizacion: user?.id 
+    }
+    if (updateData.estado !== 'Congelado') {
+      delete updateData.motivo
+    }
+    onUpdateContract(updateData)
+    onClose()
   }
 
   return (
-    <div className="p-4 max-w-3xl mx-auto overflow-x-hidden">
-      <h2 className="text-xl font-bold mb-3">Editar Membresía del Contrato</h2>
-
-      <form onSubmit={handleSubmit}>
-        <Tabs defaultValue="info" className="w-full">
-          <TabsList className="grid grid-cols-2 mb-3">
-            <TabsTrigger value="info">Información</TabsTrigger>
-            <TabsTrigger value="membership">Membresía</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="info" className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Información del contrato */}
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <CalendarIcon className="h-4 w-4 text-gray-600" />
-                  <h3 className="font-semibold text-sm">Información del Contrato</h3>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <p className="text-gray-500 font-medium">ID de Contrato</p>
-                    <p className="font-medium">{contract.id}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-gray-500 font-medium">Estado</p>
-                    <Badge
-                      className={`${contract.estado === "Activo" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
-                    >
-                      {contract.estado}
-                    </Badge>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <p className="text-gray-500 font-medium">Fecha de Inicio</p>
-                      <p className="font-medium">{format(new Date(contract.fecha_inicio), "dd/MM/yyyy")}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-gray-500 font-medium">Fecha de Fin</p>
-                      <p className="font-medium">{format(new Date(contract.fecha_fin), "dd/MM/yyyy")}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Información del cliente */}
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <User className="h-4 w-4 text-gray-600" />
-                  <h3 className="font-semibold text-sm">Cliente</h3>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <p className="text-gray-500 font-medium">Nombre Completo</p>
-                    <p className="font-medium">{contract.cliente_nombre}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <p className="text-gray-500 font-medium">Documento</p>
-                      <p className="font-medium">
-                        {contract.cliente_documento_tipo} {contract.cliente_documento}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+    <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-3 gap-8 p-1">
+      {/* Columna de Resumen (Izquierda) */}
+      <div className="md:col-span-1 space-y-6">
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileSignature className="h-5 w-5" />
+              Resumen del Contrato
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1">
+                <Label className="text-gray-500">Cliente</Label>
+                <p className="font-medium text-base truncate">
+                {contract.persona?.usuario?.nombre} {contract.persona?.usuario?.apellido}
+                </p>
+                <p className="font-mono text-sm text-gray-500">{contract.codigo}</p>
             </div>
-          </TabsContent>
-
-          <TabsContent value="membership" className="space-y-3">
-            {/* Formulario para editar membresía */}
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-              <div className="flex items-center gap-2 mb-2">
-                <CreditCard className="h-4 w-4 text-gray-600" />
-                <h3 className="font-semibold text-sm">Membresía</h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="membershipId" className="text-xs font-medium">
-                    Tipo de Membresía
-                  </Label>
-                  <Select value={membershipId} onValueChange={setMembershipId}>
-                    <SelectTrigger id="membershipId" className="h-8 text-sm">
-                      <SelectValue placeholder="Seleccionar tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {memberships.map((membership) => (
-                        <SelectItem key={membership.id} value={membership.id.toString()}>
-                          {membership.nombre} - {formatCOP(membership.precio)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <div className="text-xs bg-blue-50 p-2 rounded-md mt-2">
-                    <p className="font-medium">Descripción:</p>
-                    <p className="text-gray-700">
-                      {memberships.find((m) => m.id.toString() === membershipId)?.descripcion || ""}
-                    </p>
-                  </div>
+             <div className="border-t pt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div className="flex items-center gap-2 font-medium">
+                    <CalendarIcon className="h-4 w-4" /> Fechas
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="startDate" className="text-xs font-medium">
-                    Fecha de Inicio
-                  </Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal h-10 text-sm bg-white rounded-md transition-colors hover:bg-gray-50",
-                          !startDate && "text-muted-foreground",
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4 text-gray-500" />
-                        {startDate ? (
-                          format(startDate, "dd/MM/yyyy")
-                        ) : (
-                          <span>Seleccionar fecha</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent 
-                      className="w-auto p-0 shadow-md rounded-md border border-gray-200" 
-                      align="start"
-                      side="right"
-                      sideOffset={10}
-                      alignOffset={0}
-                      avoidCollisions={false}
-                      hideWhenDetached={false}
-                      forceMount
-                    >
-                      <div className="p-1 w-full">
-                        <Calendar
-                          mode="single"
-                          selected={startDate}
-                          onSelect={(date) => {
-                            if (date) {
-                              setStartDate(date);
-                              // Cerrar automáticamente el popover cuando se selecciona una fecha
-                              setTimeout(() => {
-                                document.body.click();
-                              }, 100);
-                            }
-                          }}
-                          initialFocus
-                          locale={es}
-                          captionLayout="dropdown-buttons"
-                          fromYear={new Date().getFullYear() - 1}
-                          toYear={new Date().getFullYear() + 5}
-                          className="rounded-md border-0 w-full"
-                          showHeader={true}
-                          title="Fecha de inicio"
-                          subtitle="Seleccione la fecha de inicio del contrato"
-                          fixedWeeks
-                          showOutsideDays
-                        />
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-
-                  <div className="mt-3">
-                    <Label htmlFor="endDate" className="text-xs font-medium">
-                      Fecha de Finalización
-                    </Label>
-                    <div className="flex items-center gap-2 mt-1 p-2 border rounded-md bg-gray-100 text-sm">
-                      <CalendarIcon className="h-4 w-4 text-gray-500" />
-                      <span>{endDate ? format(endDate, "dd/MM/yyyy") : "Calculando..."}</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Duración: {selectedDuration} días</p>
-                  </div>
-                </div>
-              </div>
+                <div />
+                <div className="text-gray-600"><strong>Inicio:</strong> {watchStartDate ? format(watchStartDate, "dd/MM/yyyy", { locale: es }) : "-"}</div>
+                <div className="text-gray-600"><strong>Fin:</strong> {summaryData.endDate ? format(summaryData.endDate, "dd/MM/yyyy", { locale: es }) : "..."}</div>
             </div>
-          </TabsContent>
-        </Tabs>
+            <div className="border-t pt-4">
+                <div className="flex items-center gap-2 text-lg font-semibold">
+                    <DollarSign className="h-5 w-5" />
+                    Total: {formatCOP(summaryData.price)}
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                    Membresía: {summaryData.nombreMembresia ?? '...'}
+                </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        <div className="flex justify-end space-x-2 pt-3 border-t mt-3">
-          <Button type="button" variant="outline" onClick={onClose} size="sm">
-            Cancelar
-          </Button>
-          <Button type="submit" className="bg-black hover:bg-gray-800" disabled={isProcessing} size="sm">
-            {isProcessing ? "Procesando..." : "Guardar Cambios"}
+      {/* Columna de Formulario (Derecha) */}
+      <div className="md:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {/* Status */}
+          <div className="space-y-2">
+            <Label htmlFor="estado" className="flex items-center gap-2"><List className="h-4 w-4" />Estado</Label>
+            <Controller
+              name="estado"
+              control={control}
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <SelectTrigger id="estado"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Activo">Activo</SelectItem>
+                    <SelectItem value="Congelado">Congelado</SelectItem>
+                    <SelectItem value="Vencido">Vencido</SelectItem>
+                    <SelectItem value="Cancelado">Cancelado</SelectItem>
+                    <SelectItem value="Por vencer">Por vencer</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.estado && <p className="text-red-500 text-sm">{errors.estado.message}</p>}
+          </div>
+          
+          {/* Membership */}
+          <div className="space-y-2">
+            <Label htmlFor="id_membresia" className="flex items-center gap-2"><User className="h-4 w-4" />Membresía</Label>
+             <Controller
+              name="id_membresia"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  onValueChange={(value) => field.onChange(Number(value))}
+                  defaultValue={String(field.value)}
+                  disabled={activeMemberships.length === 0}
+                >
+                  <SelectTrigger id="id_membresia">
+                    <SelectValue placeholder={activeMemberships.length === 0 ? "No hay membresías activas" : "Seleccionar"}/>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeMemberships.map((m) => (
+                      <SelectItem key={m.id} value={String(m.id)}>{m.nombre}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.id_membresia && <p className="text-red-500 text-sm">{errors.id_membresia.message}</p>}
+             {activeMemberships.length === 0 && (
+                <p className="text-xs text-yellow-600 flex items-center gap-1 mt-1"><Info className="h-3 w-3"/> No hay otras membresías activas para seleccionar.</p>
+            )}
+          </div>
+        </div>
+        
+        {/* Start Date */}
+        <div className="space-y-2">
+            <Label htmlFor="fecha_inicio" className="flex items-center gap-2"><CalendarDays className="h-4 w-4" />Fecha de Inicio</Label>
+            <Controller
+                name="fecha_inicio"
+                control={control}
+                render={({ field }) => (
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccionar fecha</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                initialFocus
+                                locale={es}
+                            />
+                        </PopoverContent>
+                    </Popover>
+                )}
+            />
+            {errors.fecha_inicio && <p className="text-red-500 text-sm">{errors.fecha_inicio.message}</p>}
+        </div>
+
+        {/* Reason */}
+        {watchStatus === "Congelado" && (
+            <div className="space-y-4">
+                <Alert>
+                  <Terminal className="h-4 w-4" />
+                  <AlertTitle>¡Atención!</AlertTitle>
+                  <AlertDescription>
+                    Al congelar un contrato, se pausará temporalmente. El cliente no podrá acceder al gimnasio hasta que se reactive el contrato.
+                  </AlertDescription>
+                </Alert>
+                <div className="space-y-2">
+                    <Label htmlFor="motivo">Motivo del Congelamiento (Requerido)</Label>
+                    <Controller
+                        name="motivo"
+                        control={control}
+                        render={({ field }) => <Input id="motivo" placeholder="Ej: Viaje por trabajo, lesión temporal, etc." {...field} />}
+                    />
+                    {errors.motivo && <p className="text-red-500 text-sm">{errors.motivo.message}</p>}
+                </div>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-4 pt-4 col-span-1 sm:col-span-2">
+          <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" disabled={isSubmitting} className="bg-black hover:bg-gray-800">
+            {isSubmitting ? "Guardando..." : "Guardar Cambios"}
           </Button>
         </div>
-      </form>
-    </div>
+      </div>
+    </form>
   )
 }

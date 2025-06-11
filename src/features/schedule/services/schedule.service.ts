@@ -47,7 +47,7 @@ export const scheduleService = {
     fecha_fin: string;
     id_entrenador?: number;
   }) => {
-    const response = await api.get<AvailabilityResponse>('/schedules/availability', { params });
+    const response = await api.post<AvailabilityResponse>('/schedules/availability', params);
     return response.data;
   },
 
@@ -82,6 +82,18 @@ export const scheduleService = {
     const response = await api.get<TrainingsResponse>(`/schedules/monthly`, {
       params: { year, month }
     });
+    return response.data;
+  },
+
+  // Get active trainers
+  getActiveTrainers: async () => {
+    const response = await api.get<{ data: any[] }>('/schedules/active-trainers');
+    return response.data;
+  },
+
+  // Get active clients
+  getActiveClients: async () => {
+    const response = await api.get<{ data: any[] }>('/schedules/active-clients');
     return response.data;
   }
 };

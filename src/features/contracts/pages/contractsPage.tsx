@@ -3,7 +3,7 @@ import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/shared/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/shared/components/ui/dialog"
 import { 
   Plus, 
   Search, 
@@ -16,7 +16,7 @@ import {
   FileText,
   Pause,
   RotateCcw,
-  Trash2,
+  Ban,
   Eye,
   Users,
   FileSignature,
@@ -45,7 +45,9 @@ import {
   TableRow,
 } from "@/shared/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
-import { Label } from "@/shared/components/ui/label"
+import { Label } from "@/components/ui/label"
+import { EditContractModal } from "@/features/contracts/components/editContractModal"
+import { ContractDetails } from "@/features/contracts/components/contractDetails"
 
 export function ContractsPage() {
   const {
@@ -54,11 +56,9 @@ export function ContractsPage() {
     refreshContracts,
     updateContract,
     deleteContract,
-    freezeContract,
     getContractClient,
     navigateToContractClient,
     memberships,
-    renewContract,
   } = useGym();
 
   const [filteredContracts, setFilteredContracts] = useState<Contract[]>([])
@@ -67,14 +67,8 @@ export function ContractsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
-  const [isEditMode, setIsEditMode] = useState(false)
-  const [editableContract, setEditableContract] = useState<Partial<Contract>>({})
-
-  // State for renew modal
-  const [isRenewModalOpen, setIsRenewModalOpen] = useState(false)
-  const [contractToRenew, setContractToRenew] = useState<Contract | null>(null)
-  const [selectedRenewMembershipId, setSelectedRenewMembershipId] = useState<string>("")
-  const [renewStartDate, setRenewStartDate] = useState<string>("")
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [contractToEdit, setContractToEdit] = useState<Contract | null>(null)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -131,97 +125,13 @@ export function ContractsPage() {
   }
 
   const handleEditContract = (contract: Contract) => {
-    setSelectedContract(contract)
-    setEditableContract({ ...contract })
-    setIsEditMode(true)
-    setIsDetailsOpen(true)
+    setContractToEdit(contract)
+    setIsEditModalOpen(true)
   }
-
-  const handleSaveChanges = async () => {
-    if (!selectedContract) return;
-
-    try {
-      await updateContract(selectedContract.id, editableContract);
-      Swal.fire("Guardado", "Los cambios han sido guardados.", "success");
-      setIsDetailsOpen(false);
-      setIsEditMode(false);
-      refreshContracts();
-    } catch (error) {
-      console.error("Error saving changes:", error);
-      Swal.fire("Error", "No se pudieron guardar los cambios.", "error");
-    }
-  };
 
   const handleViewClient = (contract: Contract) => {
     navigateToContractClient(contract.id)
   }
-
-  const handleRenewContract = (contract: Contract) => {
-    setContractToRenew(contract);
-    setIsRenewModalOpen(true);
-    setRenewStartDate(format(new Date(), "yyyy-MM-dd"));
-    setSelectedRenewMembershipId("");
-  };
-
-  const handleConfirmRenewal = async () => {
-    if (!contractToRenew || !selectedRenewMembershipId || !renewStartDate) {
-      Swal.fire(
-        "Error",
-        "Por favor, seleccione una membresía y una fecha de inicio.",
-        "error",
-      );
-      return;
-    }
-
-    try {
-      await renewContract({
-        id_contrato: contractToRenew.id,
-        id_membresia: Number(selectedRenewMembershipId),
-        fecha_inicio: renewStartDate,
-      });
-      Swal.fire(
-        "Renovado",
-        "El contrato ha sido renovado exitosamente.",
-        "success",
-      );
-      setIsRenewModalOpen(false);
-      refreshContracts();
-    } catch (error) {
-      console.error("Error renewing contract:", error);
-      Swal.fire("Error", "No se pudo renovar el contrato.", "error");
-    }
-  };
-
-  const handleFreezeContract = async (contract: Contract) => {
-    try {
-      const { value: motivo } = await Swal.fire({
-        title: "Congelar Contrato",
-        text: `¿Está seguro de congelar el contrato ${contract.codigo}?`,
-        input: "textarea",
-        inputLabel: "Motivo del congelamiento",
-        inputPlaceholder: "Escriba el motivo...",
-        inputValidator: (value) => {
-          if (!value) {
-            return "Debe proporcionar un motivo";
-          }
-        },
-        showCancelButton: true,
-        confirmButtonColor: "#000",
-        cancelButtonColor: "#6b7280",
-        confirmButtonText: "Congelar",
-        cancelButtonText: "Cancelar",
-      });
-
-      if (motivo) {
-        await freezeContract(contract.id, { motivo });
-        Swal.fire("Congelado", "El contrato ha sido congelado.", "success");
-        refreshContracts();
-      }
-    } catch (error) {
-      console.error("Error freezing contract:", error);
-      Swal.fire("Error", "No se pudo congelar el contrato.", "error");
-    }
-  };
 
   const handleCancelContract = async (contract: Contract) => {
     try {
@@ -242,6 +152,7 @@ export function ContractsPage() {
         cancelButtonColor: '#6b7280',
         confirmButtonText: 'Sí, cancelar',
         cancelButtonText: 'No, mantener contrato',
+        stopKeydownPropagation: false
       });
   
       if (result.isConfirmed) {
@@ -253,40 +164,16 @@ export function ContractsPage() {
       }
     } catch (error) {
       console.error('Error canceling contract:', error)
-      Swal.fire('Error', 'No se pudo cancelar el contrato.', 'error')
+      Swal.fire({
+        title: 'Error',
+        text: 'No se pudo cancelar el contrato.',
+        icon: 'error',
+        stopKeydownPropagation: false,
+        timer: 5000,
+        timerProgressBar: true
+      })
     }
   }
-
-  const handleUpdateStatus = async (contract: Contract, newStatus: Contract['estado']) => {
-    const { value: motivo } = await Swal.fire({
-      title: `Cambiar estado a "${newStatus}"`,
-      text: `¿Está seguro de cambiar el estado del contrato ${contract.codigo}?`,
-      input: 'textarea',
-      inputLabel: 'Motivo del cambio',
-      inputPlaceholder: 'Escriba el motivo...',
-      inputValidator: (value) => {
-        if (!value) {
-          return 'Debe proporcionar un motivo'
-        }
-      },
-      showCancelButton: true,
-      confirmButtonText: 'Sí, cambiar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#000',
-      cancelButtonColor: '#6b7280',
-    });
-
-    if (motivo) {
-      try {
-        await updateContract(contract.id, { estado: newStatus, motivo });
-        Swal.fire('Actualizado', `El estado del contrato ha sido cambiado a ${newStatus}.`, 'success');
-        refreshContracts();
-      } catch (error) {
-        console.error(`Error updating contract status to ${newStatus}:`, error);
-        Swal.fire('Error', 'No se pudo actualizar el estado del contrato.', 'error');
-      }
-    }
-  };
 
   const ContractActionsMenu = ({ contract }: { contract: Contract }) => (
     <DropdownMenu>
@@ -306,24 +193,12 @@ export function ContractsPage() {
           <Edit className="mr-2 h-4 w-4" />
           Editar
         </DropdownMenuItem>
-        {contract.estado === 'Activo' && (
-          <>
-            <DropdownMenuItem onClick={() => handleRenewContract(contract)}>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Renovar
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleFreezeContract(contract)}>
-              <Pause className="mr-2 h-4 w-4" />
-              Congelar
-            </DropdownMenuItem>
-          </>
-        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem 
           onClick={() => handleCancelContract(contract)}
           className="text-red-600"
         >
-          <Trash2 className="mr-2 h-4 w-4" />
+          <Ban className="mr-2 h-4 w-4" />
           Cancelar Contrato
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -511,277 +386,64 @@ export function ContractsPage() {
       />
 
       {/* Contract Details Modal */}
-      <Dialog open={isDetailsOpen} onOpenChange={(isOpen) => {
-        setIsDetailsOpen(isOpen);
-        if (!isOpen) {
-          setIsEditMode(false);
-          setSelectedContract(null);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[700px]">
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSignature className="h-5 w-5" />
-              {isEditMode ? "Editar Contrato" : "Detalles del Contrato"}
+              Detalles del Contrato
             </DialogTitle>
           </DialogHeader>
           {selectedContract && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">
-                    Código
-                  </Label>
-                  <p className="text-lg font-semibold">
-                    {selectedContract.codigo}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">
-                    Estado
-                  </Label>
-                  {isEditMode ? (
-                    <Select
-                      value={editableContract.estado}
-                      onValueChange={(value) =>
-                        setEditableContract({
-                          ...editableContract,
-                          estado: value as Contract["estado"],
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar estado" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Activo">Activo</SelectItem>
-                        <SelectItem value="Congelado">Congelado</SelectItem>
-                        <SelectItem value="Vencido">Vencido</SelectItem>
-                        <SelectItem value="Cancelado">Cancelado</SelectItem>
-                        <SelectItem value="Por vencer">Por vencer</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="mt-1">
-                      {getStatusBadge(selectedContract.estado)}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">
-                    Cliente
-                  </Label>
-                  <div className="mt-1">
-                    <p className="font-medium">
-                      {selectedContract.persona?.usuario?.nombre}{" "}
-                      {selectedContract.persona?.usuario?.apellido}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {selectedContract.persona?.codigo}
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">
-                    Membresía
-                  </Label>
-                  <p className="font-medium">
-                    {selectedContract.membresia?.nombre}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {selectedContract.membresia?.codigo}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {selectedContract.membresia?.vigencia_dias} días de
-                    vigencia
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label
-                    htmlFor="fecha_inicio"
-                    className="text-sm font-medium text-gray-500"
-                  >
-                    Fecha de Inicio
-                  </Label>
-                  {isEditMode ? (
-                    <Input
-                      id="fecha_inicio"
-                      type="date"
-                      value={
-                        editableContract.fecha_inicio
-                          ? format(
-                              new Date(editableContract.fecha_inicio),
-                              "yyyy-MM-dd"
-                            )
-                          : ""
-                      }
-                      onChange={(e) =>
-                        setEditableContract({
-                          ...editableContract,
-                          fecha_inicio: new Date(e.target.value),
-                        })
-                      }
-                    />
-                  ) : (
-                    <p className="font-medium">
-                      {format(selectedContract.fecha_inicio, "dd/MM/yyyy", {
-                        locale: es,
-                      })}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label
-                    htmlFor="fecha_fin"
-                    className="text-sm font-medium text-gray-500"
-                  >
-                    Fecha de Fin
-                  </Label>
-                  {isEditMode ? (
-                    <Input
-                      id="fecha_fin"
-                      type="date"
-                      value={
-                        editableContract.fecha_fin
-                          ? format(
-                              new Date(editableContract.fecha_fin),
-                              "yyyy-MM-dd"
-                            )
-                          : ""
-                      }
-                      onChange={(e) =>
-                        setEditableContract({
-                          ...editableContract,
-                          fecha_fin: new Date(e.target.value),
-                        })
-                      }
-                    />
-                  ) : (
-                    <p className="font-medium">
-                      {format(selectedContract.fecha_fin, "dd/MM/yyyy", {
-                        locale: es,
-                      })}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label
-                  htmlFor="membresia_precio"
-                  className="text-sm font-medium text-gray-500"
-                >
-                  Precio
-                </Label>
-                {isEditMode ? (
-                  <Input
-                    id="membresia_precio"
-                    type="number"
-                    value={editableContract.membresia_precio || ""}
-                    onChange={(e) =>
-                      setEditableContract({
-                        ...editableContract,
-                        membresia_precio: Number(e.target.value),
-                      })
-                    }
-                  />
-                ) : (
-                  <p className="text-2xl font-bold">
-                    $
-                    {selectedContract.membresia_precio.toLocaleString()}
-                  </p>
-                )}
-              </div>
-
-              {isEditMode && (
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsEditMode(false);
-                      setIsDetailsOpen(false);
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button onClick={handleSaveChanges}>Guardar Cambios</Button>
-                </div>
-              )}
-            </div>
+            <ContractDetails contract={selectedContract} onClose={() => setIsDetailsOpen(false)} />
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Renew Contract Modal */}
-      <Dialog open={isRenewModalOpen} onOpenChange={setIsRenewModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+      {/* Edit Contract Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent 
+          onPointerDownOutside={(e) => {
+            if ((e.target as HTMLElement)?.closest('.swal2-container')) {
+                e.preventDefault();
+            }
+          }}
+          className="sm:max-w-3xl"
+        >
           <DialogHeader>
-            <DialogTitle>Renovar Contrato</DialogTitle>
+            <DialogTitle className="flex items-center gap-3">
+              <Edit className="h-6 w-6" />
+              Editar Contrato
+            </DialogTitle>
+            <DialogDescription>
+              Modifique la membresía, fecha de inicio o estado. Los demás campos se calculan automáticamente.
+            </DialogDescription>
           </DialogHeader>
-          {contractToRenew && (
-            <div className="grid gap-4 py-4">
-              <p>
-                Está renovando el contrato{" "}
-                <strong>{contractToRenew.codigo}</strong> para{" "}
-                <strong>
-                  {contractToRenew.persona?.usuario?.nombre}{" "}
-                  {contractToRenew.persona?.usuario?.apellido}
-                </strong>
-                .
-              </p>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="membership" className="text-right">
-                  Membresía
-                </Label>
-                <Select
-                  value={selectedRenewMembershipId}
-                  onValueChange={setSelectedRenewMembershipId}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Seleccione una membresía" />
-                  </SelectTrigger>
-                  <SelectContent id="membership">
-                    {memberships?.map((membership) => (
-                      <SelectItem
-                        key={membership.id}
-                        value={String(membership.id)}
-                      >
-                        {membership.nombre} - $
-                        {membership.precio.toLocaleString()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="start-date" className="text-right">
-                  Fecha de Inicio
-                </Label>
-                <Input
-                  id="start-date"
-                  type="date"
-                  value={renewStartDate}
-                  onChange={(e) => setRenewStartDate(e.target.value)}
-                  className="col-span-3"
-                />
-              </div>
-            </div>
+          {contractToEdit && (
+            <EditContractModal
+              contract={contractToEdit}
+              memberships={memberships}
+              onUpdateContract={async (updatedData) => {
+                try {
+                  await updateContract(contractToEdit.id, updatedData)
+                  Swal.fire("Guardado", "Los cambios han sido guardados.", "success")
+                  setIsEditModalOpen(false)
+                  refreshContracts()
+                } catch (error) {
+                  console.error("Error al actualizar el contrato:", error);
+                  Swal.fire({
+                    title: "Error",
+                    text: "No se pudieron guardar los cambios. Intente de nuevo.",
+                    icon: "error",
+                    stopKeydownPropagation: false,
+                    timer: 5000,
+                    timerProgressBar: true
+                  })
+                }
+              }}
+              onClose={() => setIsEditModalOpen(false)}
+            />
           )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsRenewModalOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button onClick={handleConfirmRenewal}>Confirmar Renovación</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

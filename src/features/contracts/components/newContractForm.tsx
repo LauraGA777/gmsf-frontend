@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -14,7 +14,7 @@ import { es } from "date-fns/locale";
 import { clientService } from "@/features/clients/services/client.service";
 import { membershipService } from "@/features/memberships/services/membership.service";
 import { contractService } from "@/features/contracts/services/contract.service";
-import type { Client, Membership, ContractFormData } from "@/shared/types";
+import type { Client as DbClient, Membership, ContractFormData, UIClient } from "@/shared/types";
 import { mapDbClientToUiClient } from "@/shared/types";
 import Swal from "sweetalert2";
 
@@ -32,10 +32,13 @@ interface NewContractFormProps {
   onSuccess: () => void;
 }
 
-export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormProps) {
-  const [clients, setClients] = useState<Client[]>([]);
+export const NewContractForm = memo(function NewContractForm({
+  isOpen,
+  onClose,
+  onSuccess,
+}: NewContractFormProps) {
+  const [clients, setClients] = useState<UIClient[]>([]);
   const [memberships, setMemberships] = useState<Membership[]>([]);
-  const [selectedMembership, setSelectedMembership] = useState<Membership | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
 
@@ -45,9 +48,10 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
     setValue,
     watch,
     reset,
-    formState: { errors },
+    formState: { errors, isValid },
   } = useForm<ContractFormValues>({
     resolver: zodResolver(contractSchema),
+    mode: "onChange",
     defaultValues: {
       id_persona: 0,
       id_membresia: 0,
@@ -55,7 +59,12 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
     },
   });
 
-  const watchedValues = watch();
+  const watchedIdMembresia = watch("id_membresia");
+  const watchedFechaInicio = watch("fecha_inicio");
+
+  const selectedMembership = memberships.find(
+    (m) => Number(m.id) === watchedIdMembresia
+  );
 
   // Load clients and memberships on component mount
   useEffect(() => {
@@ -71,31 +80,42 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
         // Map clients safely
         const clientsData = clientsResponse?.data || [];
         if (Array.isArray(clientsData)) {
-          const validClients = clientsData.filter(client => client && (client.id_persona || client.id));
-          const mappedClients = validClients.map(client => {
-            try {
-              return mapDbClientToUiClient(client);
-            } catch (err) {
-              console.warn('Error mapping client:', client, err);
-              return null;
-            }
-          }).filter(Boolean);
+          const validClients = clientsData.filter(
+            (client): client is DbClient =>
+              client && (client.id_persona || (client as any).id)
+          );
+          const mappedClients = validClients
+            .map((client) => {
+              try {
+                return mapDbClientToUiClient(client);
+              } catch (err) {
+                console.warn("Error mapping client:", client, err);
+                return null;
+              }
+            })
+            .filter((client): client is UIClient => client !== null);
           setClients(mappedClients);
         }
 
         // Set memberships
         const membershipsData = membershipsResponse?.data || [];
+        console.log("--- DEBUG: Raw memberships from API ---", membershipsData);
         if (Array.isArray(membershipsData)) {
-          setMemberships(membershipsData.filter(membership => membership && membership.estado));
+          setMemberships(
+            membershipsData.filter((membership) => membership && membership.estado)
+          );
         }
 
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.error("Error loading data:", error);
         Swal.fire({
           title: 'Error',
           text: 'Error al cargar los datos necesarios',
           icon: 'error',
           confirmButtonColor: '#000',
+          stopKeydownPropagation: false,
+          timer: 5000,
+          timerProgressBar: true
         });
       } finally {
         setLoadingData(false);
@@ -104,42 +124,49 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
 
     if (isOpen) {
       loadData();
+      reset();
     }
-  }, [isOpen]);
-
-  // Update selected membership when membership changes
-  useEffect(() => {
-    const membershipId = watchedValues.id_membresia;
-    if (membershipId > 0) {
-      const membership = memberships.find(m => m.id === membershipId);
-      setSelectedMembership(membership || null);
-    } else {
-      setSelectedMembership(null);
-    }
-  }, [watchedValues.id_membresia, memberships]);
+  }, [isOpen, reset]);
 
   // Calculate end date and price based on selected membership and start date
-  const calculatedEndDate = selectedMembership && watchedValues.fecha_inicio
-    ? contractService.calculateEndDate(new Date(watchedValues.fecha_inicio), selectedMembership.vigencia_dias)
-    : null;
+  const calculatedEndDate =
+    selectedMembership && watchedFechaInicio
+      ? contractService.calculateEndDate(
+          new Date(watchedFechaInicio),
+          selectedMembership.vigencia_dias
+        )
+      : null;
 
   const calculatedPrice = selectedMembership?.precio || 0;
 
   const handleClientChange = (value: string) => {
-    setValue("id_persona", parseInt(value));
+    setValue("id_persona", parseInt(value), { shouldValidate: true });
   };
 
   const handleMembershipChange = (value: string) => {
-    setValue("id_membresia", parseInt(value));
+    setValue("id_membresia", parseInt(value), { shouldValidate: true });
   };
 
   const onSubmit = async (data: ContractFormValues) => {
-    if (!selectedMembership) {
+    console.log("--- DEBUG: onSubmit triggered ---");
+    console.log("Form data:", data);
+    console.log("Available memberships in state:", memberships);
+
+    const finalSelectedMembership = memberships.find(
+      (m) => Number(m.id) === data.id_membresia
+    );
+
+    console.log("Found membership on submit:", finalSelectedMembership);
+
+    if (!finalSelectedMembership) {
       Swal.fire({
-        title: 'Error',
-        text: 'Debe seleccionar una membresía',
-        icon: 'error',
-        confirmButtonColor: '#000',
+        title: "Error",
+        text: "Debe seleccionar una membresía",
+        icon: "error",
+        confirmButtonColor: "#000",
+        stopKeydownPropagation: false,
+        timer: 5000,
+        timerProgressBar: true
       });
       return;
     }
@@ -152,10 +179,13 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
 
     if (!validation.isValid) {
       Swal.fire({
-        title: 'Datos inválidos',
-        text: validation.errors.join('\n'),
-        icon: 'error',
-        confirmButtonColor: '#000',
+        title: "Datos inválidos",
+        text: validation.errors.join("\\n"),
+        icon: "error",
+        confirmButtonColor: "#000",
+        stopKeydownPropagation: false,
+        timer: 5000,
+        timerProgressBar: true
       });
       return;
     }
@@ -170,29 +200,36 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
         membresia_precio: calculatedPrice,
       };
 
+      console.log("--- DEBUG: Sending this object to API ---", contractData);
       await contractService.createContract(contractData);
 
-      Swal.fire({
-        title: '¡Éxito!',
-        text: 'Contrato creado correctamente',
-        icon: 'success',
-        confirmButtonColor: '#000',
+      await Swal.fire({
+        title: "¡Éxito!",
+        text: "Contrato creado correctamente",
+        icon: "success",
+        confirmButtonColor: "#000",
         timer: 3000,
         timerProgressBar: true,
       });
 
       reset();
-      setSelectedMembership(null);
       onSuccess();
       onClose();
 
-    } catch (error) {
-      console.error('Error creating contract:', error);
+    } catch (error: any) {
+      console.error("Error creating contract:", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        "Error al crear el contrato. Verifique que el cliente no tenga un contrato activo.";
+      
       Swal.fire({
-        title: 'Error',
-        text: 'Error al crear el contrato. Verifique que el cliente no tenga un contrato activo.',
-        icon: 'error',
-        confirmButtonColor: '#000',
+        title: "Error",
+        text: errorMessage,
+        icon: "error",
+        confirmButtonColor: "#000",
+        stopKeydownPropagation: false,
+        timer: 5000,
+        timerProgressBar: true
       });
     } finally {
       setIsLoading(false);
@@ -201,13 +238,19 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
 
   const handleClose = () => {
     reset();
-    setSelectedMembership(null);
     onClose();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        onPointerDownOutside={(e) => {
+            if ((e.target as HTMLElement)?.closest('.swal2-container')) {
+                e.preventDefault();
+            }
+        }}
+        className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
@@ -231,22 +274,31 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
                 <SelectContent>
                   {clients.length > 0 ? (
                     clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
+                      <SelectItem
+                        key={client.id}
+                        value={client.id.toString()}
+                      >
                         <div className="flex flex-col">
                           <span className="font-medium">{client.name}</span>
-                          <span className="text-sm text-gray-500">{client.codigo}</span>
+                          <span className="text-sm text-gray-500">
+                            {client.codigo}
+                          </span>
                         </div>
                       </SelectItem>
                     ))
                   ) : (
                     <div className="px-8 py-6 text-center">
-                      <p className="text-sm text-muted-foreground">No hay clientes disponibles</p>
+                      <p className="text-sm text-muted-foreground">
+                        No hay clientes disponibles
+                      </p>
                     </div>
                   )}
                 </SelectContent>
               </Select>
               {errors.id_persona && (
-                <p className="text-sm text-red-500">{errors.id_persona.message}</p>
+                <p className="text-sm text-red-500">
+                  {errors.id_persona.message}
+                </p>
               )}
             </div>
 
@@ -260,24 +312,34 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
                 <SelectContent>
                   {memberships.length > 0 ? (
                     memberships.map((membership) => (
-                      <SelectItem key={membership.id} value={membership.id.toString()}>
+                      <SelectItem
+                        key={membership.id}
+                        value={membership.id.toString()}
+                      >
                         <div className="flex flex-col">
-                          <span className="font-medium">{membership.nombre}</span>
+                          <span className="font-medium">
+                            {membership.nombre}
+                          </span>
                           <span className="text-sm text-gray-500">
-                            ${membership.precio.toLocaleString()} - {membership.vigencia_dias} días
+                            ${membership.precio.toLocaleString()} -{" "}
+                            {membership.vigencia_dias} días
                           </span>
                         </div>
                       </SelectItem>
                     ))
                   ) : (
                     <div className="px-8 py-6 text-center">
-                      <p className="text-sm text-muted-foreground">No hay membresías disponibles</p>
+                      <p className="text-sm text-muted-foreground">
+                        No hay membresías disponibles
+                      </p>
                     </div>
                   )}
                 </SelectContent>
               </Select>
               {errors.id_membresia && (
-                <p className="text-sm text-red-500">{errors.id_membresia.message}</p>
+                <p className="text-sm text-red-500">
+                  {errors.id_membresia.message}
+                </p>
               )}
             </div>
 
@@ -291,7 +353,9 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
                 {...register("fecha_inicio")}
               />
               {errors.fecha_inicio && (
-                <p className="text-sm text-red-500">{errors.fecha_inicio.message}</p>
+                <p className="text-sm text-red-500">
+                  {errors.fecha_inicio.message}
+                </p>
               )}
             </div>
 
@@ -312,8 +376,26 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
                         Fechas
                       </div>
                       <div className="text-sm text-gray-600">
-                        <p><strong>Inicio:</strong> {watchedValues.fecha_inicio ? format(new Date(watchedValues.fecha_inicio), "dd/MM/yyyy", { locale: es }) : "-"}</p>
-                        <p><strong>Fin:</strong> {calculatedEndDate ? format(calculatedEndDate, "dd/MM/yyyy", { locale: es }) : "-"}</p>
+                        <p>
+                          <strong>Inicio:</strong>{" "}
+                          {watchedFechaInicio
+                            ? format(
+                                new Date(
+                                  `${watchedFechaInicio}T00:00:00`
+                                ),
+                                "dd/MM/yyyy",
+                                { locale: es }
+                              )
+                            : "-"}
+                        </p>
+                        <p>
+                          <strong>Fin:</strong>{" "}
+                          {calculatedEndDate
+                            ? format(calculatedEndDate, "dd/MM/yyyy", {
+                                locale: es,
+                              })
+                            : "-"}
+                        </p>
                       </div>
                     </div>
 
@@ -323,8 +405,14 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
                         Duración
                       </div>
                       <div className="text-sm text-gray-600">
-                        <p><strong>Vigencia:</strong> {selectedMembership.vigencia_dias} días</p>
-                        <p><strong>Accesos:</strong> {selectedMembership.dias_acceso} días</p>
+                        <p>
+                          <strong>Vigencia:</strong>{" "}
+                          {selectedMembership.vigencia_dias} días
+                        </p>
+                        <p>
+                          <strong>Accesos:</strong>{" "}
+                          {selectedMembership.dias_acceso} días
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -347,9 +435,9 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
               <Button type="button" variant="outline" onClick={handleClose}>
                 Cancelar
               </Button>
-              <Button 
-                type="submit" 
-                disabled={isLoading || !selectedMembership}
+              <Button
+                type="submit"
+                disabled={isLoading || !isValid}
                 className="bg-black hover:bg-gray-800"
               >
                 {isLoading ? "Creando..." : "Crear Contrato"}
@@ -360,4 +448,4 @@ export function NewContractForm({ isOpen, onClose, onSuccess }: NewContractFormP
       </DialogContent>
     </Dialog>
   );
-}
+});

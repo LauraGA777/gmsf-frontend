@@ -3,14 +3,12 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { UserFormModal } from "../components/userFormModal";
 import { UserDetailsModal } from "../components/userDetailsModal";
 import { 
   Plus, 
   Search, 
   Users, 
-  Calendar,
   MoreHorizontal,
   RefreshCw,
   Edit,
@@ -22,14 +20,12 @@ import {
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { userService } from "../services/userService";
-import type { User, UserFormData, UpdateUserFormData } from "../types/user";
+import type { User, UserFormData } from "../types/user";
 import Swal from "sweetalert2";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import {

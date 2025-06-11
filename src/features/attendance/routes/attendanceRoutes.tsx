@@ -1,6 +1,6 @@
 import { RouteObject } from "react-router-dom";
-import AttendancePage from "../pages/index";
 import { ProtectedRoute } from "../../auth/components/protectedRoute";
+import AttendancePage from "../pages/page";
 
 export const attendanceRoutes: RouteObject[] = [
     {

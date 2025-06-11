@@ -119,8 +119,6 @@ class MembershipService {
   async getMemberships(params: QueryParams = {}): Promise<PaginatedResponse<Membership>> {
     try {
       this.checkAuth();
-      console.log('🎯 Obteniendo membresías con parámetros:', params);
-      
       const searchParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -218,10 +216,33 @@ class MembershipService {
     try {
       this.checkAuth();
       const response = await this.api.delete<ApiResponse<any>>(`/${id}`);
-      return this.mapApiResponseToMembership(response.data.data);
-    } catch (error) {
-      console.error(`Error deactivating membership ${id}:`, error);
-      throw error;
+      
+      // Verificar si la respuesta es exitosa
+      if (response.data.status === 'success') {
+        // Si la respuesta incluye datos de la membresía, los mapeamos
+        if (response.data.data) {
+          return this.mapApiResponseToMembership(response.data.data);
+        }
+        // Si no hay datos pero la operación fue exitosa, devolvemos la membresía con estado false
+        return {
+          id,
+          codigo: '',
+          nombre: '',
+          descripcion: '',
+          dias_acceso: 0,
+          vigencia_dias: 0,
+          precio: 0,
+          fecha_creacion: new Date().toISOString(),
+          estado: false
+        };
+      }
+      
+      throw new Error(response.data.message || 'Error al desactivar la membresía');
+    } catch (error: any) {
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+      throw new Error('Error al desactivar la membresía');
     }
   }
 
@@ -229,10 +250,15 @@ class MembershipService {
     try {
       this.checkAuth();
       const response = await this.api.patch<ApiResponse<any>>(`/${id}/reactivate`);
-      return this.mapApiResponseToMembership(response.data.data);
-    } catch (error) {
-      console.error(`Error reactivating membership ${id}:`, error);
-      throw error;
+      if (response.data.status === 'success') {
+        return this.mapApiResponseToMembership(response.data.data);
+      }
+      throw new Error(response.data.message || 'Error al reactivar la membresía');
+    } catch (error: any) {
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+      throw new Error('Error al reactivar la membresía');
     }
   }
 

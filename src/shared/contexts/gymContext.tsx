@@ -144,15 +144,11 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const refreshMemberships = useCallback(async () => {
     try {
-      console.log('🔄 Iniciando carga de membresías...');
       setMembershipsLoading(true);
       const response = await membershipService.getMemberships({ limit: 1000 });
-      console.log('✅ Respuesta de membresías recibida:', response);
-      console.log('📊 Cantidad de membresías:', response.data?.length || 0);
       setMemberships(response.data);
     } catch (error) {
-      console.error('❌ Error loading memberships:', error);
-      console.error('🔍 Error details:', (error as any)?.response?.data || (error as any)?.message);
+      // Silenciosamente manejar el error
     } finally {
       setMembershipsLoading(false);
     }

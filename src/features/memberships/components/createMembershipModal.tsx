@@ -15,11 +15,11 @@ interface CreateMembershipModalProps {
 
 export function CreateMembershipModal({ isOpen, onClose, onSubmit }: CreateMembershipModalProps) {
   const [formData, setFormData] = useState<MembershipFormData>({
-    name: "",
-    description: "",
-    price: 0,
-    accessDays: 0,
-    validityDays: 0,
+    nombre: "",
+    descripcion: "",
+    precio: 0,
+    dias_acceso: 0,
+    vigencia_dias: 0,
   })
 
   const [errors, setErrors] = useState<ValidationErrors>({})
@@ -27,28 +27,28 @@ export function CreateMembershipModal({ isOpen, onClose, onSubmit }: CreateMembe
   const validateForm = (): boolean => {
     const newErrors: ValidationErrors = {}
 
-    if (!formData.name.trim()) {
-      newErrors.name = "El nombre es obligatorio"
+    if (!formData.nombre.trim()) {
+      newErrors.nombre = "El nombre es obligatorio"
     }
 
-    if (!formData.description.trim()) {
-      newErrors.description = "La descripción es obligatoria"
+    if (!formData.descripcion.trim()) {
+      newErrors.descripcion = "La descripción es obligatoria"
     }
 
-    if (formData.price <= 0) {
-      newErrors.price = "El precio debe ser mayor a 0"
+    if (formData.precio <= 0) {
+      newErrors.precio = "El precio debe ser mayor a 0"
     }
 
-    if (formData.accessDays <= 0) {
-      newErrors.accessDays = "Los días de acceso deben ser mayor a 0"
+    if (formData.dias_acceso <= 0) {
+      newErrors.dias_acceso = "Los días de acceso deben ser mayor a 0"
     }
 
-    if (formData.validityDays <= 0) {
-      newErrors.validityDays = "Los días de vigencia deben ser mayor a 0"
+    if (formData.vigencia_dias <= 0) {
+      newErrors.vigencia_dias = "Los días de vigencia deben ser mayor a 0"
     }
 
-    if (formData.validityDays < formData.accessDays) {
-      newErrors.validityDays = "Los días de vigencia deben ser mayor o igual a los días de acceso"
+    if (formData.vigencia_dias < formData.dias_acceso) {
+      newErrors.vigencia_dias = "Los días de vigencia deben ser mayor o igual a los días de acceso"
     }
 
     setErrors(newErrors)
@@ -65,11 +65,11 @@ export function CreateMembershipModal({ isOpen, onClose, onSubmit }: CreateMembe
 
   const handleClose = () => {
     setFormData({
-      name: "",
-      description: "",
-      price: 0,
-      accessDays: 0,
-      validityDays: 0,
+      nombre: "",
+      descripcion: "",
+      precio: 0,
+      dias_acceso: 0,
+      vigencia_dias: 0,
     })
     setErrors({})
     onClose()
@@ -88,11 +88,11 @@ export function CreateMembershipModal({ isOpen, onClose, onSubmit }: CreateMembe
             <Input
               id="name"
               placeholder="Nombre de la membresía"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={errors.name ? "border-red-500" : ""}
+              value={formData.nombre}
+              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              className={errors.nombre ? "border-red-500" : ""}
             />
-            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+            {errors.nombre && <p className="text-red-500 text-sm mt-1">{errors.nombre}</p>}
           </div>
 
           <div>
@@ -100,12 +100,12 @@ export function CreateMembershipModal({ isOpen, onClose, onSubmit }: CreateMembe
             <Textarea
               id="description"
               placeholder="Descripción de la membresía"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className={errors.description ? "border-red-500" : ""}
+              value={formData.descripcion}
+              onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+              className={errors.descripcion ? "border-red-500" : ""}
               rows={3}
             />
-            {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
+            {errors.descripcion && <p className="text-red-500 text-sm mt-1">{errors.descripcion}</p>}
           </div>
 
           <div>
@@ -113,12 +113,20 @@ export function CreateMembershipModal({ isOpen, onClose, onSubmit }: CreateMembe
             <Input
               id="price"
               type="number"
-              min="1"
+              inputMode="decimal"
+              min={0}
               placeholder="Precio de la membresía"
-              onChange={(e) => setFormData({ ...formData, price: Number.parseFloat(e.target.value)})}
-              className={errors.price ? "border-red-500" : ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Solo permitir números y un punto decimal
+                if (/^\d*\.?\d*$/.test(value)) {
+                  setFormData({ ...formData, precio: value === '' ? 0 : Number(value) });
+                }
+              }}
+              value={formData.precio === 0 ? '' : formData.precio}
+              className={errors.precio ? "border-red-500" : ""}
             />
-            {errors.price && <p className="text-red-500 text-sm mt-1">{errors.price}</p>}
+            {errors.precio && <p className="text-red-500 text-sm mt-1">{errors.precio}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -129,10 +137,10 @@ export function CreateMembershipModal({ isOpen, onClose, onSubmit }: CreateMembe
                 type="number"
                 min="1"
                 placeholder="Días de acceso"
-                onChange={(e) => setFormData({ ...formData, accessDays: Number.parseInt(e.target.value) || 0 })}
-                className={errors.accessDays ? "border-red-500" : ""}
+                onChange={(e) => setFormData({ ...formData, dias_acceso: Number.parseInt(e.target.value) || 0 })}
+                className={errors.dias_acceso ? "border-red-500" : ""}
               />
-              {errors.accessDays && <p className="text-red-500 text-sm mt-1">{errors.accessDays}</p>}
+              {errors.dias_acceso && <p className="text-red-500 text-sm mt-1">{errors.dias_acceso}</p>}
             </div>
 
             <div>
@@ -142,10 +150,10 @@ export function CreateMembershipModal({ isOpen, onClose, onSubmit }: CreateMembe
                 type="number"
                 min="1"
                 placeholder="Días de vigencia"
-                onChange={(e) => setFormData({ ...formData, validityDays: Number.parseInt(e.target.value) || 0 })}
-                className={errors.validityDays ? "border-red-500" : ""}
+                onChange={(e) => setFormData({ ...formData, vigencia_dias: Number.parseInt(e.target.value) || 0 })}
+                className={errors.vigencia_dias ? "border-red-500" : ""}
               />
-              {errors.validityDays && <p className="text-red-500 text-sm mt-1">{errors.validityDays}</p>}
+              {errors.vigencia_dias && <p className="text-red-500 text-sm mt-1">{errors.vigencia_dias}</p>}
             </div>
           </div>
 

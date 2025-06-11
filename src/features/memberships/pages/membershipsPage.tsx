@@ -13,10 +13,11 @@ import {
   RefreshCw,
   Edit,
   Eye,
-  Trash2,
   RotateCcw,
-  Power
+  Power,
+  Activity,
 } from "lucide-react";
+import { Separator } from "@/shared/components/ui/separator"
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useGym } from "@/shared/contexts/gymContext";
@@ -27,8 +28,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import {
@@ -121,23 +120,37 @@ function MembershipForm({
         <div>
           <label className="block text-sm font-medium mb-1">Precio ($)</label>
           <Input
-            type="number"
+            type="text"
+            inputMode="decimal"
             min="0"
             step="0.01"
-            value={formData.precio}
-            onChange={(e) => setFormData(prev => ({ ...prev, precio: Number(e.target.value) }))}
-            placeholder="0.00"
+            value={formData.precio === 0 ? '' : formData.precio}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Solo permitir números y un punto decimal
+              if (/^\d*\.?\d*$/.test(value)) {
+                setFormData(prev => ({ ...prev, precio: value === '' ? 0 : Number(value) }));
+              }
+            }}
+            placeholder="Ingrese el precio"
             required
           />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Días de Acceso</label>
           <Input
-            type="number"
+            type="text"
+            inputMode="numeric"
             min="1"
-            value={formData.dias_acceso}
-            onChange={(e) => setFormData(prev => ({ ...prev, dias_acceso: Number(e.target.value) }))}
-            placeholder="30"
+            value={formData.dias_acceso === 0 ? '' : formData.dias_acceso}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Solo permitir números enteros
+              if (/^\d*$/.test(value)) {
+                setFormData(prev => ({ ...prev, dias_acceso: value === '' ? 0 : Number(value) }));
+              }
+            }}
+            placeholder="Ingrese los días de acceso"
             required
           />
         </div>
@@ -146,11 +159,17 @@ function MembershipForm({
       <div>
         <label className="block text-sm font-medium mb-1">Días de Vigencia Total</label>
         <Input
-          type="number"
+          type="text"
+          inputMode="numeric"
           min="1"
-          value={formData.vigencia_dias}
-          onChange={(e) => setFormData(prev => ({ ...prev, vigencia_dias: Number(e.target.value) }))}
-          placeholder="30"
+          value={formData.vigencia_dias === 0 ? '' : formData.vigencia_dias}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (/^\d*$/.test(value)) {
+              setFormData(prev => ({ ...prev, vigencia_dias: value === '' ? 0 : Number(value) }));
+            }
+          }}
+          placeholder="Ingrese los días de vigencia"
           required
         />
         <p className="text-xs text-gray-500 mt-1">
@@ -216,9 +235,9 @@ export function MembershipsPage() {
 
   const getStatusBadge = (estado: boolean) => {
     return estado ? (
-      <Badge className="bg-green-100 text-green-800">Activa</Badge>
+      <Badge className="bg-green-100 text-green-800 hover:bg-green-200 hover:text-green-900">Activa</Badge>
     ) : (
-      <Badge className="bg-gray-100 text-gray-800">Inactiva</Badge>
+      <Badge className="bg-red-100 text-red-800 hover:bg-red-200 hover:text-red-900">Inactiva</Badge>
     );
   };
 
@@ -295,26 +314,45 @@ export function MembershipsPage() {
       });
 
       if (result.isConfirmed) {
-        if (membership.estado) {
-          await membershipService.deactivateMembership(membership.id);
-        } else {
-          await membershipService.reactivateMembership(membership.id);
+        try {
+          if (membership.estado) {
+            await membershipService.deactivateMembership(membership.id);
+          } else {
+            await membershipService.reactivateMembership(membership.id);
+          }
+          
+          // Actualizar la lista completa
+          await refreshMemberships();
+          
+          Swal.fire({
+            title: '¡Éxito!',
+            text: `Membresía ${action}da correctamente`,
+            icon: 'success',
+            confirmButtonColor: '#000',
+          });
+        } catch (error: any) {
+          if (error.message?.includes('contratos activos')) {
+            Swal.fire({
+              title: 'No se puede desactivar',
+              text: error.message,
+              icon: 'warning',
+              confirmButtonColor: '#000',
+            });
+          } else {
+            Swal.fire({
+              title: 'Error',
+              text: error.message || 'Error al cambiar el estado de la membresía',
+              icon: 'error',
+              confirmButtonColor: '#000',
+            });
+          }
         }
-        
-        await refreshMemberships();
-        
-        Swal.fire({
-          title: '¡Éxito!',
-          text: `Membresía ${action}da correctamente`,
-          icon: 'success',
-          confirmButtonColor: '#000',
-        });
       }
-    } catch (error) {
-      console.error('Error toggling membership status:', error);
+    } catch (error: any) {
+      console.error('Error inesperado:', error);
       Swal.fire({
         title: 'Error',
-        text: 'Error al cambiar el estado de la membresía',
+        text: 'Ha ocurrido un error inesperado',
         icon: 'error',
         confirmButtonColor: '#000',
       });
@@ -322,7 +360,7 @@ export function MembershipsPage() {
   };
 
   const MembershipActionsMenu = ({ membership }: { membership: Membership }) => {
-    const activeContracts = getActiveContracts(membership.id);
+
     
     return (
       <DropdownMenu>
@@ -332,8 +370,6 @@ export function MembershipsPage() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => handleViewDetails(membership)}>
             <Eye className="mr-2 h-4 w-4" />
             Ver detalles
@@ -342,7 +378,6 @@ export function MembershipsPage() {
             <Edit className="mr-2 h-4 w-4" />
             Editar
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => handleToggleMembershipStatus(membership)}>
             {membership.estado ? (
               <>
@@ -500,7 +535,7 @@ export function MembershipsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className="bg-blue-100 text-blue-800">
+                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 hover:text-blue-900">
                           {getActiveContracts(membership.id)} activos
                         </Badge>
                       </TableCell>
@@ -540,67 +575,96 @@ export function MembershipsPage() {
 
       {/* Membership Details Modal */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="sm:max-w-[700px]">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              Detalles de la Membresía
+            <DialogTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Detalles de la Membresía
+              </div>
             </DialogTitle>
           </DialogHeader>
+
           {selectedMembership && (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Código</Label>
-                  <p className="text-lg font-semibold">{selectedMembership.codigo}</p>
+              {/* Header with membership info */}
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                    <DollarSign className="w-8 h-8 text-gray-400" />
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Estado</Label>
-                  <div className="mt-1">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {selectedMembership.nombre}
+                  </h2>
+                  <p className="text-sm text-gray-500">Código: {selectedMembership.codigo}</p>
+                  <div className="flex items-center space-x-2 mt-2">
                     {getStatusBadge(selectedMembership.estado)}
+                    <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                      {getActiveContracts(selectedMembership.id)} contratos activos
+                    </Badge>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <Label className="text-sm font-medium text-gray-500">Nombre</Label>
-                <p className="text-xl font-bold">{selectedMembership.nombre}</p>
-              </div>
+              <Separator />
 
+              {/* Description */}
               <div>
-                <Label className="text-sm font-medium text-gray-500">Descripción</Label>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Descripción</h3>
                 <p className="text-gray-700">{selectedMembership.descripcion}</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Precio</Label>
-                  <p className="text-2xl font-bold text-green-600">
-                    ${selectedMembership.precio.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Días de Acceso</Label>
-                  <p className="text-xl font-semibold">{selectedMembership.dias_acceso}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Días de Vigencia</Label>
-                  <p className="text-xl font-semibold">{selectedMembership.vigencia_dias}</p>
+              <Separator />
+
+              {/* Pricing and Duration */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Precios y Duración</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-center space-x-3">
+                    <DollarSign className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Precio</p>
+                      <p className="text-xl font-bold text-green-600">
+                        ${selectedMembership.precio.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-3">
+                    <Calendar className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Días de Acceso</p>
+                      <p className="text-lg font-semibold">{selectedMembership.dias_acceso} días</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-3">
+                    <Calendar className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Vigencia Total</p>
+                      <p className="text-lg font-semibold">{selectedMembership.vigencia_dias} días</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Contratos Activos</Label>
-                  <p className="text-lg font-semibold text-blue-600">
-                    {getActiveContracts(selectedMembership.id)}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Fecha de Creación</Label>
-                  <p className="text-sm">
-                    {format(new Date(selectedMembership.fecha_creacion), "dd/MM/yyyy HH:mm", { locale: es })}
-                  </p>
+              <Separator />
+
+              {/* System Information */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Información del Sistema</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-3">
+                    <Activity className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Fecha de Creación</p>
+                      <p className="text-sm text-gray-500">
+                        {format(new Date(selectedMembership.fecha_creacion), "dd/MM/yyyy HH:mm", { locale: es })}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

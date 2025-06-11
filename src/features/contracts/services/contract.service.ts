@@ -86,20 +86,6 @@ export const contractService = {
     return response.data;
   },
 
-  // Renew contract
-  renewContract: async (data: ContractRenewalData) => {
-    contractService.checkAuth();
-    const response = await api.post<ContractResponse>('/contracts/renew', data);
-    return response.data;
-  },
-
-  // Freeze contract
-  freezeContract: async (data: ContractFreezeData) => {
-    contractService.checkAuth();
-    const response = await api.post<ContractResponse>('/contracts/freeze', data);
-    return response.data;
-  },
-
   // Get contract history
   getContractHistory: async (id: number) => {
     contractService.checkAuth();
@@ -129,11 +115,14 @@ export const contractService = {
     if (!data.fecha_inicio) {
       errors.push('Debe especificar una fecha de inicio');
     } else {
-      const startDate = new Date(data.fecha_inicio);
+      // Use string comparison for dates to avoid timezone issues.
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      if (startDate < today) {
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayString = `${year}-${month}-${day}`;
+
+      if (data.fecha_inicio < todayString) {
         errors.push('La fecha de inicio no puede ser anterior a hoy');
       }
     }

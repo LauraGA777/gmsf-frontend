@@ -2,15 +2,9 @@
 import { ROLES } from "@/shared/contexts/authContext";
 
 export interface User {
-  id: number;
-  codigo: string;
+  id: string;
   nombre: string;
-  apellido: string;
   correo: string;
-  numero_documento: string;
-  fecha_actualizacion: string;
-  asistencias_totales: number;
-  estado: boolean;
   id_rol: number;
   role?: keyof typeof ROLES;
   clientId?: string;
@@ -147,6 +141,8 @@ export interface Contract {
       apellido: string;
       correo: string;
       telefono?: string;
+      tipo_documento?: "CC" | "CE" | "TI" | "PP" | "DIE";
+      numero_documento?: string;
     };
   };
   membresia?: {

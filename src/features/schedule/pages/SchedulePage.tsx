@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { ProtectedRoute } from "../../auth/components/protectedRoute"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog"
 import { TrainingForm } from "@/features/schedule/components/TrainingForm"
@@ -24,7 +24,7 @@ import {
 } from "lucide-react"
 import Swal from "sweetalert2"
 import { type User as UserType } from "@/shared/types"
-import { format, isSameDay, addDays, subDays, isToday } from "date-fns"
+import { format, isSameDay, addDays, subDays, isToday, startOfDay, endOfDay } from "date-fns"
 import { es } from "date-fns/locale"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
@@ -37,6 +37,7 @@ import { clientService } from "@/features/clients/services/client.service"
 import type { Contract, Client } from "@/shared/types"
 import { scheduleService } from "@/features/schedule/services/schedule.service"
 import { Training, TrainingsResponse, AvailabilityResponse } from "@/shared/types/training"
+import { cn } from "@/shared/lib/utils"
 
 export function SchedulePage() {
     const { user } = useAuth()
@@ -49,111 +50,73 @@ export function SchedulePage() {
     const [fetchedTrainings, setFetchedTrainings] = useState<Training[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const [activeClientsCount, setActiveClientsCount] = useState(0)
+    const [currentMonth, setCurrentMonth] = useState<string>(format(new Date(), "yyyy-MM-dd"))
     const [clients, setClients] = useState<Client[]>([])
     const [trainers, setTrainers] = useState<Array<{ id: string; name: string }>>([])
-
-    // Obtener clientes con contratos activos
     const [clientsWithActiveContracts, setClientsWithActiveContracts] = useState<{ id: string; name: string }[]>([])
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setIsLoading(true)
-                
-                // Intentar cargar contratos y clientes en paralelo
-                const [contractsResponse, clientsResponse] = await Promise.all([
-                    contractService.getContracts().catch(err => {
-                        console.error("Error loading contracts:", err);
-                        return { data: { data: [] } }; // Estructura de respuesta por defecto
-                    }),
-                    clientService.getClients({}).catch(err => {
-                        console.error("Error loading clients:", err);
-                        return { data: [] }; // Estructura de respuesta por defecto
-                    })
-                ])
-
-                // Manejar contratos de forma segura
-                const contractsData = contractsResponse?.data?.data || contractsResponse?.data || [];
-                let activeContracts = [];
-                if (Array.isArray(contractsData)) {
-                    activeContracts = contractsData.filter(
-                        contract => contract && contract.estado === "Activo"
-                    );
-                }
-                setActiveClientsCount(activeContracts.length)
-
-                // Manejar clientes de forma segura
-                const clientsData = clientsResponse?.data || [];
-                if (Array.isArray(clientsData)) {
-                    try {
-                        // Mapear clientes filtrando los que tienen datos válidos
-                        const validClients = clientsData.filter(client => client && (client.id_persona || client.id));
-                        const mappedClients = validClients.map(client => {
-                            try {
-                                return {
-                                    id: (client.id_persona || client.id).toString(),
-                                    name: client.usuario?.nombre || client.nombre || client.codigo || 'Cliente desconocido'
-                                };
-                            } catch (err) {
-                                console.warn('Error mapping client:', client, err);
-                                return null;
-                            }
-                        }).filter(Boolean); // Remover nulls
-
-                        setClients(clientsData);
-                        setClientsWithActiveContracts(mappedClients);
-                    } catch (err) {
-                        console.error("Error mapping clients:", err);
-                        setClients([]);
-                        setClientsWithActiveContracts([]);
-                    }
-                } else {
-                    console.warn('Clients response is not an array:', clientsResponse);
-                    setClients([]);
-                    setClientsWithActiveContracts([]);
-                }
-
-                // Datos mock para entrenadores
-                setTrainers([
-                    { id: '1', name: 'Juan Perez' },
-                    { id: '2', name: 'Maria Garcia' },
-                ])
-
-                // Fetch trainings from the API de forma segura
-                try {
-                    const trainingsResponse = await scheduleService.getTrainings({
-                        fecha_inicio: format(selectedDate, "yyyy-MM-dd"),
-                        fecha_fin: format(selectedDate, "yyyy-MM-dd"),
-                    });
-                    
-                    const trainingsData = trainingsResponse?.data || [];
-                    if (Array.isArray(trainingsData)) {
-                        setFetchedTrainings(trainingsData);
-                    } else {
-                        console.warn('Trainings response is not an array:', trainingsResponse);
-                        setFetchedTrainings([]);
-                    }
-                } catch (err) {
-                    console.error("Error fetching trainings:", err);
-                    setFetchedTrainings([]);
-                }
-
-                setError(null)
-            } catch (err) {
-                setError("Error al cargar los datos")
-                console.error("Error fetching data:", err)
-                setFetchedTrainings([])
-                setClients([])
-                setClientsWithActiveContracts([])
-                setTrainers([])
-            } finally {
-                setIsLoading(false)
+    const fetchData = useCallback(async () => {
+        try {
+            setIsLoading(true)
+            
+            const clientsPromise = scheduleService.getActiveClients();
+            const trainersPromise = scheduleService.getActiveTrainers();
+            
+            let trainingsPromise;
+            if (viewMode === 'calendar') {
+                trainingsPromise = scheduleService.getMonthlySchedule(new Date(currentMonth).getFullYear(), new Date(currentMonth).getMonth() + 1);
+            } else {
+                const start = startOfDay(selectedDate);
+                const end = endOfDay(selectedDate);
+                trainingsPromise = scheduleService.getTrainings({
+                    fecha_inicio: start.toISOString(),
+                    fecha_fin: end.toISOString(),
+                });
             }
-        }
+            
+            const [clientsResponse, trainersResponse, trainingsResponse] = await Promise.all([
+                clientsPromise,
+                trainersPromise,
+                trainingsPromise
+            ]);
 
-        fetchData()
-    }, [selectedDate])
+            if (clientsResponse.data) {
+                const mappedClients = clientsResponse.data.map((c: any) => ({
+                    id: c.id_persona.toString(),
+                    name: `${c.usuario.nombre} ${c.usuario.apellido}`
+                }));
+                setClients(clientsResponse.data)
+                setClientsWithActiveContracts(mappedClients)
+            }
+            
+            if (trainersResponse.data) {
+                const mappedTrainers = trainersResponse.data.map((t: any) => ({
+                  id: t.id.toString(),
+                  name: `${t.nombre} ${t.apellido}`,
+                }));
+                setTrainers(mappedTrainers);
+            }
+
+            if (trainingsResponse.data) {
+                setFetchedTrainings(trainingsResponse.data);
+            }
+
+            setError(null)
+        } catch (err) {
+            setError("Error al cargar los datos")
+            console.error("Error fetching data:", err)
+            setFetchedTrainings([])
+            setClients([])
+            setClientsWithActiveContracts([])
+            setTrainers([])
+        } finally {
+            setIsLoading(false)
+        }
+    }, [selectedDate, currentMonth, viewMode]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData])
 
     // Filter and sort trainings based on fetchedTrainings and other dependencies
     const displayedTrainings = useMemo(() => {
@@ -171,15 +134,6 @@ export function SchedulePage() {
         // Si es entrenador, mostrar solo los entrenamientos que imparte
         else if (user.role === "ENTRENADOR" && user.trainerId) {
             filtered = filtered.filter((training) => training.id_entrenador?.toString() === user.trainerId)
-        }
-
-        // Filtrar por fecha seleccionada en modo diario
-        if (viewMode === "daily") {
-            filtered = filtered.filter((training) => {
-                const isSameClient = user?.role === 'CLIENTE' ? training.id_cliente?.toString() === user.clientId : true
-                // Check if the training's start date is the same as the selected date
-                return isSameDay(new Date(training.fecha_inicio), selectedDate) && isSameClient
-            })
         }
 
         // Aplicar búsqueda mejorada en todos los campos posibles
@@ -212,7 +166,7 @@ export function SchedulePage() {
         })
 
         return filtered
-    }, [fetchedTrainings, user, selectedDate, viewMode, searchTerm])
+    }, [fetchedTrainings, user, viewMode, searchTerm])
 
     // Agrupar entrenamientos por hora para la vista diaria
     const groupedTrainings = useMemo(() => {
@@ -247,13 +201,8 @@ export function SchedulePage() {
             }
             setIsFormOpen(false);
             setIsEditFormOpen(false); // Close edit form as well
-            // Recargar entrenamientos after adding/editing
-            // Fetch trainings for the currently selected date to update the view
-            const trainingsResponse = await scheduleService.getTrainings({
-                 fecha_inicio: format(selectedDate, "yyyy-MM-dd"),
-                 fecha_fin: format(selectedDate, "yyyy-MM-dd"),
-            });
-            setFetchedTrainings(trainingsResponse.data);
+            
+            await fetchData();
 
             Swal.fire({
                 title: selectedTraining ? "¡Actualizado!" : "¡Creado!",
@@ -264,13 +213,17 @@ export function SchedulePage() {
                 timerProgressBar: true,
             });
 
-        } catch (err) {
+        } catch (err: any) {
             console.error("Error saving training:", err);
+            const errorMessage = err.response?.data?.message || "Hubo un problema al guardar el entrenamiento.";
             Swal.fire({
                 title: "Error",
-                text: "Hubo un problema al guardar el entrenamiento.",
+                text: errorMessage,
                 icon: "error",
                 confirmButtonColor: "#000",
+                timer: 5000,
+                timerProgressBar: true,
+                stopKeydownPropagation: false
             });
         } finally {
             setIsLoading(false); // Stop loading indicator
@@ -297,16 +250,12 @@ export function SchedulePage() {
                 cancelButtonColor: "#d1d5db",
                 confirmButtonText: "Sí, eliminar",
                 cancelButtonText: "Cancelar",
+                stopKeydownPropagation: false
             }).then(async (result) => { // Added async here
                 if (result.isConfirmed) {
                     try {
                         await scheduleService.deleteTraining(id); // Call delete API
-                        // Refetch trainings for the currently selected date to update the view
-                        const trainingsResponse = await scheduleService.getTrainings({
-                             fecha_inicio: format(selectedDate, "yyyy-MM-dd"),
-                             fecha_fin: format(selectedDate, "yyyy-MM-dd"),
-                        });
-                        setFetchedTrainings(trainingsResponse.data);
+                        await fetchData();
 
                         Swal.fire({
                             title: "Eliminado",
@@ -323,6 +272,9 @@ export function SchedulePage() {
                             text: "Hubo un problema al eliminar el entrenamiento.",
                             icon: "error",
                             confirmButtonColor: "#000",
+                            timer: 5000,
+                            timerProgressBar: true,
+                            stopKeydownPropagation: false
                         });
                     }
                 }
@@ -355,39 +307,6 @@ export function SchedulePage() {
         setSelectedTraining(null)
     }
 
-    const handleChangeStatus = async (id: number, newStatus: Training["estado"]) => { // Added async here
-         try {
-            // Call API to update status
-            await scheduleService.updateTraining(id, { estado: newStatus });
-            // Update fetchedTrainings after successful status change
-             const trainingsResponse = await scheduleService.getTrainings({
-                 fecha_inicio: format(selectedDate, "yyyy-MM-dd"),
-                 fecha_fin: format(selectedDate, "yyyy-MM-dd"),
-            });
-            setFetchedTrainings(trainingsResponse.data);
-
-            Swal.fire({
-                title: "Estado actualizado",
-                text: `El servicio ahora está ${newStatus.toLowerCase()}.`,
-                icon: "success",
-                confirmButtonColor: "#000",
-                timer: 5000,
-                timerProgressBar: true,
-                toast: true,
-                position: "top-end",
-                showConfirmButton: false,
-            });
-         } catch (error) {
-            console.error("Error changing training status:", error);
-             Swal.fire({
-                title: "Error",
-                text: "Hubo un problema al cambiar el estado del entrenamiento.",
-                icon: "error",
-                confirmButtonColor: "#000",
-            });
-         }
-    }
-
     const handlePreviousDay = () => {
         setSelectedDate(subDays(selectedDate, 1))
     }
@@ -416,18 +335,18 @@ export function SchedulePage() {
     }
 
     const getStatusBadge = (estado: "Programado" | "Completado" | "Cancelado" | "En proceso") => {
-        switch (estado) {
-            case "Programado":
-                return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">{estado}</Badge>
-            case "Completado":
-                return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">{estado}</Badge>
-            case "Cancelado":
-                return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{estado}</Badge>
-             case "En proceso":
-                return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">{estado}</Badge>
-            default:
-                return <Badge variant="outline">{estado}</Badge>
-        }
+        const config = {
+            Programado: "bg-blue-100 text-blue-800",
+            Completado: "bg-green-100 text-green-800",
+            Cancelado: "bg-red-100 text-red-800",
+            "En proceso": "bg-yellow-100 text-yellow-800",
+        };
+        return (
+            <Badge className={cn("flex items-center gap-1", config[estado] || "bg-gray-100 text-gray-800")}>
+                {getStatusIcon(estado)}
+                {estado}
+            </Badge>
+        );
     }
     
     // Componente de búsqueda simplificado
@@ -460,12 +379,20 @@ export function SchedulePage() {
                             </TabsTrigger>
                         </TabsList>
                     </Tabs>
+                     <Button
+                        onClick={handleAddTraining}
+                        className="bg-black hover:bg-gray-800 text-white flex items-center gap-2"
+                        disabled={user?.role === "CLIENTE" && !clientsWithActiveContracts.length}
+                    >
+                        <Plus className="h-4 w-4" />
+                        Agendar
+                    </Button>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border-t pt-4 mt-4">
                     <div className="flex items-center gap-3">
                         <Badge variant="outline" className="flex items-center gap-2">
                             <User className="h-4 w-4" />
-                            {activeClientsCount} Clientes activos
+                            {clientsWithActiveContracts.length} Clientes activos
                         </Badge>
                         {viewMode === "daily" && (
                             <Badge variant="outline" className="flex items-center gap-2">
@@ -474,14 +401,6 @@ export function SchedulePage() {
                             </Badge>
                         )}
                     </div>
-                    <Button
-                        onClick={handleAddTraining}
-                        className="bg-black hover:bg-gray-800 text-white"
-                        disabled={user?.role === "CLIENTE" && !clientsWithActiveContracts.length}
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Agendar entrenamiento
-                    </Button>
                 </div>
             </CardContent>
         </Card>
@@ -506,10 +425,10 @@ export function SchedulePage() {
                             </Button>
                         </div>
                         <div className="text-center">
-                            <h2 className="text-xl font-semibold">
+                            <h2 className="text-xl font-semibold capitalize">
                                 {format(selectedDate, "d 'de' MMMM", { locale: es })}
                             </h2>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-gray-500 capitalize">
                                 {format(selectedDate, "EEEE, yyyy", { locale: es })}
                                 {isToday(selectedDate) && (
                                     <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
@@ -531,90 +450,59 @@ export function SchedulePage() {
             {displayedTrainings.length > 0 ? (
                 <div className="space-y-4">
                     {Object.entries(groupedTrainings).map(([hour, hourTrainings]) => (
-                        <Card key={hour} className="overflow-hidden">
-                            <CardContent className="p-0">
-                                <div className="flex">
-                                    {/* Columna de tiempo */}
-                                    <div className="w-20 bg-gray-50 p-4 flex flex-col items-center justify-center border-r">
-                                        <div className="text-lg font-semibold text-gray-800">
-                                            {hour.split(':')[0]}
-                                        </div>
-                                        <div className="text-sm text-gray-500">
-                                            :{hour.split(':')[1]}
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Columna de entrenamientos */}
-                                    <div className="flex-1 p-4">
-                                        <div className="space-y-3">
-                                            {hourTrainings.map((training) => (
-                                                <div
-                                                    key={training.id}
-                                                    className={`p-4 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md border ${
-                                                        training.estado === "Programado"
-                                                            ? "bg-blue-50 border-blue-200 hover:bg-blue-100"
-                                                            : training.estado === "En proceso"
-                                                            ? "bg-yellow-50 border-yellow-200 hover:bg-yellow-100"
-                                                            : training.estado === "Completado"
-                                                            ? "bg-green-50 border-green-200 hover:bg-green-100"
-                                                            : "bg-red-50 border-red-200 hover:bg-red-100"
-                                                    }`}
-                                                    onClick={() => handleTrainingClick(training)}
-                                                >
-                                                    <div className="flex justify-between items-start">
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                {getStatusIcon(training.estado)}
-                                                                <h3 className="font-semibold text-gray-900">
-                                                                    {training.titulo}
-                                                                </h3>
-                                                                {getStatusBadge(training.estado as "Programado" | "Completado" | "Cancelado" | "En proceso")}
-                                                            </div>
-                                                            
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
-                                                                <div className="flex items-center gap-2">
-                                                                    <User className="h-4 w-4 text-gray-400" />
-                                                                    <span>
-                                                                        {training.cliente?.usuario?.nombre || training.cliente?.codigo || 'Cliente desconocido'}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <Dumbbell className="h-4 w-4 text-gray-400" />
-                                                                    <span>
-                                                                        {training.entrenador?.nombre || 'Entrenador asignado'}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            
-                                                            {training.descripcion && (
-                                                                <p className="text-sm text-gray-600 mt-2 line-clamp-2">
-                                                                    {training.descripcion}
-                                                                </p>
-                                                            )}
+                        <div key={hour} className="flex items-start gap-4">
+                            {/* Columna de tiempo */}
+                            <div className="w-20 text-right">
+                                <div className="text-lg font-semibold text-gray-800">
+                                    {hour}
+                                </div>
+                            </div>
+                            
+                            {/* Columna de entrenamientos */}
+                            <div className="flex-1 space-y-3">
+                                {hourTrainings.map((training) => (
+                                    <Card 
+                                        key={training.id}
+                                        className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-black"
+                                        onClick={() => handleTrainingClick(training)}
+                                    >
+                                        <CardContent className="p-4">
+                                            <div className="flex justify-between items-start gap-4">
+                                                <div className="flex-1">
+                                                    <h3 className="font-semibold text-gray-900 mb-2">
+                                                        {training.titulo}
+                                                    </h3>
+                                                    
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-600">
+                                                        <div className="flex items-center gap-2">
+                                                            <User className="h-4 w-4 text-gray-400" />
+                                                            <span>
+                                                                {training.cliente?.usuario?.nombre || training.cliente?.codigo || 'Cliente desconocido'}
+                                                            </span>
                                                         </div>
-                                                        
-                                                        <div className="text-right ml-4">
-                                                            <div className="text-sm font-medium text-gray-800">
-                                                                {training.fecha_inicio && training.fecha_fin
-                                                                    ? `${format(new Date(training.fecha_inicio), "HH:mm")} - ${
-                                                                          format(new Date(training.fecha_fin), "HH:mm")
-                                                                      }`
-                                                                    : "Horario no especificado"}
-                                                            </div>
-                                                            <div className="text-xs text-gray-500 mt-1">
-                                                                Duración: {training.fecha_inicio && training.fecha_fin
-                                                                    ? `${Math.round((new Date(training.fecha_fin).getTime() - new Date(training.fecha_inicio).getTime()) / (1000 * 60))} min`
-                                                                    : "No especificado"}
-                                                            </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Dumbbell className="h-4 w-4 text-gray-400" />
+                                                            <span>
+                                                                {training.entrenador?.nombre || 'Entrenador asignado'}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                                
+                                                <div className="text-right flex flex-col items-end gap-2">
+                                                    {getStatusBadge(training.estado as "Programado" | "Completado" | "Cancelado" | "En proceso")}
+                                                    <div className="text-sm font-medium text-gray-800">
+                                                        {training.fecha_inicio && training.fecha_fin
+                                                            ? `${Math.round((new Date(training.fecha_fin).getTime() - new Date(training.fecha_inicio).getTime()) / (1000 * 60))} min`
+                                                            : "N/A"}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        </div>
                     ))}
                 </div>
             ) : (
@@ -649,7 +537,7 @@ export function SchedulePage() {
         <ProtectedRoute allowedRoles={[1, 2, 3]}>
             <div className="container mx-auto px-4 py-6">
                 <div className="mb-6">
-                    <h1 className="text-3xl font-bold mb-2">Mi Calendario de Entrenamiento</h1>
+                    <h1 className="text-3xl font-bold mb-1">Mi Calendario de Entrenamiento</h1>
                     <p className="text-gray-600">Visualiza y gestiona tus entrenamientos y revisa los detalles de tu membresía actual.</p>
                 </div>
 
@@ -662,6 +550,9 @@ export function SchedulePage() {
                         onSelectDate={handleSelectDate}
                         onTrainingClick={handleTrainingClick}
                         selectedDate={selectedDate}
+                        currentMonth={currentMonth}
+                        setCurrentMonth={setCurrentMonth}
+                        onAddTraining={handleAddTraining}
                     />
                 ) : (
                     <DailyView />
@@ -669,7 +560,15 @@ export function SchedulePage() {
 
                 {/* Diálogo para agregar entrenamiento */}
                 <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                    <DialogContent className="sm:max-w-[800px]" aria-describedby="training-form-description">
+                    <DialogContent 
+                        onPointerDownOutside={(e) => {
+                            if ((e.target as HTMLElement)?.closest('.swal2-container')) {
+                                e.preventDefault();
+                            }
+                        }} 
+                        className="sm:max-w-[800px]" 
+                        aria-describedby="training-form-description"
+                    >
                         <DialogHeader>
                             <DialogTitle className="text-xl font-semibold flex items-center gap-2">
                                 <Dumbbell className="h-5 w-5" />
@@ -683,7 +582,7 @@ export function SchedulePage() {
                             onSubmit={handleSubmitTraining}
                             onCancel={handleCloseForm}
                             initialDate={selectedDate}
-                            clients={clients}
+                            clients={clientsWithActiveContracts}
                             trainers={trainers}
                         />
                     </DialogContent>
@@ -692,7 +591,15 @@ export function SchedulePage() {
                 {/* Diálogo para editar entrenamiento */}
                 {selectedTraining && (
                     <Dialog open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
-                        <DialogContent className="sm:max-w-[800px]" aria-describedby="edit-training-description">
+                        <DialogContent 
+                            onPointerDownOutside={(e) => {
+                                if ((e.target as HTMLElement)?.closest('.swal2-container')) {
+                                    e.preventDefault();
+                                }
+                            }}
+                            className="sm:max-w-[800px]" 
+                            aria-describedby="edit-training-description"
+                        >
                             <DialogHeader>
                                 <DialogTitle className="text-xl font-semibold flex items-center gap-2">
                                     <Dumbbell className="h-5 w-5" />
@@ -707,7 +614,6 @@ export function SchedulePage() {
                                 onUpdate={handleSubmitTraining}
                                 onDelete={() => handleDeleteTraining(selectedTraining.id)}
                                 onClose={() => setIsEditFormOpen(false)}
-                                onChangeStatus={handleChangeStatus}
                                 trainers={trainers}
                                 clients={clientsWithActiveContracts}
                             />

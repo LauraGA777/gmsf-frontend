@@ -1,30 +1,31 @@
 export interface Membership {
   id: string
-  code: string
-  name: string
-  description: string
-  price: number
-  accessDays: number
-  validityDays: number
-  isActive: boolean
-  createdAt: Date
-  activeContracts: number
+  codigo: string
+  nombre: string
+  descripcion: string
+  precio: number
+  dias_acceso: number
+  vigencia_dias: number
+  estado: boolean
+  fecha_creacion: string
+  acceso?: string
+  precio_formato?: string
 }
 
 export interface MembershipFormData {
-  name: string
-  description: string
-  price: number
-  accessDays: number
-  validityDays: number
+  nombre: string
+  descripcion: string
+  precio: number
+  dias_acceso: number
+  vigencia_dias: number
 }
 
 export interface ValidationErrors {
-  name?: string
-  description?: string
-  price?: string
-  accessDays?: string
-  validityDays?: string
+  nombre?: string
+  descripcion?: string
+  precio?: string
+  dias_acceso?: string
+  vigencia_dias?: string
 }
 
 export type FilterStatus = "all" | "active" | "inactive"

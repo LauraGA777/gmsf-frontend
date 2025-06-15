@@ -17,10 +17,10 @@ export interface User {
 }
 
 export interface UserFormData {
-    codigo?: string;
     nombre?: string;
     apellido?: string;
     correo?: string;
+    confirmarCorreo?: string; // Campo solo para frontend, no se envía a la API
     telefono?: string;
     direccion?: string;
     genero?: 'M' | 'F' | 'O';
@@ -35,4 +35,3 @@ export interface UserFormData {
 export interface UpdateUserFormData extends Partial<UserFormData> {
     id: number
 }
-  

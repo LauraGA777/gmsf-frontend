@@ -17,10 +17,26 @@ interface PaginatedResponse<T> {
 }
 
 export const attendanceService = {
-  // Obtener todas las asistencias (requiere autenticación y ser admin o entrenador)
-  getAttendances: async (page = 1, limit = 10): Promise<PaginatedResponse<AttendanceRecord>> => {
+  // Obtener todas las asistencias con parámetros adicionales
+  getAttendances: async (params: {
+    page?: number;
+    limit?: number;
+    orderBy?: string;
+    direction?: 'ASC' | 'DESC';
+    fecha_inicio?: string;
+    fecha_fin?: string;
+  } = {}): Promise<PaginatedResponse<AttendanceRecord>> => {
+    const queryParams = new URLSearchParams({
+      page: (params.page || 1).toString(),
+      limit: (params.limit || 10).toString(),
+      orderBy: params.orderBy || 'fecha_uso',
+      direction: params.direction || 'DESC',
+      ...(params.fecha_inicio && { fecha_inicio: params.fecha_inicio }),
+      ...(params.fecha_fin && { fecha_fin: params.fecha_fin })
+    });
+    
     const response = await apiClient.get<PaginatedResponse<AttendanceRecord>>(
-      `/attendance?page=${page}&limit=${limit}`
+      `/attendance?${queryParams}`
     );
     return response.data;
   },
@@ -42,18 +58,37 @@ export const attendanceService = {
     }
 
     const response = await apiClient.post<ApiResponse<AttendanceRecord>>('/attendance/register', {
-      numero_documento: documentNumber.trim(),
-      documento: documentNumber.trim(),
-      fecha_uso: format(new Date(), "yyyy-MM-dd"),
-      hora_registro: format(new Date(), "HH:mm:ss"),
+      numero_documento: documentNumber.trim()
     });
     return response.data.data;
   },
 
-  // Buscar asistencias (requiere autenticación y ser admin o entrenador)
-  searchAttendances: async (query: string, page = 1, limit = 10): Promise<PaginatedResponse<AttendanceRecord>> => {
+  // Búsqueda con parámetros completos
+  searchAttendances: async (params: {
+    codigo_usuario?: string;
+    nombre_usuario?: string;
+    estado?: string;
+    fecha_inicio?: string;
+    fecha_fin?: string;
+    page?: number;
+    limit?: number;
+    orderBy?: string;
+    direction?: 'ASC' | 'DESC';
+  } = {}): Promise<PaginatedResponse<AttendanceRecord>> => {
+    const queryParams = new URLSearchParams({
+      page: (params.page || 1).toString(),
+      limit: (params.limit || 10).toString(),
+      orderBy: params.orderBy || 'fecha_uso',
+      direction: params.direction || 'DESC',
+      ...(params.codigo_usuario && { codigo_usuario: params.codigo_usuario }),
+      ...(params.nombre_usuario && { nombre_usuario: params.nombre_usuario }),
+      ...(params.estado && { estado: params.estado }),
+      ...(params.fecha_inicio && { fecha_inicio: params.fecha_inicio }),
+      ...(params.fecha_fin && { fecha_fin: params.fecha_fin })
+    });
+
     const response = await apiClient.get<PaginatedResponse<AttendanceRecord>>(
-      `/attendance/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
+      `/attendance/search?${queryParams}`
     );
     return response.data;
   },
@@ -79,5 +114,19 @@ export const attendanceService = {
       eliminados: number;
     }>>(`/attendance/stats?date=${format(date, "yyyy-MM-dd")}`);
     return response.data.data;
+  },
+
+  // Actualizar asistencia
+  updateAttendance: async (id: number, data: Partial<AttendanceRecord>): Promise<AttendanceRecord> => {
+    const numericId = Number(id);
+    if (isNaN(numericId)) {
+      throw new Error("ID de asistencia inválido: debe ser un número");
+    }
+    
+    const response = await apiClient.put<ApiResponse<AttendanceRecord>>(
+      `/attendance/${numericId}`,
+      data
+    );
+    return response.data.data;
   }
-}; 
+};

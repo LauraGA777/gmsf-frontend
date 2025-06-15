@@ -94,10 +94,10 @@ export default function AttendanceRegistry() {
       
       return attendanceData.filter((record) => {
         const matchesSearch =
-          record.cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          record.cliente.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          record.cliente.documento.includes(searchTerm) ||
-          record.cliente.codigo.toLowerCase().includes(searchTerm.toLowerCase())
+          record.persona?.usuario?.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          record.persona?.usuario?.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          record.persona?.usuario?.numero_documento.includes(searchTerm) ||
+          record.persona?.codigo.toLowerCase().includes(searchTerm.toLowerCase())
   
         return matchesSearch && record.estado === "Activo"
       })
@@ -411,21 +411,21 @@ export default function AttendanceRegistry() {
                           <TableCell>
                             <div>
                               <div className="font-medium text-gray-900">
-                                {record.cliente?.nombre || 'N/A'} {record.cliente?.apellido || ''}
+                                {record.persona?.usuario?.nombre} {record.persona?.usuario?.apellido}
                               </div>
-                              <div className="text-sm text-gray-600">{record.cliente?.codigo || 'N/A'}</div>
+                              <div className="text-sm text-gray-600">{record.contrato?.codigo}</div>
                             </div>
                           </TableCell>
-                          <TableCell className="font-mono">{record.cliente?.documento || 'N/A'}</TableCell>
+                          <TableCell className="font-mono">{record.persona?.usuario?.numero_documento}</TableCell>
                           <TableCell>
                             <Badge variant={record.contrato?.estado === "Activo" ? "default" : "secondary"}>
-                              {record.contrato?.tipo || 'N/A'}
+                              {record.contrato?.estado}
                             </Badge>
                           </TableCell>
-                          <TableCell className="font-mono">{record.hora_registro || 'N/A'}</TableCell>
+                          <TableCell className="font-mono">{record.hora_registro}</TableCell>
                           <TableCell>
                             <Badge variant={record.contrato?.estado === "Activo" ? "default" : "destructive"}>
-                              {record.contrato?.estado || 'N/A'}
+                              {record.contrato?.estado}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -477,45 +477,106 @@ export default function AttendanceRegistry() {
   
           {/* Details Modal */}
           <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-3xl">
               <DialogHeader>
                 <DialogTitle>Detalles de Asistencia</DialogTitle>
+                <DialogDescription>
+                  Información completa del registro de asistencia
+                </DialogDescription>
               </DialogHeader>
               {selectedRecord && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium text-gray-600">Código Cliente</Label>
-                      <p className="font-mono">{selectedRecord.cliente.codigo}</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-gray-600">Documento</Label>
-                      <p className="font-mono">{selectedRecord.cliente.documento}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Nombre Completo</Label>
-                    <p className="font-medium">
-                      {selectedRecord.cliente.nombre} {selectedRecord.cliente.apellido}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Membresía</Label>
-                    <p>{selectedRecord.contrato.tipo}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium text-gray-600">Fecha</Label>
-                      <p>{format(new Date(selectedRecord.fecha_uso), "dd/MM/yyyy", { locale: es })}</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-gray-600">Hora</Label>
-                      <p className="font-mono">{selectedRecord.hora_registro}</p>
+                <div className="space-y-6">
+                  {/* Información del Cliente */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold border-b pb-2">Información del Cliente</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Código</Label>
+                        <p className="font-mono">{selectedRecord.persona?.codigo}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Documento</Label>
+                        <p className="font-mono">{selectedRecord.persona?.usuario?.numero_documento}</p>
+                      </div>
+                      <div className="col-span-2 md:col-span-1">
+                        <Label className="text-sm font-medium text-gray-600">Nombre Completo</Label>
+                        <p className="font-medium">
+                          {selectedRecord.persona?.usuario?.nombre} {selectedRecord.persona?.usuario?.apellido}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Registrado por</Label>
-                    <p>{selectedRecord.usuario_registro}</p>
+  
+                  {/* Información del Contrato */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold border-b pb-2">Información del Contrato</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Código Contrato</Label>
+                        <p className="font-mono">{selectedRecord.contrato?.codigo}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Membresía</Label>
+                        <p>{selectedRecord.contrato?.membresia?.nombre}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Precio</Label>
+                        <p className="font-mono">
+                          ${Number(selectedRecord.contrato?.membresia_precio).toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Fecha Inicio</Label>
+                        <p>{format(new Date(selectedRecord.contrato?.fecha_inicio), "dd/MM/yyyy")}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Fecha Fin</Label>
+                        <p>{format(new Date(selectedRecord.contrato?.fecha_fin), "dd/MM/yyyy")}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Estado Contrato</Label>
+                        <Badge variant={selectedRecord.contrato?.estado === "Activo" ? "default" : "secondary"}>
+                          {selectedRecord.contrato?.estado}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+  
+                  {/* Información de la Asistencia */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold border-b pb-2">Detalles de la Asistencia</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Fecha de Uso</Label>
+                        <p>{format(new Date(selectedRecord.fecha_uso), "dd/MM/yyyy")}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Hora Registro</Label>
+                        <p className="font-mono">{selectedRecord.hora_registro}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Estado</Label>
+                        <Badge variant={selectedRecord.estado === "Activo" ? "default" : "destructive"}>
+                          {selectedRecord.estado}
+                        </Badge>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Fecha Registro</Label>
+                        <p>{format(new Date(selectedRecord.fecha_registro), "dd/MM/yyyy HH:mm:ss")}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Última Actualización</Label>
+                        <p>
+                          {selectedRecord.fecha_actualizacion 
+                            ? format(new Date(selectedRecord.fecha_actualizacion), "dd/MM/yyyy HH:mm:ss")
+                            : "N/A"}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Usuario Registro</Label>
+                        <p className="font-mono">ID: {selectedRecord.usuario_registro || "N/A"}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -530,4 +591,3 @@ export default function AttendanceRegistry() {
       </div>
     )
   }
-  

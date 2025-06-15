@@ -84,6 +84,15 @@ export const clientService = {
     return response.data;
   },
 
+  // Check user by document
+  checkUserByDocument: async (tipo_documento: string, numero_documento: string) => {
+    clientService.checkAuth();
+    const response = await api.get<any>(`/clients/check-user`, {
+      params: { tipo_documento, numero_documento },
+    });
+    return response.data;
+  },
+
   // Get client emergency contacts
   getEmergencyContacts: async (id: number) => {
     clientService.checkAuth();

@@ -74,11 +74,55 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
-    // Validación del código (solo para nuevos usuarios)
-    if (!user && !formData.codigo) {
-      newErrors.codigo = "El código es requerido"
-    } else if (!user && !/^U\d{3}$/.test(formData.codigo || '')) {
-      newErrors.codigo = "El código debe seguir el formato U seguido de 3 dígitos (ej: U001)"
+    // Campos requeridos
+    const requiredFields = {
+      nombre: "El nombre es requerido",
+      apellido: "El apellido es requerido",
+      correo: "El correo es requerido",
+      tipo_documento: "El tipo de documento es requerido",
+      numero_documento: "El número de documento es requerido",
+      fecha_nacimiento: "La fecha de nacimiento es requerida",
+      id_rol: "El rol es requerido"
+    }
+
+    // Validar campos requeridos
+    Object.entries(requiredFields).forEach(([field, message]) => {
+      if (!formData[field as keyof UserFormData]) {
+        newErrors[field] = message
+      }
+    })
+
+    // Validación avanzada del correo
+    if (formData.correo) {
+      const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/
+      if (!emailRegex.test(formData.correo)) {
+        newErrors.correo = "Formato de correo inválido"
+      }
+      // Verificar si el correo ya existe
+      if (existingUsers?.some(user =>
+        user.correo === formData.correo && user.id !== formData?.id
+      )) {
+        newErrors.correo = "Este correo ya está registrado"
+      }
+      // Verificar que los correos coincidan
+      if (formData.correo !== formData.confirmarCorreo) {
+        newErrors.confirmarCorreo = "Los correos no coinciden"
+      }
+    }
+
+    // Validación de contraseña para nuevos usuarios
+    if (!user) {
+      if (!formData.contrasena) {
+        newErrors.contrasena = "La contraseña es requerida"
+      } else if (formData.contrasena.length < 8) {
+        newErrors.contrasena = "La contraseña debe tener al menos 8 caracteres"
+      } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.contrasena)) {
+        newErrors.contrasena = "La contraseña debe contener al menos una mayúscula, una minúscula y un número"
+      }
+
+      if (formData.contrasena !== formData.confirmarContrasena) {
+        newErrors.confirmarContrasena = "Las contraseñas no coinciden"
+      }
     }
 
     // Validación del teléfono
@@ -109,14 +153,6 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
       }
     }
 
-    // Validación del correo
-    if (formData.correo) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(formData.correo)) {
-        newErrors.correo = "Formato de correo inválido"
-      }
-    }
-
     // Validación de nombre y apellido
     if (formData.nombre && formData.nombre.length < 3) {
       newErrors.nombre = "El nombre debe tener al menos 3 caracteres"
@@ -142,38 +178,46 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
     setIsSubmitting(true)
 
     try {
-      // Solo enviamos el código y los campos que tienen valor
+      // Preparar datos para enviar (excluimos confirmarCorreo)
       const userDataToSend = {
-        codigo: user?.codigo,
-        ...Object.fromEntries(
-          Object.entries(formData)
-            .filter(([key, value]) => {
-              // Solo incluimos campos que tienen valor y no son el código o confirmarContrasena
-              return value !== "" && value !== 0 && key !== 'codigo' && key !== 'confirmarContrasena';
-            })
-        )
+        nombre: formData.nombre?.trim(),
+        apellido: formData.apellido?.trim(),
+        correo: formData.correo?.trim().toLowerCase(),
+        tipo_documento: formData.tipo_documento,
+        numero_documento: formData.numero_documento?.trim(),
+        fecha_nacimiento: formData.fecha_nacimiento,
+        genero: formData.genero,
+        id_rol: Number(formData.id_rol),
+        ...(formData.telefono && { telefono: formData.telefono.trim() }),
+        ...(formData.direccion && { direccion: formData.direccion.trim() }),
+        ...((!user && formData.contrasena) && { contrasena: formData.contrasena })
       };
 
-      onSave(userDataToSend)
+      // Validación final antes de enviar
+      if (!userDataToSend.nombre || !userDataToSend.apellido || !userDataToSend.correo) {
+        throw new Error("Faltan campos requeridos");
+      }
+
+      onSave(userDataToSend);
 
       await Swal.fire({
         title: "¡Éxito!",
-        text: "Usuario actualizado correctamente",
+        text: user ? "Usuario actualizado correctamente" : "Usuario registrado correctamente",
         icon: "success",
         timer: 1500,
         showConfirmButton: false,
-      })
+      });
 
-      onClose()
+      onClose();
     } catch (error) {
       await Swal.fire({
         title: "Error",
-        text: "Ocurrió un error al actualizar el usuario",
+        text: "Ocurrió un error al procesar el usuario",
         icon: "error",
         confirmButtonColor: "#000000",
-      })
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 
@@ -196,23 +240,9 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Código (solo para nuevos usuarios) */}
-          {!user && (
-            <div>
-              <Label htmlFor="codigo">Código *</Label>
-              <Input
-                id="codigo"
-                value={formData.codigo}
-                onChange={(e) => handleInputChange("codigo", e.target.value)}
-                placeholder="Ej: U001"
-              />
-              {errors.codigo && <p className="text-red-500 text-xs mt-1">{errors.codigo}</p>}
-            </div>
-          )}
-
           {/* Document Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="tipo_documento">Tipo de Documento</Label>
               <Select
                 value={formData.tipo_documento}
@@ -283,17 +313,63 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
           </div>
 
           {/* Contact Section */}
-          <div>
-            <Label htmlFor="correo">Correo Electrónico</Label>
-            <Input
-              id="correo"
-              type="email"
-              value={formData.correo}
-              onChange={(e) => handleInputChange("correo", e.target.value)}
-              placeholder="ejemplo@correo.com"
-            />
-            {errors.correo && <p className="text-red-500 text-xs mt-1">{errors.correo}</p>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="correo">Correo Electrónico</Label>
+              <Input
+                id="correo"
+                type="email"
+                value={formData.correo}
+                onChange={(e) => handleInputChange("correo", e.target.value)}
+                placeholder="ejemplo@correo.com"
+              />
+              {errors.correo && <p className="text-red-500 text-xs mt-1">{errors.correo}</p>}
+            </div>
+
+            <div>
+              <Label htmlFor="confirmarCorreo">Confirmar Correo Electrónico</Label>
+              <Input
+                id="confirmarCorreo"
+                type="email"
+                value={formData.confirmarCorreo}
+                onChange={(e) => handleInputChange("confirmarCorreo", e.target.value)}
+                placeholder="ejemplo@correo.com"
+              />
+              {errors.confirmarCorreo && (
+                <p className="text-red-500 text-xs mt-1">{errors.confirmarCorreo}</p>
+              )}
+            </div>
           </div>
+
+          {/* Password Fields - Solo para nuevos usuarios */}
+          {!user && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="contrasena">Contraseña</Label>
+                <Input
+                  id="contrasena"
+                  type="password"
+                  value={formData.contrasena}
+                  onChange={(e) => handleInputChange("contrasena", e.target.value)}
+                  placeholder="********"
+                />
+                {errors.contrasena && <p className="text-red-500 text-xs mt-1">{errors.contrasena}</p>}
+              </div>
+              <div>
+                <Label htmlFor="confirmarContrasena">Confirmar Contraseña</Label>
+                <Input
+                  id="confirmarContrasena"
+                  type="password"
+                  value={formData.confirmarContrasena}
+                  onChange={(e) => handleInputChange("confirmarContrasena", e.target.value)}
+                  placeholder="********"
+                />
+                {errors.confirmarContrasena && (
+                  <p className="text-red-500 text-xs mt-1">{errors.confirmarContrasena}</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Optional Fields */}
           <div>
@@ -318,11 +394,11 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
           </div>
 
           {/* Role, Birth Date and Gender */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="id_rol">Rol</Label>
-              <Select 
-                value={formData.id_rol ? formData.id_rol.toString() : ""} 
+              <Select
+                value={formData.id_rol ? formData.id_rol.toString() : ""}
                 onValueChange={(value) => handleInputChange("id_rol", parseInt(value))}
               >
                 <SelectTrigger>

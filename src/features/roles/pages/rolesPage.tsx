@@ -9,7 +9,7 @@ import { Plus, Search, MoreHorizontal, RefreshCw, Edit, Eye, Trash2, RotateCcw, 
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { roleService } from "../services/roleService"
-import type { Role } from "@/shared/types/role"
+import type { Role, PermissionSelection } from "@/shared/types/role"
 import Swal from "sweetalert2"
 import {
   DropdownMenu,
@@ -88,15 +88,18 @@ export function RolesPage() {
     setIsModalOpen(true)
   }
 
-  const handleSaveRole = async (roleData: Omit<Role, "id">) => {
+  const handleSaveRole = async (roleData: Omit<Role, "id">, selectedPermissions: PermissionSelection[]) => {
     try {
       if (editingRole) {
-        await roleService.updateRole({
-          ...roleData,
-          id: editingRole.id,
-        })
+        await roleService.updateRole(
+          {
+            ...roleData,
+            id: editingRole.id,
+          },
+          selectedPermissions,
+        )
       } else {
-        await roleService.createRole(roleData)
+        await roleService.createRole(roleData, selectedPermissions)
       }
       await loadRoles()
       setIsModalOpen(false)
@@ -121,7 +124,7 @@ export function RolesPage() {
 
     if (result.isConfirmed) {
       try {
-        await roleService.deleteRole(role.id)
+        await roleService.deleteRole(role.id.toString())
         await loadRoles()
 
         Swal.fire({
@@ -160,11 +163,7 @@ export function RolesPage() {
 
     if (result.isConfirmed) {
       try {
-        const updatedRole = {
-          ...role,
-          status: isActive ? "Inactivo" : "Activo",
-        }
-        await roleService.updateRole(updatedRole)
+        await roleService.toggleRoleStatus(role.id.toString())
         await loadRoles()
 
         Swal.fire({
@@ -186,9 +185,17 @@ export function RolesPage() {
     }
   }
 
-  const paginatedRoles = filteredRoles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  // Sort roles by codigo before pagination
+  const sortedRoles = filteredRoles.sort((a, b) => {
+    if (a.codigo && b.codigo) {
+      return a.codigo.localeCompare(b.codigo)
+    }
+    return 0
+  })
 
-  const totalPages = Math.ceil(filteredRoles.length / itemsPerPage)
+  const paginatedRoles = sortedRoles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+  const totalPages = Math.ceil(sortedRoles.length / itemsPerPage)
 
   if (roles.length === 0 && !isLoading) {
     return (
@@ -297,10 +304,9 @@ export function RolesPage() {
                   <TableHead>Código</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Descripción</TableHead>
-                  <TableHead>Usuarios</TableHead>
+                  <TableHead>Permisos</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Fecha de Creación</TableHead>
-                  <TableHead>Última Actualización</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -321,7 +327,7 @@ export function RolesPage() {
                       <TableCell className="font-medium">{role.name}</TableCell>
                       <TableCell className="max-w-xs truncate">{role.description}</TableCell>
                       <TableCell>
-                        <Badge className="bg-blue-100 text-blue-800">{role.userCount || 0}</Badge>
+                        <Badge className="bg-blue-100 text-blue-800">{role.permisos?.length || 0} módulos</Badge>
                       </TableCell>
                       <TableCell>
                         {role.status === "Activo" ? (
@@ -332,9 +338,6 @@ export function RolesPage() {
                       </TableCell>
                       <TableCell>
                         {role.createdAt ? format(new Date(role.createdAt), "dd/MM/yyyy", { locale: es }) : "N/A"}
-                      </TableCell>
-                      <TableCell>
-                        {role.updatedAt ? format(new Date(role.updatedAt), "dd/MM/yyyy", { locale: es }) : "N/A"}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>

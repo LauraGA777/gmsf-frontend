@@ -47,28 +47,49 @@ export function TrainersPage() {
   const loadTrainers = async () => {
     try {
       setIsLoading(true)
-      const data = await trainerService.getTrainers()
-      setTrainers(data)
+      setError(null)
+
+      // Usar el método mejorado que obtiene información completa del usuario
+      const response = await trainerService.getTrainersWithCompleteUserInfo()
+
+      // Verificar si la respuesta es un array
+      if (Array.isArray(response)) {
+        setTrainers(response)
+      } else if (response && Array.isArray(response.data)) {
+        // Si la respuesta viene envuelta en un objeto con propiedad data
+        setTrainers(response.data)
+      } else {
+        console.error("Unexpected response format:", response)
+        setTrainers([])
+        setError("Formato de respuesta inesperado del servidor")
+      }
     } catch (error) {
       console.error("Error loading trainers:", error)
-      setError("Error al cargar los entrenadores")
+      setTrainers([]) // Asegurar que trainers sea siempre un array
+      setError(error.message || "Error al cargar los entrenadores")
     } finally {
       setIsLoading(false)
     }
   }
 
   const filterTrainers = () => {
+    // Verificar que trainers sea un array antes de filtrar
+    if (!Array.isArray(trainers)) {
+      setFilteredTrainers([])
+      return
+    }
+
     let filtered = [...trainers]
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
       filtered = filtered.filter(
         (trainer) =>
-          trainer.name.toLowerCase().includes(term) ||
-          trainer.lastName.toLowerCase().includes(term) ||
-          trainer.email.toLowerCase().includes(term) ||
-          trainer.documentNumber.toLowerCase().includes(term) ||
-          trainer.specialty.toLowerCase().includes(term),
+          trainer.name?.toLowerCase().includes(term) ||
+          trainer.lastName?.toLowerCase().includes(term) ||
+          trainer.email?.toLowerCase().includes(term) ||
+          trainer.documentNumber?.toLowerCase().includes(term) ||
+          trainer.specialty?.toLowerCase().includes(term),
       )
     }
 
@@ -76,6 +97,13 @@ export function TrainersPage() {
       const isActive = statusFilter === "active"
       filtered = filtered.filter((trainer) => trainer.isActive === isActive)
     }
+
+    // Ordenar por código de entrenador (ascendente)
+    filtered.sort((a, b) => {
+      const codeA = a.codigo || ""
+      const codeB = b.codigo || ""
+      return codeA.localeCompare(codeB, undefined, { numeric: true })
+    })
 
     setFilteredTrainers(filtered)
   }
@@ -93,18 +121,24 @@ export function TrainersPage() {
   const handleSaveTrainer = async (trainerData: Omit<Trainer, "id">) => {
     try {
       if (editingTrainer) {
-        await trainerService.updateTrainer({
+        const updatedTrainer: Trainer = {
+          ...editingTrainer,
           ...trainerData,
-          id: editingTrainer.id,
-        })
+        }
+        await trainerService.updateTrainer(updatedTrainer)
       } else {
         await trainerService.createTrainer(trainerData)
       }
+
+      // Recargar la lista de entrenadores
       await loadTrainers()
+
+      // Cerrar el modal
       setIsModalOpen(false)
       setEditingTrainer(null)
     } catch (error) {
       console.error("Error saving trainer:", error)
+      // El error se maneja en el modal, así que solo lo propagamos
       throw error
     }
   }
@@ -119,6 +153,8 @@ export function TrainersPage() {
       cancelButtonColor: "#6B7280",
       confirmButtonText: "Sí, eliminar",
       cancelButtonText: "Cancelar",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
     })
 
     if (result.isConfirmed) {
@@ -130,8 +166,12 @@ export function TrainersPage() {
           title: "¡Eliminado!",
           text: "El entrenador ha sido eliminado correctamente",
           icon: "success",
-          timer: 1500,
-          showConfirmButton: false,
+          confirmButtonColor: "#000",
+          confirmButtonText: "Cerrar",
+          timer: 5000,
+          timerProgressBar: true,
+          allowOutsideClick: true,
+          allowEscapeKey: true,
         })
       } catch (error) {
         console.error("Error deleting trainer:", error)
@@ -140,6 +180,11 @@ export function TrainersPage() {
           text: "No se pudo eliminar el entrenador",
           icon: "error",
           confirmButtonColor: "#000",
+          confirmButtonText: "Cerrar",
+          timer: 5000,
+          timerProgressBar: true,
+          allowOutsideClick: true,
+          allowEscapeKey: true,
         })
       }
     }
@@ -157,6 +202,8 @@ export function TrainersPage() {
       cancelButtonColor: "#6B7280",
       confirmButtonText: trainer.isActive ? "Sí, desactivar" : "Sí, activar",
       cancelButtonText: "Cancelar",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
     })
 
     if (result.isConfirmed) {
@@ -169,8 +216,12 @@ export function TrainersPage() {
           title: trainer.isActive ? "¡Desactivado!" : "¡Activado!",
           text: `El entrenador ha sido ${trainer.isActive ? "desactivado" : "activado"} correctamente`,
           icon: "success",
-          timer: 1500,
-          showConfirmButton: false,
+          confirmButtonColor: "#000",
+          confirmButtonText: "Cerrar",
+          timer: 5000,
+          timerProgressBar: true,
+          allowOutsideClick: true,
+          allowEscapeKey: true,
         })
       } catch (error) {
         console.error("Error toggling trainer status:", error)
@@ -179,6 +230,11 @@ export function TrainersPage() {
           text: "No se pudo cambiar el estado del entrenador",
           icon: "error",
           confirmButtonColor: "#000",
+          confirmButtonText: "Cerrar",
+          timer: 5000,
+          timerProgressBar: true,
+          allowOutsideClick: true,
+          allowEscapeKey: true,
         })
       }
     }
@@ -306,7 +362,7 @@ export function TrainersPage() {
               <TableBody>
                 {filteredTrainers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <div className="flex flex-col items-center gap-2">
                         <Dumbbell className="h-8 w-8 text-gray-400" />
                         <p className="text-gray-500">No se encontraron entrenadores</p>
@@ -316,15 +372,19 @@ export function TrainersPage() {
                 ) : (
                   paginatedTrainers.map((trainer) => (
                     <TableRow key={trainer.id}>
-                      <TableCell className="font-medium">{trainer.codigo}</TableCell>
+                      <TableCell className="font-medium">{trainer.codigo || "N/A"}</TableCell>
                       <TableCell className="font-medium">
                         {trainer.name} {trainer.lastName}
                       </TableCell>
-                      <TableCell>{trainer.specialty}</TableCell>
-                      <TableCell>{trainer.email}</TableCell>
-                      <TableCell>{trainer.phone}</TableCell>
-                      <TableCell>
-                        {trainer.documentType} {trainer.documentNumber}
+                      <TableCell>{trainer.specialty || "N/A"}</TableCell>
+                      <TableCell>{trainer.email || "N/A"}</TableCell>
+                      <TableCell>{trainer.phone || "N/A"}</TableCell>
+                      <TableCell className="font-medium">
+                        {trainer.documentNumber && trainer.documentNumber !== "No disponible" ? (
+                          trainer.documentNumber
+                        ) : (
+                          <span className="text-orange-600">Información incompleta</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {trainer.isActive ? (

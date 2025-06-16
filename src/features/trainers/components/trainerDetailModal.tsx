@@ -1,37 +1,29 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
-import type { Trainer } from "@/shared/types/trainer"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
+import { Badge } from "@/shared/components/ui/badge"
+import { Separator } from "@/shared/components/ui/separator"
+import { Mail, Phone, MapPin, Calendar, Shield, Activity, Dumbbell, User, Award } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
+import type { Trainer } from "@/shared/types/trainer"
+import { Button } from "@/shared/components/ui/button"
 
 interface TrainerDetailModalProps {
   isOpen: boolean
   onClose: () => void
-  trainer: Trainer
+  trainer: Trainer | null
   onEdit: (trainer: Trainer) => void
   onDelete: (trainer: Trainer) => void
 }
 
-export const TrainerDetailModal: React.FC<TrainerDetailModalProps> = ({
-  isOpen,
-  onClose,
-  trainer,
-  onEdit,
-  onDelete,
-}) => {
-  const [activeTab, setActiveTab] = useState<"info" | "professional" | "history">("info")
+export function TrainerDetailModal({ isOpen, onClose, trainer, onEdit, onDelete }: TrainerDetailModalProps) {
+  if (!trainer) return null
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("es-CO", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
+  const formatDate = (date: Date | string) => {
+    if (!date) return "No especificada"
+    return format(new Date(date), "dd/MM/yyyy", { locale: es })
   }
-
-  if (!isOpen || !trainer) return null
 
   // Mock history for the trainer
   const mockHistory = [
@@ -42,196 +34,180 @@ export const TrainerDetailModal: React.FC<TrainerDetailModalProps> = ({
   ]
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Detalles del Entrenador</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 focus:outline-none">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Dumbbell className="h-5 w-5" />
+            Detalles del Entrenador
+          </DialogTitle>
+        </DialogHeader>
 
-        <div className="mb-6 border-b">
-          <div className="flex space-x-4">
-            <button
-              onClick={() => setActiveTab("info")}
-              className={`py-2 px-4 border-b-2 text-sm font-medium transition-colors ${
-                activeTab === "info"
-                  ? "border-black text-black"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              Información Personal
-            </button>
-            <button
-              onClick={() => setActiveTab("professional")}
-              className={`py-2 px-4 border-b-2 text-sm font-medium transition-colors ${
-                activeTab === "professional"
-                  ? "border-black text-black"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              Información Profesional
-            </button>
-            <button
-              onClick={() => setActiveTab("history")}
-              className={`py-2 px-4 border-b-2 text-sm font-medium transition-colors ${
-                activeTab === "history"
-                  ? "border-black text-black"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              Historial
-            </button>
+        <div className="space-y-6">
+          {/* Header with trainer info */}
+          <div className="flex items-start space-x-4">
+            <div className="flex-shrink-0">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                <Dumbbell className="w-8 h-8 text-gray-400" />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl font-bold text-gray-900">
+                {trainer.name} {trainer.lastName}
+              </h2>
+              <p className="text-sm text-gray-500">Especialidad: {trainer.specialty}</p>
+              <div className="flex items-center space-x-2 mt-2">
+                <Badge
+                  className={
+                    trainer.isActive
+                      ? "bg-green-100 text-green-800 hover:bg-green-100"
+                      : "bg-red-100 text-red-800 hover:bg-red-100"
+                  }
+                >
+                  {trainer.isActive ? "Activo" : "Inactivo"}
+                </Badge>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {activeTab === "info" ? (
-          <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="grid grid-cols-2 gap-4">
+          <Separator />
+
+          {/* Personal Information */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Información Personal</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center space-x-3">
+                <Shield className="w-5 h-5 text-gray-400" />
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Nombre</h3>
-                  <p className="mt-1 text-sm font-medium text-gray-800">{trainer.name}</p>
+                  <p className="text-sm font-medium text-gray-900">Número de Documento</p>
+                  <p className="text-sm text-gray-500 font-medium">{trainer.documentNumber || "No especificado"}</p>
                 </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <Shield className="w-5 h-5 text-gray-400" />
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Apellido</h3>
-                  <p className="mt-1 text-sm font-medium text-gray-800">{trainer.lastName || "No disponible"}</p>
+                  <p className="text-sm font-medium text-gray-900">Tipo de Documento</p>
+                  <p className="text-sm text-gray-500">{trainer.documentType || "No especificado"}</p>
                 </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <Calendar className="w-5 h-5 text-gray-400" />
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Género</h3>
-                  <p className="mt-1 text-sm font-medium text-gray-800">
+                  <p className="text-sm font-medium text-gray-900">Fecha de Nacimiento</p>
+                  <p className="text-sm text-gray-500">
+                    {trainer.birthDate ? formatDate(trainer.birthDate) : "No especificada"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <User className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Género</p>
+                  <p className="text-sm text-gray-500">
                     {trainer.gender === "M" ? "Masculino" : trainer.gender === "F" ? "Femenino" : "No especificado"}
                   </p>
                 </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Fecha de Nacimiento</h3>
-                  <p className="mt-1 text-sm font-medium text-gray-800">
-                    {trainer.birthDate ? formatDate(trainer.birthDate) : "No disponible"}
-                  </p>
-                </div>
               </div>
             </div>
+          </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-500 mb-3">Información de Contacto</h3>
-              <div className="grid grid-cols-2 gap-4">
+          <Separator />
+
+          {/* Contact Information */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Información de Contacto</h3>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <Mail className="w-5 h-5 text-gray-400" />
                 <div>
-                  <h4 className="text-xs font-medium text-gray-500">Email</h4>
-                  <p className="mt-1 text-sm text-gray-800">{trainer.email}</p>
-                </div>
-                <div>
-                  <h4 className="text-xs font-medium text-gray-500">Teléfono</h4>
-                  <p className="mt-1 text-sm text-gray-800">{trainer.phone}</p>
-                </div>
-                <div>
-                  <h4 className="text-xs font-medium text-gray-500">Dirección</h4>
-                  <p className="mt-1 text-sm text-gray-800">{trainer.address || "No disponible"}</p>
+                  <p className="text-sm font-medium text-gray-900">Correo Electrónico</p>
+                  <p className="text-sm text-gray-500">{trainer.email}</p>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-500 mb-3">Información de Identificación</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center space-x-3">
+                <Phone className="w-5 h-5 text-gray-400" />
                 <div>
-                  <h4 className="text-xs font-medium text-gray-500">Tipo de Documento</h4>
-                  <p className="mt-1 text-sm text-gray-800">{trainer.documentType}</p>
+                  <p className="text-sm font-medium text-gray-900">Teléfono</p>
+                  <p className="text-sm text-gray-500">{trainer.phone}</p>
                 </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <MapPin className="w-5 h-5 text-gray-400" />
                 <div>
-                  <h4 className="text-xs font-medium text-gray-500">Número de Documento</h4>
-                  <p className="mt-1 text-sm text-gray-800">{trainer.documentNumber}</p>
+                  <p className="text-sm font-medium text-gray-900">Dirección</p>
+                  <p className="text-sm text-gray-500">{trainer.address || "No especificada"}</p>
                 </div>
               </div>
             </div>
           </div>
-        ) : activeTab === "professional" ? (
-          <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="grid grid-cols-2 gap-4">
+
+          <Separator />
+
+          {/* Professional Information */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Información Profesional</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center space-x-3">
+                <Award className="w-5 h-5 text-gray-400" />
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Especialidad</h3>
-                  <p className="mt-1 text-sm font-medium text-gray-800">{trainer.specialty}</p>
+                  <p className="text-sm font-medium text-gray-900">Especialidad</p>
+                  <p className="text-sm text-gray-500">{trainer.specialty}</p>
                 </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <Calendar className="w-5 h-5 text-gray-400" />
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Estado</h3>
-                  <span
-                    className={`mt-1 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      trainer.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {trainer.isActive ? "Activo" : "Inactivo"}
-                  </span>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Fecha de Registro</h3>
-                  <p className="mt-1 text-sm text-gray-800">{formatDate(trainer.hireDate)}</p>
+                  <p className="text-sm font-medium text-gray-900">Fecha de Registro</p>
+                  <p className="text-sm text-gray-500">{formatDate(trainer.hireDate)}</p>
                 </div>
               </div>
             </div>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {mockHistory.map((item) => (
-              <div key={item.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-                <div className="bg-gray-200 p-2 rounded-full">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 text-gray-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{item.action}</p>
-                  <p className="text-xs text-gray-500">
-                    Por {item.user} el {item.date}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
 
-        <div className="flex justify-between mt-6 pt-4 border-t border-gray-200">
-          <button
-            onClick={() => onDelete(trainer)}
-            className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
-          >
-            Eliminar
-          </button>
-          <div className="space-x-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Cerrar
-            </button>
-            <button
-              onClick={() => onEdit(trainer)}
-              className="px-4 py-2 bg-black text-white rounded-md text-sm font-medium hover:bg-gray-800 transition-colors"
-            >
-              Editar
-            </button>
+          <Separator />
+
+          {/* History */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Historial</h3>
+            <div className="space-y-3">
+              {mockHistory.map((item) => (
+                <div key={item.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="bg-gray-200 p-2 rounded-full">
+                    <Activity className="h-4 w-4 text-gray-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{item.action}</p>
+                    <p className="text-xs text-gray-500">
+                      Por {item.user} el {item.date}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-between pt-4 border-t">
+            <Button onClick={() => trainer && onDelete(trainer)} variant="destructive">
+              Eliminar
+            </Button>
+            <div className="space-x-2">
+              <Button variant="outline" onClick={onClose}>
+                Cerrar
+              </Button>
+              <Button onClick={() => trainer && onEdit(trainer)} className="bg-black hover:bg-gray-800">
+                Editar
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -1,156 +1,238 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
+import { Badge } from "@/shared/components/ui/badge"
+import { Separator } from "@/shared/components/ui/separator"
+import { Shield, User, Calendar, Check, AlertTriangle, Loader2 } from "lucide-react"
 import type { Role } from "@/shared/types/role"
+import { Button } from "@/shared/components/ui/button"
+import { useState, useEffect } from "react"
+import { roleService } from "../services/roleService"
 
 interface RoleDetailModalProps {
   isOpen: boolean
   onClose: () => void
-  role: Role
+  role: Role | null
   onEdit: (role: Role) => void
   onDelete: (role: Role) => void
 }
 
-export const RoleDetailModal: React.FC<RoleDetailModalProps> = ({ isOpen, onClose, role, onEdit, onDelete }) => {
-  const [activeTab, setActiveTab] = useState<"info" | "permissions">("info")
+interface UserInfo {
+  id: number
+  codigo: string
+  nombre: string
+  apellido: string
+  correo: string
+}
 
-  if (!isOpen || !role) return null
+export function RoleDetailModal({ isOpen, onClose, role, onEdit, onDelete }: RoleDetailModalProps) {
+  const [users, setUsers] = useState<UserInfo[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+
+  useEffect(() => {
+    if (isOpen && role) {
+      loadUsersForRole(role.id)
+    }
+  }, [isOpen, role])
+
+  const loadUsersForRole = async (roleId: number) => {
+    try {
+      setLoadingUsers(true)
+      console.log("Loading users for role:", roleId)
+      const usersData = await roleService.getUsersByRole(roleId)
+      console.log("Loaded users:", usersData)
+      setUsers(usersData)
+    } catch (error) {
+      console.error("Error loading users for role:", error)
+      setUsers([])
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
+
+  if (!role) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Detalles del Rol</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 focus:outline-none">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Detalles del Rol
+          </DialogTitle>
+        </DialogHeader>
 
-        <div className="mb-6 border-b">
-          <div className="flex space-x-4">
-            <button
-              onClick={() => setActiveTab("info")}
-              className={`py-2 px-4 border-b-2 text-sm font-medium transition-colors ${
-                activeTab === "info"
-                  ? "border-black text-black"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              Información
-            </button>
-            <button
-              onClick={() => setActiveTab("permissions")}
-              className={`py-2 px-4 border-b-2 text-sm font-medium transition-colors ${
-                activeTab === "permissions"
-                  ? "border-black text-black"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              Permisos
-            </button>
+        <div className="space-y-6">
+          {/* Header with role info */}
+          <div className="flex items-start space-x-4">
+            <div className="flex-shrink-0">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                <Shield className="w-8 h-8 text-gray-400" />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl font-bold text-gray-900">{role.name}</h2>
+              <p className="text-sm text-gray-500">Usuarios asignados: {loadingUsers ? "Cargando..." : users.length}</p>
+              <div className="flex items-center space-x-2 mt-2">
+                <Badge
+                  className={
+                    role.isActive
+                      ? "bg-green-100 text-green-800 hover:bg-green-100"
+                      : "bg-red-100 text-red-800 hover:bg-red-100"
+                  }
+                >
+                  {role.isActive ? "Activo" : "Inactivo"}
+                </Badge>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {activeTab === "info" ? (
-          <div className="space-y-4">
+          <Separator />
+
+          {/* Basic Information */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Información Básica</h3>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Nombre</h3>
-                  <p className="mt-1 text-sm font-medium text-gray-800">{role.name}</p>
+                  <h4 className="text-sm font-medium text-gray-500">Código</h4>
+                  <p className="mt-1 text-sm text-gray-800">{role.codigo || "N/A"}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Estado</h3>
-                  <span
-                    className={`mt-1 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      role.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {role.isActive ? "Activo" : "Inactivo"}
-                  </span>
+                  <h4 className="text-sm font-medium text-gray-500">Estado</h4>
+                  <p className="mt-1 text-sm text-gray-800">{role.isActive ? "Activo" : "Inactivo"}</p>
                 </div>
               </div>
               <div className="mt-4">
-                <h3 className="text-sm font-medium text-gray-500">Descripción</h3>
+                <h4 className="text-sm font-medium text-gray-500">Descripción</h4>
                 <p className="mt-1 text-sm text-gray-800">{role.description || "No se proporcionó descripción"}</p>
               </div>
             </div>
-
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Información Adicional</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="text-xs font-medium text-gray-500">Usuarios</h4>
-                  <p className="mt-1 text-sm font-medium text-gray-800">{role.userCount || 0} usuarios</p>
-                </div>
-                <div>
-                  <h4 className="text-xs font-medium text-gray-500">Fecha de Creación</h4>
-                  <p className="mt-1 text-sm text-gray-800">{role.createdAt}</p>
-                </div>
-                <div>
-                  <h4 className="text-xs font-medium text-gray-500">Última Actualización</h4>
-                  <p className="mt-1 text-sm text-gray-800">{role.updatedAt}</p>
-                </div>
-                <div>
-                  <h4 className="text-xs font-medium text-gray-500">Creado por</h4>
-                  <p className="mt-1 text-sm text-gray-800">{role.createdBy || "Admin"}</p>
-                </div>
-              </div>
-            </div>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-500 mb-3">Permisos Asignados</h3>
-              <div className="grid grid-cols-1 gap-2">
-                {role.permissions.map((permission, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-2 bg-white border border-gray-200 rounded-md"
-                  >
-                    <span className="text-sm text-gray-800">{String(permission)}</span>
-                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                      Concedido
-                    </span>
+
+          <Separator />
+
+          {/* Users assigned to this role */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Usuarios Asignados</h3>
+            {loadingUsers ? (
+              <div className="flex items-center justify-center p-4">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                <span className="ml-2 text-sm text-gray-500">Cargando usuarios...</span>
+              </div>
+            ) : users.length > 0 ? (
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {users.map((usuario) => (
+                  <div key={usuario.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-blue-100 p-2 rounded-full">
+                        <User className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-800">
+                          {usuario.nombre} {usuario.apellido}
+                        </span>
+                        <p className="text-xs text-gray-500">{usuario.correo}</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">{usuario.codigo}</Badge>
                   </div>
                 ))}
               </div>
+            ) : (
+              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                <div className="bg-gray-200 p-2 rounded-full">
+                  <User className="h-4 w-4 text-gray-600" />
+                </div>
+                <span className="text-sm text-gray-500">No hay usuarios asignados a este rol</span>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Additional Information */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Información Adicional</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center space-x-3">
+                <User className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Creado por</p>
+                  <p className="text-sm text-gray-500">{role.createdBy || "Admin"}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <Calendar className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Fecha de Creación</p>
+                  <p className="text-sm text-gray-500">
+                    {role.createdAt ? new Date(role.createdAt).toLocaleDateString("es-ES") : "N/A"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <Calendar className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Última Actualización</p>
+                  <p className="text-sm text-gray-500">
+                    {role.updatedAt ? new Date(role.updatedAt).toLocaleDateString("es-ES") : "N/A"}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-        )}
 
-        <div className="flex justify-between mt-6 pt-4 border-t border-gray-200">
-          <button
-            onClick={() => onDelete(role)}
-            className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
-          >
-            Eliminar
-          </button>
-          <div className="space-x-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Cerrar
-            </button>
-            <button
-              onClick={() => onEdit(role)}
-              className="px-4 py-2 bg-black text-white rounded-md text-sm font-medium hover:bg-gray-800 transition-colors"
-            >
-              Editar
-            </button>
+          <Separator />
+
+          {/* Permissions Only */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Permisos Asignados</h3>
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {role.permisos && role.permisos.length > 0 ? (
+                role.permisos.map((permission) => (
+                  <div key={permission.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-green-100 p-2 rounded-full">
+                        <Check className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-800">{permission.nombre}</span>
+                        {permission.descripcion && <p className="text-xs text-gray-500">{permission.descripcion}</p>}
+                      </div>
+                    </div>
+                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Permiso</Badge>
+                  </div>
+                ))
+              ) : (
+                <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="bg-gray-200 p-2 rounded-full">
+                    <AlertTriangle className="h-4 w-4 text-gray-600" />
+                  </div>
+                  <span className="text-sm text-gray-500">No hay permisos asignados a este rol</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-between pt-4 border-t">
+            <Button onClick={() => role && onDelete(role)} variant="destructive">
+              Eliminar
+            </Button>
+            <div className="space-x-2">
+              <Button variant="outline" onClick={onClose}>
+                Cerrar
+              </Button>
+              <Button onClick={() => role && onEdit(role)} className="bg-black hover:bg-gray-800">
+                Editar
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

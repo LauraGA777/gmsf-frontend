@@ -418,7 +418,7 @@ export default function UsersPage() {
                       <TableCell>{user.numero_documento}</TableCell>
                       <TableCell>{getRoleBadge(user.id_rol)}</TableCell>
                       <TableCell>
-                        <Badge className="bg-blue-100 text-blue-800">
+                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
                           {user.asistencias_totales || 0}
                         </Badge>
                       </TableCell>

@@ -4,12 +4,12 @@ import { Input } from "@/shared/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/shared/components/ui/dialog"
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Calendar, 
-  User, 
+import {
+  Plus,
+  Search,
+  Filter,
+  Calendar,
+  User,
   DollarSign,
   MoreHorizontal,
   RefreshCw,
@@ -85,7 +85,7 @@ export function ContractsPage() {
     // Filter by search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(contract => 
+      filtered = filtered.filter(contract =>
         contract.codigo.toLowerCase().includes(term) ||
         contract.persona?.usuario?.nombre?.toLowerCase().includes(term) ||
         contract.persona?.usuario?.apellido?.toLowerCase().includes(term) ||
@@ -154,7 +154,7 @@ export function ContractsPage() {
         cancelButtonText: 'No, mantener contrato',
         stopKeydownPropagation: false
       });
-  
+
       if (result.isConfirmed) {
         if (result.value) {
           await updateContract(contract.id, { estado: 'Cancelado', motivo: result.value });
@@ -194,7 +194,7 @@ export function ContractsPage() {
           Editar
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={() => handleCancelContract(contract)}
           className="text-red-600"
         >
@@ -387,7 +387,7 @@ export function ContractsPage() {
 
       {/* Contract Details Modal */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="sm:max-w-4xl">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSignature className="h-5 w-5" />
@@ -402,10 +402,10 @@ export function ContractsPage() {
 
       {/* Edit Contract Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent 
+        <DialogContent
           onPointerDownOutside={(e) => {
             if ((e.target as HTMLElement)?.closest('.swal2-container')) {
-                e.preventDefault();
+              e.preventDefault();
             }
           }}
           className="sm:max-w-3xl"

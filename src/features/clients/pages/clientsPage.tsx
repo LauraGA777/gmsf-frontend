@@ -27,6 +27,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useGym } from "@/shared/contexts/gymContext";
 import { NewClientForm } from "@/features/clients/components/newClientForm";
+import { EditClientModal } from "@/features/clients/components/editClientModal";
 import type { Client, UIClient } from "@/shared/types";
 import { mapDbClientToUiClient } from "@/shared/types";
 import Swal from "sweetalert2";
@@ -47,6 +48,7 @@ import {
   TableRow,
 } from "@/shared/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { ClientDetails } from "../components/clientDetails";
 
 export function ClientsPage() {
   const {
@@ -58,12 +60,14 @@ export function ClientsPage() {
     getClientContracts,
     createContractForClient,
     memberships,
-    navigateToClientContracts
+    navigateToClientContracts,
+    createClient
   } = useGym();
 
   const [filteredClients, setFilteredClients] = useState<UIClient[]>([]);
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
   const [isNewBeneficiaryOpen, setIsNewBeneficiaryOpen] = useState(false);
+  const [isEditClientOpen, setIsEditClientOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -143,11 +147,26 @@ export function ClientsPage() {
     const dbClient = clients.find(c => c.id_persona.toString() === clientUI.id);
     if (dbClient) {
       setEditingClient(dbClient);
-      setIsNewClientOpen(true);
+      setIsEditClientOpen(true);
     }
   };
 
-
+  const handleUpdateClient = async (clientId: number, updates: any) => {
+    try {
+      await updateClient(clientId, updates);
+      await refreshClients();
+      setIsEditClientOpen(false);
+      setEditingClient(null);
+    } catch (error) {
+      console.error('Error updating client:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'Error al actualizar el cliente',
+        icon: 'error',
+        confirmButtonColor: '#000',
+      });
+    }
+  };
 
   const handleViewContracts = (clientUI: UIClient) => {
     const dbClient = clients.find(c => c.id_persona.toString() === clientUI.id);
@@ -246,80 +265,58 @@ export function ClientsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Clientes</h1>
-          <p className="text-gray-600">Gestión de clientes y beneficiarios</p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={refreshClients}
-            disabled={clientsLoading}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${clientsLoading ? 'animate-spin' : ''}`} />
-            Actualizar
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setIsNewBeneficiaryOpen(true)}
-            className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-          >
-            <UserPlus className="mr-2 h-4 w-4" />
-            Agregar Beneficiario
-          </Button>
-          <Button
-            onClick={() => setIsNewClientOpen(true)}
-            className="bg-black hover:bg-gray-800"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Cliente
-          </Button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Buscar por nombre, email, documento o código..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Filtrar por estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="Activo">Activo</SelectItem>
-                <SelectItem value="Inactivo">Inactivo</SelectItem>
-                <SelectItem value="Congelado">Congelado</SelectItem>
-                <SelectItem value="Pendiente de pago">Pendiente de pago</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Clients Table */}
+    <div className="container mx-auto py-6 space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Lista de Clientes ({filteredClients.length})
-          </CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-2xl font-bold flex items-center gap-2">
+              <Users className="h-6 w-6" />
+              Clientes
+            </CardTitle>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setIsNewClientOpen(true)}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Nuevo Cliente
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
+          {/* Filters */}
+          <Card className="mb-6">
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Buscar por nombre, email, documento o código..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-48">
+                    <SelectValue placeholder="Filtrar por estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los estados</SelectItem>
+                    <SelectItem value="Activo">Activo</SelectItem>
+                    <SelectItem value="Inactivo">Inactivo</SelectItem>
+                    <SelectItem value="Congelado">Congelado</SelectItem>
+                    <SelectItem value="Pendiente de pago">Pendiente de pago</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Clients Table */}
           {clientsLoading ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
@@ -426,133 +423,38 @@ export function ClientsPage() {
         </CardContent>
       </Card>
 
-      {/* New Client Modal */}
+      {/* Modales */}
       <NewClientForm
         isOpen={isNewClientOpen}
-        onClose={() => {
+        onClose={() => setIsNewClientOpen(false)}
+        onCreateClient={createClient}
+        onSuccess={() => {
+          refreshClients();
           setIsNewClientOpen(false);
-          setEditingClient(null);
         }}
-        onSuccess={refreshClients}
-        editingClient={editingClient || undefined}
       />
 
-      {/* New Beneficiary Modal */}
-      <NewClientForm
-        isOpen={isNewBeneficiaryOpen}
-        onClose={() => setIsNewBeneficiaryOpen(false)}
-        onSuccess={refreshClients}
-        isBeneficiary={true}
-      />
+      {editingClient && (
+        <EditClientModal
+          client={editingClient}
+          onUpdateClient={handleUpdateClient}
+          onClose={() => {
+            setIsEditClientOpen(false);
+            setEditingClient(null);
+          }}
+        />
+      )}
 
-
-
-      {/* Client Details Modal */}
-      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="sm:max-w-[700px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Detalles del Cliente
-            </DialogTitle>
-          </DialogHeader>
-          {selectedClient && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Código</Label>
-                  <p className="text-lg font-semibold">{selectedClient.codigo}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Estado</Label>
-                  <div className="mt-1">
-                    {getStatusBadge(selectedClient.estado ? 'Activo' : 'Inactivo')}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Nombre Completo</Label>
-                  <p className="font-medium">
-                    {selectedClient.usuario?.nombre} {selectedClient.usuario?.apellido}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Documento</Label>
-                  <p className="font-medium">
-                    {selectedClient.usuario?.tipo_documento} {selectedClient.usuario?.numero_documento}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Email</Label>
-                  <p className="font-medium">{selectedClient.usuario?.correo}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Teléfono</Label>
-                  <p className="font-medium">{selectedClient.usuario?.telefono || 'No registrado'}</p>
-                </div>
-              </div>
-
-              {selectedClient.usuario?.direccion && (
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Dirección</Label>
-                  <p className="font-medium">{selectedClient.usuario.direccion}</p>
-                </div>
-              )}
-
-              {/* Client Contracts */}
-              {(() => {
-                const clientContracts = getClientContracts(selectedClient.id_persona);
-                return clientContracts.length > 0 && (
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Contratos</Label>
-                    <div className="mt-2 space-y-2">
-                      {clientContracts.map((contract) => (
-                        <div key={contract.id} className="border rounded-lg p-3">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <p className="font-medium">{contract.membresia?.nombre}</p>
-                              <p className="text-sm text-gray-600">
-                                {format(new Date(contract.fecha_inicio), "dd/MM/yyyy", { locale: es })} - {format(new Date(contract.fecha_fin), "dd/MM/yyyy", { locale: es })}
-                              </p>
-                            </div>
-                            <Badge className={
-                              contract.estado === 'Activo' ? "bg-green-100 text-green-800" :
-                              contract.estado === 'Vencido' ? "bg-red-100 text-red-800" :
-                              "bg-gray-100 text-gray-800"
-                            }>
-                              {contract.estado}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Fecha de Registro</Label>
-                  <p className="text-sm">
-                    {format(selectedClient.fecha_registro, "dd/MM/yyyy HH:mm", { locale: es })}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Última Actualización</Label>
-                  <p className="text-sm">
-                    {format(selectedClient.fecha_actualizacion, "dd/MM/yyyy HH:mm", { locale: es })}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {selectedClient && (
+        <ClientDetails
+          client={selectedClient}
+          isOpen={isDetailsOpen}
+          onClose={() => {
+            setIsDetailsOpen(false);
+            setSelectedClient(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,620 +1,402 @@
-import type React from "react"
-import { useState } from "react"
-import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
-import { Label } from "@/shared/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
-import { DatePicker } from "@/shared/components/ui/date-picker"
-import { User, Mail, Phone, Home, UserPlus, AlertTriangle, MapPin, FileText } from "lucide-react"
-import { cn } from "@/shared/lib/utils"
-import Swal from "sweetalert2"
-import type { Client } from "@/shared/types"
-import { Badge } from "@/shared/components/ui/badge"
-import { Checkbox } from "@/shared/components/ui/checkbox"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
-import { format } from "date-fns"
+import { useState } from "react";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
+import { User, Plus, Trash2, Users, Phone, Mail, FileText, Calendar, Search, ShieldCheck, Contact, AlertTriangle, CheckCircle } from "lucide-react";
+import type { Client } from "@/shared/types/client";
+import Swal from "sweetalert2";
+import { format, parseISO } from 'date-fns';
+import { Badge } from "@/shared/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+
+const emergencyContactSchema = z.object({
+  id: z.number().optional(),
+  nombre_contacto: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
+  telefono_contacto: z.string().regex(/^\d{7,15}$/, "El teléfono debe tener entre 7 y 15 dígitos"),
+  relacion_contacto: z.string().min(3, "La relación debe tener al menos 3 caracteres"),
+  es_mismo_beneficiario: z.boolean(),
+});
+
+const beneficiarySchema = z.object({
+  id: z.number().optional(),
+  usuario: z.object({
+    id: z.number().optional(),
+    nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
+    apellido: z.string().min(3, "El apellido debe tener al menos 3 caracteres"),
+    correo: z.string().email("Correo electrónico inválido"),
+    telefono: z.string().regex(/^\d{7,15}$/, "El teléfono debe tener entre 7 y 15 dígitos").optional().or(z.literal("")),
+    tipo_documento: z.enum(['CC', 'CE', 'TI', 'PP', 'DIE']),
+    numero_documento: z.string().min(5, "El número de documento debe tener al menos 5 caracteres"),
+    fecha_nacimiento: z.string().refine(
+      (date) => {
+        const birthDate = new Date(date);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        return age >= 13;
+      },
+      { message: "El beneficiario debe tener al menos 13 años" }
+    ),
+  }),
+  relacion: z.string().min(3, "La relación debe tener al menos 3 caracteres"),
+});
+
+const updateClientSchema = z.object({
+  usuario: z.object({
+    nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
+    apellido: z.string().min(3, "El apellido debe tener al menos 3 caracteres"),
+    correo: z.string().email("Correo electrónico inválido"),
+    telefono: z.string().regex(/^\d{7,15}$/, "El teléfono debe tener entre 7 y 15 dígitos").optional().or(z.literal("")),
+    direccion: z.string().optional(),
+    genero: z.enum(['M', 'F', 'O']).optional(),
+    tipo_documento: z.enum(['CC', 'CE', 'TI', 'PP', 'DIE']),
+    numero_documento: z.string().min(5, "El número de documento debe tener al menos 5 caracteres"),
+    fecha_nacimiento: z.string().refine(
+      (date) => {
+        const birthDate = new Date(date);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        return age >= 13;
+      },
+      { message: "El cliente debe tener al menos 13 años" }
+    ),
+  }),
+  contactos_emergencia: z.array(emergencyContactSchema)
+    .min(1, "Se requiere al menos un contacto de emergencia"),
+  beneficiarios: z.array(beneficiarySchema).optional(),
+  estado: z.boolean().optional(),
+});
+
+type UpdateClientFormValues = z.infer<typeof updateClientSchema>;
 
 interface EditClientModalProps {
-  client: Client
-  onUpdateClient: (clientId: string, updates: Partial<Client>) => void
-  onClose: () => void
+  client: Client;
+  onUpdateClient: (clientId: number, updates: any) => Promise<void>;
+  onClose: () => void;
 }
 
 export function EditClientModal({ client, onUpdateClient, onClose }: EditClientModalProps) {
-  const [formData, setFormData] = useState({
-    name: client.name || "",
-    email: client.email || "",
-    phone: client.phone || "",
-    documentType: client.documentType || "C.C.",
-    documentNumber: client.documentNumber || "",
-    address: client.address || "",
-    birthdate: client.birthdate ? new Date(client.birthdate) : undefined,
-    emergencyContact: client.emergencyContact || "",
-    emergencyPhone: client.emergencyPhone || "",
-    isBeneficiary: client.isBeneficiary !== false, // Si es undefined o true, se considera true
-    beneficiaryRelation: client.beneficiaryRelation || "",
-    beneficiaryName: client.beneficiaryName || "",
-    beneficiaryDocumentType: client.beneficiaryDocumentType || "C.C.",
-    beneficiaryDocumentNumber: client.beneficiaryDocumentNumber || "",
-    beneficiaryPhone: client.beneficiaryPhone || "",
-    beneficiaryEmail: client.beneficiaryEmail || "",
-  })
+  const [isLoading, setIsLoading] = useState(false);
+  const [userExists, setUserExists] = useState(true);
 
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [isProcessing, setIsProcessing] = useState(false)
+  const {
+    register,
+    handleSubmit,
+    control,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<UpdateClientFormValues>({
+    resolver: zodResolver(updateClientSchema) as any,
+    defaultValues: {
+      usuario: {
+        nombre: client.usuario?.nombre || "",
+        apellido: client.usuario?.apellido || "",
+        correo: client.usuario?.correo || "",
+        telefono: client.usuario?.telefono || "",
+        direccion: client.usuario?.direccion || "",
+        genero: client.usuario?.genero,
+        tipo_documento: client.usuario?.tipo_documento || "CC",
+        numero_documento: client.usuario?.numero_documento || "",
+        fecha_nacimiento: client.usuario?.fecha_nacimiento ? format(parseISO(client.usuario.fecha_nacimiento.toString()), 'yyyy-MM-dd') : "",
+      },
+      contactos_emergencia: (client.contactos_emergencia || []).map(c => ({
+        id: c.id,
+        nombre_contacto: c.nombre_contacto,
+        telefono_contacto: c.telefono_contacto,
+        relacion_contacto: c.relacion_contacto || '',
+        es_mismo_beneficiario: c.es_mismo_beneficiario,
+      })),
+      beneficiarios: (client.beneficiarios || []).map(b => ({
+        id: b.persona_beneficiaria?.id_persona,
+        usuario: {
+          id: b.persona_beneficiaria?.usuario?.id,
+          nombre: b.persona_beneficiaria?.usuario?.nombre || "",
+          apellido: b.persona_beneficiaria?.usuario?.apellido || "",
+          correo: b.persona_beneficiaria?.usuario?.correo || "",
+          telefono: b.persona_beneficiaria?.usuario?.telefono || "",
+          tipo_documento: b.persona_beneficiaria?.usuario?.tipo_documento || "CC",
+          numero_documento: b.persona_beneficiaria?.usuario?.numero_documento || "",
+          fecha_nacimiento: b.persona_beneficiaria?.usuario?.fecha_nacimiento 
+            ? format(parseISO(b.persona_beneficiaria.usuario.fecha_nacimiento.toString()), 'yyyy-MM-dd') 
+            : "",
+        },
+        relacion: b.relacion || "",
+      })),
+      estado: client.estado,
+    },
+  });
+  
+  const { fields: emergencyContacts, append: appendEmergencyContact, remove: removeEmergencyContact } = useFieldArray({
+    control,
+    name: "contactos_emergencia",
+  });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+  const { fields: beneficiaries, append: appendBeneficiary, remove: removeBeneficiary } = useFieldArray({
+    control,
+    name: "beneficiarios",
+  });
 
-    // Limpiar error cuando el usuario comienza a escribir
-    if (errors[name]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev }
-        delete newErrors[name]
-        return newErrors
-      })
-    }
-  }
+  const watchedGenero = watch("usuario.genero");
 
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
-
-    // Limpiar error cuando el usuario selecciona un valor
-    if (errors[name]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev }
-        delete newErrors[name]
-        return newErrors
-      })
-    }
-  }
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {}
-
-    if (!formData.name.trim()) {
-      newErrors.name = "El nombre es obligatorio"
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = "El email es obligatorio"
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "El email no es válido"
-    }
-
-    if (formData.phone && !/^\d{7,10}$/.test(formData.phone.replace(/\D/g, ""))) {
-      newErrors.phone = "El teléfono debe tener entre 7 y 10 dígitos"
-    }
-
-    if (formData.documentNumber && !/^\d{6,12}$/.test(formData.documentNumber.replace(/\D/g, ""))) {
-      newErrors.documentNumber = "El documento debe tener entre 6 y 12 dígitos"
-    }
-
-    // Validar campos del beneficiario si el cliente no es el beneficiario
-    if (formData.isBeneficiary === false) {
-      if (!formData.beneficiaryRelation) {
-        newErrors.beneficiaryRelation = "Debe seleccionar la relación con el beneficiario"
+  const onSubmit = async (data: UpdateClientFormValues) => {
+    console.log("Datos del formulario a enviar:", JSON.stringify(data, null, 2));
+    setIsLoading(true);
+    try {
+      if (!client.id_persona) {
+        throw new Error("ID del cliente no encontrado");
       }
-
-      if (!formData.beneficiaryName?.trim()) {
-        newErrors.beneficiaryName = "El nombre del beneficiario es obligatorio"
-      }
-
-      if (formData.beneficiaryEmail && !/\S+@\S+\.\S+/.test(formData.beneficiaryEmail)) {
-        newErrors.beneficiaryEmail = "El correo electrónico del beneficiario no es válido"
-      }
-
-      if (formData.beneficiaryPhone && !/^\d{7,10}$/.test(formData.beneficiaryPhone.replace(/\D/g, ""))) {
-        newErrors.beneficiaryPhone = "El teléfono del beneficiario debe tener entre 7 y 10 dígitos"
-      }
-
-      if (
-        formData.beneficiaryDocumentNumber &&
-        !/^\d{6,12}$/.test(formData.beneficiaryDocumentNumber.replace(/\D/g, ""))
-      ) {
-        newErrors.beneficiaryDocumentNumber = "El número de documento debe tener entre 6 y 12 dígitos"
-      }
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!validateForm()) {
+      await onUpdateClient(client.id_persona, data);
       Swal.fire({
-        title: "Error",
-        text: "Por favor, completa todos los campos obligatorios correctamente",
-        icon: "error",
-        confirmButtonColor: "#000",
+        title: '¡Éxito!',
+        text: 'Cliente actualizado correctamente',
+        icon: 'success',
+        confirmButtonColor: '#000',
         timer: 5000,
         timerProgressBar: true,
-      })
-      return
-    }
-
-    setIsProcessing(true)
-
-    // Simular un pequeño retraso para mostrar el estado de procesamiento
-    setTimeout(() => {
-      // Convertir la fecha de nacimiento a objeto Date si existe
-      const updates: Partial<Client> = {
-        ...formData,
-        birthdate: formData.birthdate,
-      }
-
-      onUpdateClient(client.id, updates)
-
+      });
+      onClose();
+    } catch (error: any) {
+      console.error('Error al actualizar cliente:', error);
+      console.error('Detalles del error:', error.response?.data);
       Swal.fire({
-        title: "Cliente actualizado",
-        text: "Los datos del cliente han sido actualizados exitosamente",
-        icon: "success",
-        confirmButtonColor: "#000",
+        title: 'Error',
+        text: error.response?.data?.message || 'Error al actualizar el cliente.',
+        icon: 'error',
+        confirmButtonColor: '#000',
         timer: 5000,
         timerProgressBar: true,
-      })
-
-      setIsProcessing(false)
-      onClose()
-    }, 500)
-  }
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="p-4 w-full max-w-3xl mx-auto">
-      <h2 className="text-xl font-bold mb-3">Editar Cliente</h2>
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-4xl max-h-[95vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Editar Cliente: {client.usuario?.nombre} {client.usuario?.apellido}
+          </DialogTitle>
+        </DialogHeader>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <Tabs defaultValue="personal" className="w-full">
-          <TabsList className="grid grid-cols-3 mb-3">
-            <TabsTrigger value="personal">Información Personal</TabsTrigger>
-            <TabsTrigger value="emergency">Contacto Emergencia</TabsTrigger>
-            <TabsTrigger value="membership">Membresía</TabsTrigger>
-          </TabsList>
+        <form onSubmit={handleSubmit(onSubmit, (errors) => {
+          console.error("Errores de validación del formulario:", JSON.stringify(errors, null, 2));
+          
+          // Mostrar mensaje específico según el tipo de error
+          let errorMessage = 'Por favor, revisa los campos marcados en rojo.';
+          
+          if (errors.contactos_emergencia) {
+            errorMessage = 'Se requiere al menos un contacto de emergencia.';
+          } else if (errors.usuario?.fecha_nacimiento) {
+            errorMessage = 'El cliente debe tener al menos 13 años.';
+          }
+          
+          Swal.fire({
+            icon: 'error',
+            title: 'Formulario inválido',
+            text: errorMessage,
+            confirmButtonColor: '#000',
+            timer: 5000,
+            timerProgressBar: true,
+            customClass: {
+              container: 'z-modal'
+            }
+          });
+        })} className="space-y-4">
+          <Tabs defaultValue="titular" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="titular">1. Titular</TabsTrigger>
+              <TabsTrigger value="contactos">2. Contactos</TabsTrigger>
+              <TabsTrigger value="beneficiarios">3. Beneficiarios</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="personal" className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Información personal */}
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <User className="h-4 w-4 text-gray-600" />
-                  <h3 className="font-semibold text-sm">Información Personal</h3>
-                </div>
-
-                <div className="space-y-2">
-                  <div>
-                    <Label htmlFor="name" className="text-xs font-medium">
-                      Nombre completo <span className="text-red-500">*</span>
-                    </Label>
-                    <div className="relative">
-                      <User className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
-                      <Input
-                        id="name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        className={cn("pl-8 h-8 text-sm", errors.name ? "border-red-300" : "")}
-                      />
-                    </div>
-                    {errors.name && (
-                      <p className="text-red-500 text-xs flex items-center gap-1 mt-1">
-                        <AlertTriangle className="h-3 w-3" /> {errors.name}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="email" className="text-xs font-medium">
-                      Email <span className="text-red-500">*</span>
-                    </Label>
-                    <div className="relative">
-                      <Mail className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        className={cn("pl-8 h-8 text-sm", errors.email ? "border-red-300" : "")}
-                      />
-                    </div>
-                    {errors.email && (
-                      <p className="text-red-500 text-xs flex items-center gap-1 mt-1">
-                        <AlertTriangle className="h-3 w-3" /> {errors.email}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="phone" className="text-xs font-medium">
-                      Teléfono
-                    </Label>
-                    <div className="relative">
-                      <Phone className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
-                      <Input
-                        id="phone"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        className={cn("pl-8 h-8 text-sm", errors.phone ? "border-red-300" : "")}
-                      />
-                    </div>
-                    {errors.phone && (
-                      <p className="text-red-500 text-xs flex items-center gap-1 mt-1">
-                        <AlertTriangle className="h-3 w-3" /> {errors.phone}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Información de identificación */}
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText className="h-4 w-4 text-gray-600" />
-                  <h3 className="font-semibold text-sm">Identificación</h3>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label htmlFor="documentType" className="text-xs font-medium">
-                        Tipo
-                      </Label>
-                      <Select
-                        value={formData.documentType}
-                        onValueChange={(value) => handleSelectChange("documentType", value)}
-                      >
-                        <SelectTrigger id="documentType" className="h-8 text-sm">
-                          <SelectValue placeholder="Tipo" className="h-8 text-sm" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CC">CC</SelectItem>
-                          <SelectItem value="TI">TI</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="documentNumber" className="text-xs font-medium">
-                        Número de documento
-                      </Label>
-                      <div className="relative">
-                        <FileText className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
-                        <Input
-                          id="documentNumber"
-                          name="documentNumber"
-                          value={formData.documentNumber}
-                          onChange={(e) => {
-                            // Solo permitir números
-                            const value = e.target.value.replace(/[^0-9]/g, "")
-                            handleChange({ ...e, target: { ...e.target, name: "documentNumber", value } })
-                          }}
-                          className={cn("pl-8 h-8 text-sm", errors.documentNumber ? "border-red-300" : "")}
-                        />
+            <TabsContent value="titular" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Información del Titular</CardTitle>
+                  <CardDescription>
+                    Información personal del cliente titular.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-3 bg-gray-50 rounded-lg border">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label>Tipo de Documento</Label>
+                        <Select value={client.usuario?.tipo_documento} disabled>
+                          <SelectTrigger><SelectValue/></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="CC">Cédula de Ciudadanía</SelectItem>
+                            <SelectItem value="CE">Cédula de Extranjería</SelectItem>
+                            <SelectItem value="TI">Tarjeta de Identidad</SelectItem>
+                            <SelectItem value="PP">Pasaporte</SelectItem>
+                            <SelectItem value="DIE">Doc. de Identificación Extranjero</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      {errors.documentNumber && (
-                        <p className="text-red-500 text-xs flex items-center gap-1 mt-1">
-                          <AlertTriangle className="h-3 w-3" /> {errors.documentNumber}
-                        </p>
-                      )}
+                      <div className="space-y-1">
+                        <Label>Número de Documento</Label>
+                        <Input value={client.usuario?.numero_documento} disabled />
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <DatePicker
-                      date={formData.birthdate}
-                      setDate={(date) => setFormData((prev) => ({ ...prev, birthdate: date }))}
-                      label="Fecha de nacimiento"
-                      placeholder="Seleccionar fecha"
-                      fromYear={1920}
-                      toYear={new Date().getFullYear()}
-                      subtitle="Seleccione año, mes y día"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="address" className="text-xs font-medium">
-                      Dirección
-                    </Label>
-                    <div className="relative">
-                      <Home className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
-                      <Input
-                        id="address"
-                        name="address"
-                        value={formData.address}
-                        onChange={handleChange}
-                        className="pl-8 h-8 text-sm"
-                      />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                    <div className="space-y-1">
+                      <Label>Nombre</Label>
+                      <Input {...register("usuario.nombre")} />
+                      {errors.usuario?.nombre && <p className="text-sm text-red-500 flex items-center gap-1 mt-1"><AlertTriangle className="h-4 w-4"/>{errors.usuario.nombre.message}</p>}
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="emergency" className="space-y-3">
-            {/* Información de contacto de emergencia */}
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-              <div className="flex items-center gap-2 mb-2">
-                <UserPlus className="h-4 w-4 text-gray-600" />
-                <h3 className="font-semibold text-sm">Contacto de Emergencia</h3>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div>
-                  <Label htmlFor="emergencyContact" className="text-xs font-medium">
-                    Nombre del contacto
-                  </Label>
-                  <div className="relative">
-                    <User className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
-                    <Input
-                      id="emergencyContact"
-                      name="emergencyContact"
-                      value={formData.emergencyContact}
-                      onChange={handleChange}
-                      className="pl-8 h-8 text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="emergencyPhone" className="text-xs font-medium">
-                    Teléfono de emergencia
-                  </Label>
-                  <div className="relative">
-                    <Phone className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
-                    <Input
-                      id="emergencyPhone"
-                      name="emergencyPhone"
-                      value={formData.emergencyPhone}
-                      onChange={(e) => {
-                        // Solo permitir números
-                        const value = e.target.value.replace(/[^0-9]/g, "")
-                        handleChange({ ...e, target: { ...e.target, name: "emergencyPhone", value } })
-                      }}
-                      className="pl-8 h-8 text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-2">
-                <div className="flex items-center space-x-2 mt-1">
-                  <Checkbox
-                    id="isSelfBeneficiary"
-                    checked={formData.isBeneficiary !== false}
-                    onCheckedChange={(checked) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        isBeneficiary: checked === true,
-                        // Limpiar datos del beneficiario si el cliente es el beneficiario
-                        ...(checked === true
-                          ? {
-                            beneficiaryName: undefined,
-                            beneficiaryRelation: undefined,
-                            beneficiaryDocumentType: undefined,
-                            beneficiaryDocumentNumber: undefined,
-                            beneficiaryPhone: undefined,
-                            beneficiaryEmail: undefined,
-                          }
-                          : {}),
-                      }))
-                    }}
-                  />
-                  <Label htmlFor="isSelfBeneficiary" className="text-xs font-medium">
-                    ¿Es usted mismo el beneficiario?
-                  </Label>
-                </div>
-              </div>
-
-              {formData.isBeneficiary === false && (
-                <div className="space-y-2 mt-2 border-t pt-2">
-                  <h4 className="text-xs font-medium text-gray-700">Información del Beneficiario</h4>
-
-                  <div>
-                    <Label htmlFor="beneficiaryRelation" className="text-xs font-medium">
-                      Relación con el beneficiario <span className="text-red-500">*</span>
-                    </Label>
-                    <Select
-                      value={formData.beneficiaryRelation || ""}
-                      onValueChange={(value) => setFormData((prev) => ({ ...prev, beneficiaryRelation: value }))}
-                    >
-                      <SelectTrigger
-                        id="beneficiaryRelation"
-                        className={cn("mt-1 h-8 text-sm", errors.beneficiaryRelation ? "border-red-500" : "")}
-                      >
-                        <SelectValue placeholder="Seleccionar relación" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Familiar">Familiar</SelectItem>
-                        <SelectItem value="Amigo">Amigo</SelectItem>
-                        <SelectItem value="Pareja">Pareja</SelectItem>
-                        <SelectItem value="Compañero de trabajo">Compañero de trabajo</SelectItem>
-                        <SelectItem value="Otro">Otro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {errors.beneficiaryRelation && (
-                      <p className="text-red-500 text-xs flex items-center gap-1 mt-1">
-                        <AlertTriangle className="h-3 w-3" /> {errors.beneficiaryRelation}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="beneficiaryName" className="text-xs font-medium">
-                      Nombre del beneficiario <span className="text-red-500">*</span>
-                    </Label>
-                    <div className="relative">
-                      <User className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
-                      <Input
-                        id="beneficiaryName"
-                        value={formData.beneficiaryName || ""}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, beneficiaryName: e.target.value }))}
-                        className={cn("pl-8 mt-1 h-8 text-sm", errors.beneficiaryName ? "border-red-500" : "")}
-                        placeholder="Nombre completo"
-                      />
+                    <div className="space-y-1">
+                      <Label>Apellido</Label>
+                      <Input {...register("usuario.apellido")} />
+                      {errors.usuario?.apellido && <p className="text-sm text-red-500 flex items-center gap-1 mt-1"><AlertTriangle className="h-4 w-4"/>{errors.usuario.apellido.message}</p>}
                     </div>
-                    {errors.beneficiaryName && (
-                      <p className="text-red-500 text-xs flex items-center gap-1 mt-1">
-                        <AlertTriangle className="h-3 w-3" /> {errors.beneficiaryName}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label htmlFor="beneficiaryDocumentType" className="text-xs font-medium">
-                        Tipo de documento
-                      </Label>
-                      <Select
-                        value={formData.beneficiaryDocumentType || "CC"}
-                        onValueChange={(value) => setFormData((prev) => ({ ...prev, beneficiaryDocumentType: value }))}
-                      >
-                        <SelectTrigger id="beneficiaryDocumentType" className="mt-1 h-8 text-sm">
-                          <SelectValue placeholder="Tipo" />
-                        </SelectTrigger>
+                    <div className="space-y-1">
+                      <Label>Correo Electrónico</Label>
+                      <Input type="email" {...register("usuario.correo")} />
+                      {errors.usuario?.correo && <p className="text-sm text-red-500 flex items-center gap-1 mt-1"><AlertTriangle className="h-4 w-4"/>{errors.usuario.correo.message}</p>}
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Teléfono</Label>
+                      <Input {...register("usuario.telefono")} />
+                      {errors.usuario?.telefono && <p className="text-sm text-red-500 flex items-center gap-1 mt-1"><AlertTriangle className="h-4 w-4"/>{errors.usuario.telefono.message}</p>}
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Fecha de Nacimiento</Label>
+                      <Input type="date" {...register("usuario.fecha_nacimiento")} />
+                      {errors.usuario?.fecha_nacimiento && <p className="text-sm text-red-500 flex items-center gap-1 mt-1"><AlertTriangle className="h-4 w-4"/>{errors.usuario.fecha_nacimiento.message}</p>}
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Dirección</Label>
+                      <Input {...register("usuario.direccion")} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Género</Label>
+                      <Select value={watchedGenero || ''} onValueChange={(value) => setValue("usuario.genero", value as any)}>
+                        <SelectTrigger><SelectValue placeholder="Seleccione género" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="CC">CC</SelectItem>
-                          <SelectItem value="TI">TI</SelectItem>
+                          <SelectItem value="M">Masculino</SelectItem>
+                          <SelectItem value="F">Femenino</SelectItem>
+                          <SelectItem value="O">Otro</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="space-y-1">
+                      <Label>Estado del Cliente</Label>
+                      <Select onValueChange={(val) => setValue("estado", val === 'true')} value={String(client.estado)}>
+                        <SelectTrigger><SelectValue placeholder="Seleccione estado" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="true">Activo</SelectItem>
+                          <SelectItem value="false">Inactivo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                    <div>
-                      <Label htmlFor="beneficiaryDocumentNumber" className="text-xs font-medium">
-                        Número de documento
-                      </Label>
-                      <div className="relative">
-                        <FileText className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
-                        <Input
-                          id="beneficiaryDocumentNumber"
-                          value={formData.beneficiaryDocumentNumber || ""}
-                          onChange={(e) => {
-                            // Solo permitir números
-                            const value = e.target.value.replace(/[^0-9]/g, "")
-                            setFormData((prev) => ({ ...prev, beneficiaryDocumentNumber: value }))
-                          }}
-                          className={cn(
-                            "pl-8 mt-1 h-8 text-sm",
-                            errors.beneficiaryDocumentNumber ? "border-red-500" : "",
+            <TabsContent value="contactos">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5"/>Contactos de Emergencia</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {emergencyContacts.map((field, index) => (
+                      <div key={field.id} className="flex items-center gap-2 p-2 border rounded-md">
+                        <Input {...register(`contactos_emergencia.${index}.nombre_contacto`)} placeholder="Nombre del Contacto" />
+                        <Input {...register(`contactos_emergencia.${index}.telefono_contacto`)} placeholder="Teléfono" />
+                        <Input {...register(`contactos_emergencia.${index}.relacion_contacto`)} placeholder="Relación" />
+                        <Button type="button" variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => removeEmergencyContact(index)}>
+                          <Trash2 className="h-4 w-4"/>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => appendEmergencyContact({ nombre_contacto: '', telefono_contacto: '', relacion_contacto: '', es_mismo_beneficiario: false })}>
+                    <Plus className="h-4 w-4 mr-2"/> Agregar Contacto
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="beneficiarios">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5"/>Beneficiarios</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {beneficiaries.map((field, index) => (
+                    <div key={field.id} className="p-3 border rounded-md space-y-3 relative">
+                      <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-red-500 hover:text-red-700" onClick={() => removeBeneficiary(index)}>
+                        <Trash2 className="h-4 w-4"/>
+                      </Button>
+                      <Label className="font-semibold text-base">Beneficiario {index + 1}</Label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input {...register(`beneficiarios.${index}.usuario.nombre`)} placeholder="Nombre" />
+                        <Input {...register(`beneficiarios.${index}.usuario.apellido`)} placeholder="Apellido" />
+                        <Input {...register(`beneficiarios.${index}.usuario.correo`)} placeholder="Correo" />
+                        <Input {...register(`beneficiarios.${index}.usuario.telefono`)} placeholder="Teléfono" />
+                        <Controller
+                          control={control}
+                          name={`beneficiarios.${index}.usuario.tipo_documento`}
+                          render={({ field }) => (
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <SelectTrigger><SelectValue placeholder="Tipo Doc." /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="CC">Cédula de Ciudadanía</SelectItem>
+                                <SelectItem value="CE">Cédula de Extranjería</SelectItem>
+                                <SelectItem value="TI">Tarjeta de Identidad</SelectItem>
+                                <SelectItem value="PP">Pasaporte</SelectItem>
+                                <SelectItem value="DIE">Doc. de Identificación Extranjero</SelectItem>
+                              </SelectContent>
+                            </Select>
                           )}
-                          placeholder="Número de documento"
                         />
+                        <Input {...register(`beneficiarios.${index}.usuario.numero_documento`)} placeholder="Num. Documento" />
+                        <Input type="date" {...register(`beneficiarios.${index}.usuario.fecha_nacimiento`)} />
+                        <Input {...register(`beneficiarios.${index}.relacion`)} placeholder="Relación con titular"/>
                       </div>
-                      {errors.beneficiaryDocumentNumber && (
-                        <p className="text-red-500 text-xs flex items-center gap-1 mt-1">
-                          <AlertTriangle className="h-3 w-3" /> {errors.beneficiaryDocumentNumber}
-                        </p>
-                      )}
                     </div>
-                  </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => appendBeneficiary({ usuario: { tipo_documento: 'CC' }, relacion: '' } as any)}>
+                    <Plus className="h-4 w-4 mr-2"/> Agregar Beneficiario
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label htmlFor="beneficiaryPhone" className="text-xs font-medium">
-                        Teléfono
-                      </Label>
-                      <div className="relative">
-                        <Phone className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
-                        <Input
-                          id="beneficiaryPhone"
-                          value={formData.beneficiaryPhone || ""}
-                          onChange={(e) => {
-                            // Solo permitir números
-                            const value = e.target.value.replace(/[^0-9]/g, "")
-                            setFormData((prev) => ({ ...prev, beneficiaryPhone: value }))
-                          }}
-                          className={cn("pl-8 mt-1 h-8 text-sm", errors.beneficiaryPhone ? "border-red-500" : "")}
-                          placeholder="Teléfono de contacto"
-                        />
-                      </div>
-                      {errors.beneficiaryPhone && (
-                        <p className="text-red-500 text-xs flex items-center gap-1 mt-1">
-                          <AlertTriangle className="h-3 w-3" /> {errors.beneficiaryPhone}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="beneficiaryEmail" className="text-xs font-medium">
-                        Email
-                      </Label>
-                      <div className="relative">
-                        <Mail className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
-                        <Input
-                          id="beneficiaryEmail"
-                          type="email"
-                          value={formData.beneficiaryEmail || ""}
-                          onChange={(e) => setFormData((prev) => ({ ...prev, beneficiaryEmail: e.target.value }))}
-                          className={cn("pl-8 mt-1 h-8 text-sm", errors.beneficiaryEmail ? "border-red-500" : "")}
-                          placeholder="correo@ejemplo.com"
-                        />
-                      </div>
-                      {errors.beneficiaryEmail && (
-                        <p className="text-red-500 text-xs flex items-center gap-1 mt-1">
-                          <AlertTriangle className="h-3 w-3" /> {errors.beneficiaryEmail}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="membership" className="space-y-3">
-            {/* Información de membresía */}
-            {client.membershipType && (
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <MapPin className="h-4 w-4 text-gray-600" />
-                  <h3 className="font-semibold text-sm">Información de Membresía</h3>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs text-gray-500 font-medium">Tipo de Membresía</p>
-                    <Badge className="mt-1 bg-blue-100 text-blue-800 border-blue-200">{client.membershipType}</Badge>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-500 font-medium">Estado</p>
-                    <Badge
-                      className={`mt-1 ${client.status === "Activo" ? "bg-green-100 text-green-800 border-green-200" : "bg-red-100 text-red-800 border-red-200"}`}
-                    >
-                      {client.status}
-                    </Badge>
-                  </div>
-
-                  {client.membershipEndDate && (
-                    <div className="col-span-2">
-                      <p className="text-xs text-gray-500 font-medium">Fecha de Vencimiento</p>
-                      <p className="text-sm font-medium mt-1">
-                        {format(new Date(client.membershipEndDate), "dd/MM/yyyy")}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        La información de membresía se actualiza a través de los contratos
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-
-        <div className="flex justify-end space-x-2 pt-3 border-t mt-3">
-          <Button type="button" variant="outline" onClick={onClose} size="sm">
-            Cancelar
-          </Button>
-          <Button type="submit" className="bg-black hover:bg-gray-800" disabled={isProcessing} size="sm">
-            {isProcessing ? "Procesando..." : "Guardar cambios"}
-          </Button>
-        </div>
-      </form>
-    </div>
-  )
+          <div className="flex justify-end space-x-2 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={isLoading} className="bg-black hover:bg-gray-800">
+              {isLoading ? "Guardando..." : "Guardar Cambios"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }

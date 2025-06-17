@@ -1,3 +1,25 @@
+export interface Beneficiary {
+  id: number;
+  codigo: string;
+  id_persona: number;
+  id_cliente: number;
+  relacion: string;
+  estado: boolean;
+  persona_beneficiaria?: {
+    id_persona: number;
+    usuario?: {
+      id: number;
+      nombre: string;
+      apellido: string;
+      correo: string;
+      telefono?: string;
+      tipo_documento: 'CC' | 'CE' | 'TI' | 'PP' | 'DIE';
+      numero_documento: string;
+      fecha_nacimiento: Date;
+    };
+  };
+}
+
 export interface Client {
   id_persona: number;
   id_usuario?: number;
@@ -26,7 +48,7 @@ export interface Client {
   };
   contactos_emergencia?: EmergencyContact[];
   titular?: Client;
-  beneficiarios?: Client[];
+  beneficiarios?: Beneficiary[];
 }
 
 export interface EmergencyContact {

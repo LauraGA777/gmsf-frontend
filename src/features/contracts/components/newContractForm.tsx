@@ -73,7 +73,7 @@ export const NewContractForm = memo(function NewContractForm({
         setLoadingData(true);
         
         const [clientsResponse, membershipsResponse] = await Promise.all([
-          clientService.getClients({}),
+          clientService.getActiveClients(),
           membershipService.getMemberships()
         ]);
 

@@ -49,6 +49,7 @@ import {
 } from "@/shared/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { ClientDetails } from "../components/clientDetails";
+import { ClientsTable } from "../components/clientsTable";
 
 export function ClientsPage() {
   const {
@@ -56,15 +57,12 @@ export function ClientsPage() {
     clientsLoading,
     refreshClients,
     updateClient,
-    deleteClient,
+    deleteClient: deleteClientFromContext,
     getClientContracts,
-    createContractForClient,
-    memberships,
-    navigateToClientContracts,
     createClient
   } = useGym();
 
-  const [filteredClients, setFilteredClients] = useState<UIClient[]>([]);
+  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
   const [isNewBeneficiaryOpen, setIsNewBeneficiaryOpen] = useState(false);
   const [isEditClientOpen, setIsEditClientOpen] = useState(false);
@@ -73,58 +71,39 @@ export function ClientsPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
-    filterClients();
-  }, [clients, searchTerm, statusFilter]);
+    let filtered = [...clients];
 
-  const filterClients = () => {
-    try {
-      // Map clients to UI format
-      const mappedClients = clients.map(client => {
-        try {
-          return mapDbClientToUiClient(client);
-        } catch (err) {
-          console.warn('Error mapping client:', client, err);
-          return null;
-        }
-      }).filter(Boolean) as UIClient[];
-
-      let filtered = [...mappedClients];
-
-      // Filter by search term
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        filtered = filtered.filter(client => 
-          client.name.toLowerCase().includes(term) ||
-          client.email.toLowerCase().includes(term) ||
-          client.documentNumber.toLowerCase().includes(term) ||
-          client.codigo.toLowerCase().includes(term) ||
-          client.phone?.toLowerCase().includes(term) ||
-          client.beneficiaryName?.toLowerCase().includes(term) ||
-          client.beneficiaryDocumentNumber?.toLowerCase().includes(term)
-        );
-      }
-
-      // Filter by status
-      if (statusFilter !== "all") {
-        filtered = filtered.filter(client => client.status === statusFilter);
-      }
-
-      setFilteredClients(filtered);
-    } catch (error) {
-      console.error('Error filtering clients:', error);
-      setFilteredClients([]);
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(client => 
+        `${client.usuario?.nombre} ${client.usuario?.apellido}`.toLowerCase().includes(term) ||
+        client.usuario?.correo?.toLowerCase().includes(term) ||
+        client.usuario?.numero_documento?.toLowerCase().includes(term) ||
+        client.codigo?.toLowerCase().includes(term)
+      );
     }
-  };
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(client => (client.estado ? "Activo" : "Inactivo") === statusFilter);
+    }
+
+    const clientsWithContracts = filtered.map(client => ({
+      ...client,
+      contratos: getClientContracts(client.id_persona)
+    }));
+
+    setFilteredClients(clientsWithContracts);
+  }, [clients, searchTerm, statusFilter, getClientContracts]);
 
   const getStatusBadge = (estado: UIClient['status']) => {
     const statusConfig = {
       'Activo': { color: 'bg-green-100 text-green-800', label: 'Activo' },
       'Inactivo': { color: 'bg-gray-100 text-gray-800', label: 'Inactivo' },
       'Congelado': { color: 'bg-blue-100 text-blue-800', label: 'Congelado' },
-      'Pendiente de pago': { color: 'bg-yellow-100 text-yellow-800', label: 'Pendiente de pago' },
     };
 
     const config = statusConfig[estado] || statusConfig['Activo'];
@@ -151,20 +130,14 @@ export function ClientsPage() {
     }
   };
 
-  const handleUpdateClient = async (clientId: number, updates: any) => {
+  const handleUpdateClient = async (clientId: number, updates: Partial<Client>) => {
     try {
       await updateClient(clientId, updates);
       await refreshClients();
-      setIsEditClientOpen(false);
       setEditingClient(null);
     } catch (error) {
       console.error('Error updating client:', error);
-      Swal.fire({
-        title: 'Error',
-        text: 'Error al actualizar el cliente',
-        icon: 'error',
-        confirmButtonColor: '#000',
-      });
+      Swal.fire({ title: 'Error', text: 'No se pudo actualizar el cliente.', icon: 'error' });
     }
   };
 
@@ -214,21 +187,29 @@ export function ClientsPage() {
     }
   };
 
-  const handleDeleteClient = async (clientUI: UIClient) => {
-    const dbClient = clients.find(c => c.id_persona.toString() === clientUI.id);
-    if (!dbClient) return;
-
+  const handleDeleteClient = async (clientId: number) => {
     try {
-      await deleteClient(dbClient.id_persona);
+      await deleteClientFromContext(clientId);
+      await refreshClients();
     } catch (error) {
       console.error('Error deleting client:', error);
+      Swal.fire({ title: 'Error', text: 'No se pudo eliminar el cliente.', icon: 'error' });
     }
   };
 
+  const paginatedClients = filteredClients.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
+  const pagination = {
+    total: filteredClients.length,
+    page: currentPage,
+    limit: itemsPerPage,
+    totalPages: Math.ceil(filteredClients.length / itemsPerPage)
+  };
 
   const ClientActionsMenu = ({ client }: { client: UIClient }) => {
-
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -253,7 +234,7 @@ export function ClientsPage() {
             {client.status === 'Activo' ? 'Desactivar' : 'Activar'}
           </DropdownMenuItem>
           <DropdownMenuItem 
-            onClick={() => handleDeleteClient(client)}
+            onClick={() => handleDeleteClient(client.id_persona)}
             className="text-red-600"
           >
             <Trash2 className="mr-2 h-4 w-4" />
@@ -308,118 +289,20 @@ export function ClientsPage() {
                     <SelectItem value="all">Todos los estados</SelectItem>
                     <SelectItem value="Activo">Activo</SelectItem>
                     <SelectItem value="Inactivo">Inactivo</SelectItem>
-                    <SelectItem value="Congelado">Congelado</SelectItem>
-                    <SelectItem value="Pendiente de pago">Pendiente de pago</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </CardContent>
           </Card>
 
-          {/* Clients Table */}
-          {clientsLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Documento</TableHead>
-                  <TableHead>Contacto</TableHead>
-                  <TableHead>Contratos</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredClients.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <div className="flex flex-col items-center gap-2">
-                        <Users className="h-8 w-8 text-gray-400" />
-                        <p className="text-gray-500">No se encontraron clientes</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredClients.map((client) => {
-                    const dbClient = clients.find(c => c.id_persona.toString() === client.id);
-                    const clientContracts = dbClient ? getClientContracts(dbClient.id_persona) : [];
-                    const activeContracts = clientContracts.filter(c => c.estado === 'Activo');
-                    
-                    return (
-                      <TableRow key={client.id}>
-                        <TableCell className="font-medium">
-                          {client.codigo}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {client.name}
-                            </span>
-                            <span className="text-sm text-gray-500">
-                              {client.firstName && client.lastName ? `${client.firstName} ${client.lastName}` : client.name}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {client.documentType} {client.documentNumber}
-                            </span>
-                            <span className="text-sm text-gray-500">
-                              {client.birthDate ? format(client.birthDate, "dd/MM/yyyy", { locale: es }) : 'Sin fecha'}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="flex items-center gap-1 text-sm">
-                              <Mail className="h-3 w-3" />
-                              {client.email}
-                            </span>
-                            {client.phone && (
-                              <span className="flex items-center gap-1 text-sm text-gray-500">
-                                <Phone className="h-3 w-3" />
-                                {client.phone}
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {clientContracts.length > 0 ? (
-                            <div className="flex flex-col">
-                              <Badge 
-                                className={activeContracts.length > 0 ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}
-                              >
-                                {activeContracts.length} activos
-                              </Badge>
-                              <span className="text-xs text-gray-500 mt-1">
-                                {clientContracts.length} total
-                              </span>
-                            </div>
-                          ) : (
-                            <Badge className="bg-gray-100 text-gray-800">
-                              Sin contratos
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(client.status)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <ClientActionsMenu client={client} />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          )}
+          <ClientsTable
+            clients={paginatedClients}
+            isLoading={clientsLoading}
+            onUpdateClient={handleUpdateClient}
+            onDeleteClient={handleDeleteClient}
+            pagination={pagination}
+            onPageChange={setCurrentPage}
+          />
         </CardContent>
       </Card>
 

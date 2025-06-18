@@ -2,6 +2,7 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Button } from "@/shared/components/ui/button"
 import { Badge } from "@/shared/components/ui/badge"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog"
 import type { Client } from "@/shared/types/client"
 import {
@@ -32,38 +33,35 @@ export function ClientDetails({ client, isOpen, onClose }: ClientDetailsProps) {
       : "bg-red-100 text-red-800 hover:bg-red-100";
   };
 
+  const titleId = "client-details-title";
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[90vw] md:max-w-[80vw] lg:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="sm:max-w-[90vw] md:max-w-[80vw] lg:max-w-[700px] max-h-[90vh] overflow-y-auto"
+        aria-labelledby={titleId}
+      >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Detalles del Cliente
-          </DialogTitle>
-          <DialogDescription>
-            Información detallada del cliente y sus datos de contacto.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-start space-x-4">
+          <div className="flex items-start gap-4">
             <div className="flex-shrink-0">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
                 <User className="w-8 h-8 text-gray-400" />
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-xl font-bold text-gray-900">
+              <DialogTitle id={titleId} className="text-xl font-bold flex items-center gap-2">
                 {client.usuario?.nombre} {client.usuario?.apellido}
-              </h2>
-              <p className="text-sm text-gray-500">Código: {client.codigo}</p>
-              <div className="flex items-center space-x-2 mt-2">
-                <Badge className={getStatusBadge(client.estado)}>{client.estado ? "Activo" : "Inactivo"}</Badge>
-              </div>
+              </DialogTitle>
+              <p className="text-sm font-normal text-gray-500 mt-1">Código: {client.codigo}</p>
             </div>
+            <Badge className={getStatusBadge(client.estado)}>{client.estado ? "Activo" : "Inactivo"}</Badge>
           </div>
+          <DialogDescription className="sr-only">
+            Información detallada del cliente {client.usuario?.nombre} {client.usuario?.apellido}.
+          </DialogDescription>
+        </DialogHeader>
 
+        <div className="space-y-6 pt-4">
           <Separator />
 
           {/* Personal Information */}

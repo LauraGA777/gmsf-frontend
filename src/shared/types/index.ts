@@ -400,7 +400,7 @@ export interface UIClient {
   documentNumber: string;
   gender?: 'M' | 'F' | 'O';
   birthDate?: Date;
-  status: 'Activo' | 'Inactivo' | 'Congelado' | 'Pendiente de pago';
+  status: 'Activo' | 'Inactivo' | 'Congelado';
   membershipType?: string;
   membershipEndDate?: Date;
   // Beneficiary info (if applicable)

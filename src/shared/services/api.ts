@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an Axios instance with default config
 const apiClient = axios.create({
-    baseURL: 'https://gmsf-backend.vercel.app',
+    baseURL: 'http://localhost:3001',
     headers: {
         'Content-Type': 'application/json',
     },

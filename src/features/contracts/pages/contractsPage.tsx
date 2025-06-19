@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
+import { useDebounce } from "@/shared/hooks/useDebounce"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
@@ -7,11 +8,8 @@ import { Plus, Search, RefreshCw, FileSignature } from "lucide-react"
 import { useGym } from "@/shared/contexts/gymContext"
 import type { Contract, Client, Membership } from "@/shared/types"
 import { ContractsTable } from "@/features/contracts/components/contractsTable"
-import Swal from "sweetalert2"
-import { Dialog, DialogContent, DialogDescription, DialogTrigger } from "@/shared/components/ui/dialog"
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
-import { DialogTitle } from "@/shared/components/ui/dialog"
 import { NewContractForm } from "@/features/contracts/components/newContractForm"
+import { useToast } from "@/shared/components/ui/use-toast"
 
 export function ContractsPage() {
   const {
@@ -19,58 +17,28 @@ export function ContractsPage() {
     contracts,
     memberships,
     contractsLoading,
+    contractsPagination,
     refreshContracts,
     createContract,
     updateContract,
     deleteContract,
   } = useGym()
 
+  const { toast } = useToast()
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [page, setPage] = useState(1)
-  const [limit] = useState(10)
+  const debouncedSearchTerm = useDebounce(searchTerm, 500)
+  const limit = 10; // Or get from context if it can change
 
   useEffect(() => {
-    refreshContracts()
-  }, [])
-
-  const filteredContracts = useMemo(() => {
-    let filtered = [...contracts]
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(c => c.estado === statusFilter)
-    }
-
-    if (searchTerm) {
-      const lowercasedTerm = searchTerm.toLowerCase()
-      filtered = filtered.filter(c => {
-        const client = clients.find(cl => String(cl.id_persona) === String(c.id_persona))
-        const membership = memberships.find(m => String(m.id) === String(c.id_membresia))
-
-        return (
-          c.codigo?.toLowerCase().includes(lowercasedTerm) ||
-          client?.usuario?.nombre.toLowerCase().includes(lowercasedTerm) ||
-          client?.usuario?.apellido.toLowerCase().includes(lowercasedTerm) ||
-          client?.usuario?.numero_documento.toLowerCase().includes(lowercasedTerm) ||
-          membership?.nombre.toLowerCase().includes(lowercasedTerm)
-        )
-      })
-    }
-    return filtered.sort((a, b) => b.id - a.id);
-  }, [contracts, searchTerm, statusFilter, clients, memberships])
-
-  const paginatedContracts = useMemo(() => {
-    const startIndex = (page - 1) * limit
-    return filteredContracts.slice(startIndex, startIndex + limit)
-  }, [filteredContracts, page, limit])
-
-  const totalPages = useMemo(() => {
-    return Math.ceil(filteredContracts.length / limit)
-  }, [filteredContracts, limit])
+    const estado = statusFilter === "all" ? undefined : statusFilter
+    refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
+  }, [page, debouncedSearchTerm, statusFilter, refreshContracts])
 
   const handlePageChange = (newPage: number) => {
-    if (newPage > 0 && newPage <= totalPages) {
+    if (newPage > 0 && newPage <= contractsPagination.totalPages) {
       setPage(newPage)
     }
   }
@@ -78,29 +46,37 @@ export function ContractsPage() {
   const handleAddContract = async (newContract: Omit<Contract, "id">) => {
     try {
       await createContract(newContract)
-      Swal.fire("¡Éxito!", "Contrato agregado correctamente.", "success")
+      toast({ title: "¡Éxito!", description: "Contrato agregado correctamente.", type: "success" })
       setIsAddModalOpen(false)
-      refreshContracts()
+      // Refresh current page
+      const estado = statusFilter === "all" ? undefined : statusFilter
+      refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
     } catch (error) {
-      Swal.fire("Error", "No se pudo agregar el contrato.", "error")
+      toast({ title: "Error", description: "No se pudo agregar el contrato.", type: "error" })
     }
   }
 
   const handleUpdateContract = async (id: number, updates: Partial<Contract>) => {
     try {
       await updateContract(id, updates)
-      Swal.fire("¡Éxito!", "Contrato actualizado correctamente.", "success")
+      toast({ title: "¡Éxito!", description: "Contrato actualizado correctamente.", type: "success" })
+      // Refresh current page
+      const estado = statusFilter === "all" ? undefined : statusFilter
+      refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
     } catch (error) {
-      Swal.fire("Error", "No se pudo actualizar el contrato.", "error")
+      toast({ title: "Error", description: "No se pudo actualizar el contrato.", type: "error" })
     }
   }
 
   const handleDeleteContract = async (id: number) => {
     try {
       await deleteContract(id)
-      Swal.fire("¡Éxito!", "Contrato eliminado correctamente.", "success")
+      toast({ title: "¡Éxito!", description: "Contrato eliminado correctamente.", type: "success" })
+      // Refresh current page
+      const estado = statusFilter === "all" ? undefined : statusFilter
+      refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
     } catch (error) {
-      Swal.fire("Error", "No se pudo eliminar el contrato.", "error")
+      toast({ title: "Error", description: "No se pudo eliminar el contrato.", type: "error" })
     }
   }
 
@@ -164,7 +140,7 @@ export function ContractsPage() {
           </Card>
 
           <ContractsTable
-            contracts={paginatedContracts}
+            contracts={contracts}
             clients={clients}
             memberships={memberships}
             isLoading={contractsLoading}
@@ -173,34 +149,24 @@ export function ContractsPage() {
             pagination={{
               page,
               limit,
-              total: filteredContracts.length,
-              totalPages,
+              total: contractsPagination.total,
+              totalPages: contractsPagination.totalPages,
             }}
             onPageChange={handlePageChange}
+            onAddNewContract={() => setIsAddModalOpen(true)}
           />
         </CardContent>
       </Card>
 
-      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent
-          className="sm:max-w-5xl h-auto overflow-visible"
-          aria-describedby="new-contract-description"
-        >
-          <VisuallyHidden>
-            <DialogTitle>Nuevo Contrato</DialogTitle>
-            <DialogDescription id="new-contract-description">
-              Complete el formulario para crear un nuevo contrato.
-            </DialogDescription>
-          </VisuallyHidden>
-          <NewContractForm
-            clients={clients}
-            memberships={memberships}
-            onAddClient={handleAddClient}
-            onAddContract={handleAddContract}
-            onClose={() => setIsAddModalOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      <NewContractForm
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={() => {
+          // Refresh current page after adding contract
+          const estado = statusFilter === "all" ? undefined : statusFilter;
+          refreshContracts({ page, limit, search: debouncedSearchTerm, estado });
+        }}
+      />
     </div>
   )
 }

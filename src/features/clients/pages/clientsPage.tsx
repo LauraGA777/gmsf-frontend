@@ -50,6 +50,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { ClientDetails } from "../components/clientDetails";
 import { ClientsTable } from "../components/clientsTable";
+import { useToast } from "@/shared/components/ui/use-toast";
+import { useNavigate } from "react-router-dom";
 
 export function ClientsPage() {
   const {
@@ -62,6 +64,7 @@ export function ClientsPage() {
     createClient
   } = useGym();
 
+  const navigate = useNavigate();
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
   const [isNewBeneficiaryOpen, setIsNewBeneficiaryOpen] = useState(false);
@@ -73,6 +76,7 @@ export function ClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const { toast } = useToast();
 
   useEffect(() => {
     let filtered = [...clients];
@@ -137,14 +141,14 @@ export function ClientsPage() {
       setEditingClient(null);
     } catch (error) {
       console.error('Error updating client:', error);
-      Swal.fire({ title: 'Error', text: 'No se pudo actualizar el cliente.', icon: 'error' });
+      toast({ title: 'Error', description: 'No se pudo actualizar el cliente.', type: 'error' });
     }
   };
 
   const handleViewContracts = (clientUI: UIClient) => {
     const dbClient = clients.find(c => c.id_persona.toString() === clientUI.id);
     if (dbClient) {
-      navigateToClientContracts(dbClient.id_persona);
+      navigate(`/clients/${dbClient.id_persona}/contracts`);
     }
   };
 
@@ -169,20 +173,18 @@ export function ClientsPage() {
           estado: !dbClient.estado
         });
 
-        Swal.fire({
+        toast({
           title: '¡Éxito!',
-          text: `Cliente ${dbClient.estado ? 'desactivado' : 'activado'} correctamente`,
-          icon: 'success',
-          confirmButtonColor: '#000',
+          description: `Cliente ${dbClient.estado ? 'desactivado' : 'activado'} correctamente`,
+          type: 'success',
         });
       }
     } catch (error) {
       console.error('Error updating client status:', error);
-      Swal.fire({
+      toast({
         title: 'Error',
-        text: 'Error al actualizar el estado del cliente',
-        icon: 'error',
-        confirmButtonColor: '#000',
+        description: 'Error al actualizar el estado del cliente',
+        type: 'error',
       });
     }
   };
@@ -193,7 +195,7 @@ export function ClientsPage() {
       await refreshClients();
     } catch (error) {
       console.error('Error deleting client:', error);
-      Swal.fire({ title: 'Error', text: 'No se pudo eliminar el cliente.', icon: 'error' });
+      toast({ title: 'Error', description: 'No se pudo eliminar el cliente.', type: 'error' });
     }
   };
 
@@ -234,7 +236,7 @@ export function ClientsPage() {
             {client.status === 'Activo' ? 'Desactivar' : 'Activar'}
           </DropdownMenuItem>
           <DropdownMenuItem 
-            onClick={() => handleDeleteClient(client.id_persona)}
+            onClick={() => handleDeleteClient(Number(client.id))}
             className="text-red-600"
           >
             <Trash2 className="mr-2 h-4 w-4" />
@@ -248,53 +250,44 @@ export function ClientsPage() {
   return (
     <div className="container mx-auto py-6 space-y-4">
       <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-2xl font-bold flex items-center gap-2">
-              <Users className="h-6 w-6" />
-              Clientes
-            </CardTitle>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setIsNewClientOpen(true)}
-                className="gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Nuevo Cliente
-              </Button>
-            </div>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="h-6 w-6" />
+            <CardTitle>Gestión de Clientes</CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => refreshClients()} disabled={clientsLoading}>
+              <RefreshCw className={`h-4 w-4 ${clientsLoading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button onClick={() => setIsNewClientOpen(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Nuevo Cliente
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {/* Filters */}
-          <Card className="mb-6">
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      placeholder="Buscar por nombre, email, documento o código..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-48">
-                    <SelectValue placeholder="Filtrar por estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los estados</SelectItem>
-                    <SelectItem value="Activo">Activo</SelectItem>
-                    <SelectItem value="Inactivo">Inactivo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
+          <div className="flex items-center space-x-2 mb-4">
+            <div className="relative flex-grow">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                placeholder="Buscar por nombre, documento, código..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar por estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="Activo">Activo</SelectItem>
+                <SelectItem value="Inactivo">Inactivo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
           <ClientsTable
             clients={paginatedClients}
             isLoading={clientsLoading}
@@ -302,40 +295,36 @@ export function ClientsPage() {
             onDeleteClient={handleDeleteClient}
             pagination={pagination}
             onPageChange={setCurrentPage}
+            onAddNewClient={() => setIsNewClientOpen(true)}
           />
+
         </CardContent>
       </Card>
 
-      {/* Modales */}
-      <NewClientForm
-        isOpen={isNewClientOpen}
-        onClose={() => setIsNewClientOpen(false)}
-        onCreateClient={createClient}
-        onSuccess={() => {
-          refreshClients();
-          setIsNewClientOpen(false);
-        }}
-      />
-
-      {editingClient && (
-        <EditClientModal
-          client={editingClient}
-          onUpdateClient={handleUpdateClient}
-          onClose={() => {
-            setIsEditClientOpen(false);
-            setEditingClient(null);
-          }}
+      {isNewClientOpen && (
+        <NewClientForm
+          isOpen={isNewClientOpen}
+          onClose={() => setIsNewClientOpen(false)}
+          onCreateClient={createClient}
+          onSuccess={refreshClients}
         />
       )}
 
-      {selectedClient && (
+      {editingClient && isEditClientOpen && (
+        <EditClientModal
+          client={editingClient}
+          onClose={() => {
+            setEditingClient(null)
+            setIsEditClientOpen(false)
+          }}
+          onUpdateClient={handleUpdateClient}
+        />
+      )}
+
+      {selectedClient && isDetailsOpen && (
         <ClientDetails
           client={selectedClient}
-          isOpen={isDetailsOpen}
-          onClose={() => {
-            setIsDetailsOpen(false);
-            setSelectedClient(null);
-          }}
+          onClose={() => setIsDetailsOpen(false)}
         />
       )}
     </div>

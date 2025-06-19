@@ -9,11 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { User, Plus, Trash2, Users, Phone, Mail, FileText, Calendar, Search, ShieldCheck, Contact, AlertTriangle, CheckCircle } from "lucide-react";
-import type { Client } from "@/shared/types/client";
-import Swal from "sweetalert2";
+import type { Client } from "@/shared/types";
 import { format, parseISO } from 'date-fns';
 import { Badge } from "@/shared/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { useToast } from "@/shared/components/ui/use-toast";
 
 const emergencyContactSchema = z.object({
   id: z.number().optional(),
@@ -91,6 +91,7 @@ interface EditClientModalProps {
 export function EditClientModal({ client, onUpdateClient, onClose }: EditClientModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [userExists, setUserExists] = useState(true);
+  const { toast } = useToast();
 
   const {
     register,
@@ -161,25 +162,19 @@ export function EditClientModal({ client, onUpdateClient, onClose }: EditClientM
         throw new Error("ID del cliente no encontrado");
       }
       await onUpdateClient(client.id_persona, data);
-      Swal.fire({
+      toast({
         title: '¡Éxito!',
-        text: 'Cliente actualizado correctamente',
-        icon: 'success',
-        confirmButtonColor: '#000',
-        timer: 5000,
-        timerProgressBar: true,
+        description: 'Cliente actualizado correctamente',
+        type: 'success',
       });
       onClose();
     } catch (error: any) {
       console.error('Error al actualizar cliente:', error);
       console.error('Detalles del error:', error.response?.data);
-      Swal.fire({
+      toast({
         title: 'Error',
-        text: error.response?.data?.message || 'Error al actualizar el cliente.',
-        icon: 'error',
-        confirmButtonColor: '#000',
-        timer: 5000,
-        timerProgressBar: true,
+        description: error.response?.data?.message || 'Error al actualizar el cliente.',
+        type: 'error',
       });
     } finally {
       setIsLoading(false);
@@ -197,7 +192,7 @@ export function EditClientModal({ client, onUpdateClient, onClose }: EditClientM
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit, (errors) => {
-          console.error("Errores de validación del formulario:", JSON.stringify(errors, null, 2));
+          console.error("Errores de validación del formulario:", errors);
           
           // Mostrar mensaje específico según el tipo de error
           let errorMessage = 'Por favor, revisa los campos marcados en rojo.';
@@ -208,16 +203,10 @@ export function EditClientModal({ client, onUpdateClient, onClose }: EditClientM
             errorMessage = 'El cliente debe tener al menos 13 años.';
           }
           
-          Swal.fire({
-            icon: 'error',
+          toast({
+            type: 'error',
             title: 'Formulario inválido',
-            text: errorMessage,
-            confirmButtonColor: '#000',
-            timer: 5000,
-            timerProgressBar: true,
-            customClass: {
-              container: 'z-modal'
-            }
+            description: errorMessage,
           });
         })} className="space-y-4">
           <Tabs defaultValue="titular" className="w-full">

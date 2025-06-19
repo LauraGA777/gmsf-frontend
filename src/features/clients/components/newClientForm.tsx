@@ -12,9 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { User, Plus, Trash2, Users, Phone, Mail, FileText, Calendar, Search, ShieldCheck, Contact, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { clientService } from "@/features/clients/services/client.service";
-import Swal from "sweetalert2";
 import { Badge } from "@/shared/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { useToast } from "@/shared/components/ui/use-toast";
 
 const emergencyContactSchema = z.object({
   nombre_contacto: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -100,6 +100,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
   const [isAlreadyClient, setIsAlreadyClient] = useState(false);
   const [userNotFound, setUserNotFound] = useState(false);
   const [userExists, setUserExists] = useState(false);
+  const { toast } = useToast();
   
   const {
     register,
@@ -189,13 +190,10 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
     setIsLoading(true);
     try {
       await onCreateClient(formData);
-      Swal.fire({
+      toast({
         title: '¡Éxito!',
-        text: 'Cliente creado correctamente',
-        icon: 'success',
-        confirmButtonColor: '#000',
-        timer: 5000,
-        timerProgressBar: true,
+        description: 'Cliente creado correctamente',
+        type: 'success',
       });
       reset();
       if (onSuccess) onSuccess();
@@ -203,13 +201,10 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
     } catch (error: any) {
       console.error('Error al crear cliente:', error);
       console.error('Detalles del error:', error.response?.data);
-      Swal.fire({
+      toast({
         title: 'Error',
-        text: error.response?.data?.message || 'Error al crear el cliente.',
-        icon: 'error',
-        confirmButtonColor: '#000',
-        timer: 5000,
-        timerProgressBar: true,
+        description: error.response?.data?.message || 'Error al crear el cliente.',
+        type: 'error',
       });
     } finally {
       setIsLoading(false);
@@ -237,13 +232,10 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
         const data = await response.json() as { exists: boolean };
         setUserExists(data.exists);
         if (data.exists) {
-          Swal.fire({
+          toast({
             title: 'Usuario Existente',
-            text: 'Este documento ya está registrado en el sistema.',
-            icon: 'warning',
-            confirmButtonColor: '#000',
-            timer: 5000,
-            timerProgressBar: true,
+            description: 'Este documento ya está registrado en el sistema.',
+            type: 'info',
           });
         }
       } catch (error) {
@@ -276,13 +268,10 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
             errorMessage = 'El cliente debe tener al menos 13 años.';
           }
           
-          Swal.fire({
-            icon: 'error',
+          toast({
             title: 'Formulario inválido',
-            text: errorMessage,
-            confirmButtonColor: '#000',
-            timer: 5000,
-            timerProgressBar: true,
+            description: errorMessage,
+            type: 'error',
           });
         })} className="space-y-4">
           <Tabs defaultValue="titular" className="w-full">

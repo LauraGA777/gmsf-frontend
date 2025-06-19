@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/shared/components/ui/button";
@@ -7,6 +7,8 @@ import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover";
+import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/shared/components/ui/command";
 import { format, isBefore, startOfDay, differenceInMinutes } from "date-fns";
 import { es } from "date-fns/locale";
 import { clientService } from "@/features/clients/services/client.service";
@@ -15,7 +17,8 @@ import type { Client, Contract, Trainer } from "@/shared/types/index";
 import type { Training } from "@/shared/types/training";
 import { mapDbClientToUiClient, mapDbContractToUiContract } from "@/shared/types/index";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
-import { CalendarIcon, Clock, User, Dumbbell, FileText } from "lucide-react"
+import { CalendarIcon, Clock, User, Dumbbell, FileText, Check, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/shared/lib/utils";
 
 const trainingSchema = z.object({
   titulo: z.string().min(1, "El título es requerido"),
@@ -32,12 +35,13 @@ type TrainingFormData = z.infer<typeof trainingSchema>;
 interface TrainingFormProps {
   onSubmit: (data: Partial<Training>) => void;
   onCancel: () => void;
-  initialDate?: Date;
+  initialStartDate?: Date;
+  initialEndDate?: Date;
   clients: Array<{ id: string; name: string }>;
   trainers: Array<{ id: string; name: string }>;
 }
 
-export function TrainingForm({ onSubmit, onCancel, initialDate, clients = [], trainers = [] }: TrainingFormProps) {
+export function TrainingForm({ onSubmit, onCancel, initialStartDate, initialEndDate, clients = [], trainers = [] }: TrainingFormProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const {
@@ -45,16 +49,17 @@ export function TrainingForm({ onSubmit, onCancel, initialDate, clients = [], tr
     handleSubmit,
     setValue,
     watch,
+    control,
     formState: { errors },
   } = useForm<TrainingFormData>({
     resolver: zodResolver(trainingSchema),
     defaultValues: {
       estado: "Programado",
-      fecha_inicio: initialDate ? format(initialDate, "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-      fecha_fin: initialDate ? format(initialDate, "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      fecha_inicio: initialStartDate ? format(initialStartDate, "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      fecha_fin: initialEndDate ? format(initialEndDate, "yyyy-MM-dd'T'HH:mm") : (initialStartDate ? format(initialStartDate, "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm")),
       id_cliente: 0,
       id_entrenador: 0,
-      titulo: "Entrenamiento Personalizado",
+      titulo: "",
     },
   });
 
@@ -80,22 +85,13 @@ export function TrainingForm({ onSubmit, onCancel, initialDate, clients = [], tr
     }
   }, [watchFields, clients, trainers]);
 
-  const handleClientChange = (clientId: string) => {
-    const id = parseInt(clientId, 10);
-    setValue("id_cliente", id);
-  };
-
-  const handleTrainerChange = (trainerId: string) => {
-    const id = parseInt(trainerId, 10);
-    setValue("id_entrenador", id);
-  };
-
   const handleFormSubmit = async (data: TrainingFormData) => {
     setIsLoading(true);
     try {
       await onSubmit(data);
     } catch (error) {
       console.error("Error submitting training:", error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -199,31 +195,83 @@ export function TrainingForm({ onSubmit, onCancel, initialDate, clients = [], tr
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="cliente">Cliente</Label>
-            <Select onValueChange={handleClientChange}>
-              <SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger>
-              <SelectContent>
-                {validClients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.id_cliente && <p className="text-sm text-red-500">{errors.id_cliente.message}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="entrenador">Entrenador</Label>
-            <Select onValueChange={handleTrainerChange}>
-              <SelectTrigger><SelectValue placeholder="Seleccione un entrenador" /></SelectTrigger>
-              <SelectContent>
-                {validTrainers.map((trainer) => (
-                  <SelectItem key={trainer.id} value={trainer.id.toString()}>{trainer.name || 'Sin nombre'}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.id_entrenador && <p className="text-sm text-red-500">{errors.id_entrenador.message}</p>}
-          </div>
+            <Controller
+                control={control}
+                name="id_cliente"
+                render={({ field }) => (
+                    <div className="space-y-2">
+                        <Label htmlFor="cliente">Cliente</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                                    {field.value ? validClients.find(c => c.id === field.value.toString())?.name : "Seleccione un cliente"}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Buscar cliente..." />
+                                    <CommandEmpty>No se encontró el cliente.</CommandEmpty>
+                                    <CommandGroup>
+                                        {validClients.map(client => (
+                                            <CommandItem
+                                                key={client.id}
+                                                value={client.name}
+                                                onSelect={() => {
+                                                    setValue("id_cliente", parseInt(client.id, 10));
+                                                }}
+                                            >
+                                                <Check className={cn("mr-2 h-4 w-4", field.value === parseInt(client.id, 10) ? "opacity-100" : "opacity-0")} />
+                                                {client.name}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        {errors.id_cliente && <p className="text-sm text-red-500">{errors.id_cliente.message}</p>}
+                    </div>
+                )}
+            />
+            
+            <Controller
+                control={control}
+                name="id_entrenador"
+                render={({ field }) => (
+                    <div className="space-y-2">
+                        <Label htmlFor="entrenador">Entrenador</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                                    {field.value ? validTrainers.find(t => t.id === field.value.toString())?.name : "Seleccione un entrenador"}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Buscar entrenador..." />
+                                    <CommandEmpty>No se encontró el entrenador.</CommandEmpty>
+                                    <CommandGroup>
+                                        {validTrainers.map(trainer => (
+                                            <CommandItem
+                                                key={trainer.id}
+                                                value={trainer.name}
+                                                onSelect={() => {
+                                                    setValue("id_entrenador", parseInt(trainer.id, 10));
+                                                }}
+                                            >
+                                                <Check className={cn("mr-2 h-4 w-4", field.value === parseInt(trainer.id, 10) ? "opacity-100" : "opacity-0")} />
+                                                {trainer.name}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        {errors.id_entrenador && <p className="text-sm text-red-500">{errors.id_entrenador.message}</p>}
+                    </div>
+                )}
+            />
         </div>
         
         <div className="space-y-2">

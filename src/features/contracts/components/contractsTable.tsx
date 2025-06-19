@@ -24,6 +24,7 @@ import {
   CreditCard,
   MoreHorizontal,
   Trash2,
+  FileText
 } from "lucide-react"
 import { format } from "date-fns"
 import { NewContractForm } from "./newContractForm"
@@ -45,6 +46,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu"
+import { useToast } from "@/shared/components/ui/use-toast"
+import { TableSkeleton } from "@/shared/components/ui/table-skeleton"
+import { EmptyState } from "@/shared/components/ui/empty-state"
 
 interface ContractsTableProps {
   contracts: Contract[]
@@ -60,6 +64,7 @@ interface ContractsTableProps {
     totalPages: number
   }
   onPageChange: (page: number) => void
+  onAddNewContract?: () => void
 }
 
 export function ContractsTable({
@@ -71,6 +76,7 @@ export function ContractsTable({
   onDeleteContract,
   pagination,
   onPageChange,
+  onAddNewContract,
 }: ContractsTableProps) {
   const { user } = useAuth()
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
@@ -79,8 +85,10 @@ export function ContractsTable({
   const [editingContract, setEditingContract] = useState<Contract | null>(null)
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
   const [statusChangeContract, setStatusChangeContract] = useState<Contract | null>(null)
+  const { toast } = useToast()
 
   const isAdmin = useMemo(() => user?.role === "ADMIN", [user])
+  const columns = isAdmin ? 8 : 7
 
   const handleViewContract = (contract: Contract) => {
     setSelectedContract(contract)
@@ -156,15 +164,27 @@ export function ContractsTable({
 
   const handleStatusUpdate = (id: number, updates: Partial<Contract>) => {
     onUpdateContract(id, updates);
-    Swal.fire({
+    toast({
       title: `Estado actualizado`,
-      text: `El contrato ahora está en estado: ${updates.estado}`,
-      icon: "success",
-      confirmButtonColor: "#000",
-      timer: 3000,
-      timerProgressBar: true,
-      showConfirmButton: false,
+      description: `El contrato ahora está en estado: ${updates.estado}`,
+      type: "success",
     })
+  }
+
+  if (isLoading) {
+    return <TableSkeleton columns={columns} rows={pagination.limit} />;
+  }
+
+  if (!isLoading && contracts.length === 0) {
+    return (
+      <EmptyState
+        Icon={FileText}
+        title="No se encontraron contratos"
+        description="Parece que no hay contratos que coincidan con tu búsqueda."
+        actionText={onAddNewContract ? "Crear Nuevo Contrato" : undefined}
+        onAction={onAddNewContract}
+      />
+    );
   }
 
   return (
@@ -184,14 +204,7 @@ export function ContractsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={isAdmin ? 8 : 7} className="text-center py-8">
-                  Cargando...
-                </TableCell>
-              </TableRow>
-            ) : contracts.length > 0 ? (
-              contracts.map(contract => {
+            {contracts.map(contract => {
                 const status = getContractStatus(contract)
                 const client = clients.find(c => c.id_persona === contract.id_persona)
                 const membership = memberships.find(
@@ -257,98 +270,63 @@ export function ContractsTable({
                     )}
                   </TableRow>
                 )
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={isAdmin ? 8 : 7} className="text-center py-8">
-                  <p className="text-lg font-medium">No se encontraron contratos</p>
-                </TableCell>
-              </TableRow>
-            )}
+              })}
           </TableBody>
         </Table>
       </div>
 
-      <div className="mt-4 flex items-center justify-between">
-        <div className="text-sm text-gray-500">
-          Página {pagination.page} de {pagination.totalPages}. Total: {pagination.total} contratos.
+      {contracts.length > 0 && (
+         <div className="mt-4 flex items-center justify-between">
+            <div className="text-sm text-gray-500">
+                Página {pagination.page} de {pagination.totalPages}. Total: {pagination.total} contratos.
+            </div>
+            <div className="flex space-x-1">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onPageChange(pagination.page - 1)}
+                    disabled={pagination.page <= 1}
+                >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Anterior
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onPageChange(pagination.page + 1)}
+                    disabled={pagination.page >= pagination.totalPages}
+                >
+                    Siguiente
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+            </div>
         </div>
-        <div className="flex space-x-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(pagination.page - 1)}
-            disabled={pagination.page <= 1}
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Anterior
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(pagination.page + 1)}
-            disabled={pagination.page >= pagination.totalPages}
-          >
-            Siguiente
-            <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
-      </div>
+      )}
 
-      {/* Modal para ver detalles del contrato */}
-      <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="sm:max-w-4xl">
-          <VisuallyHidden>
-            <DialogTitle>Detalles del Contrato</DialogTitle>
-            <DialogDescription>
-              Información detallada del contrato seleccionado.
-            </DialogDescription>
-          </VisuallyHidden>
-          {selectedContract && (
-            <ContractDetails
-              contract={selectedContract}
-              onClose={() => setIsViewModalOpen(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal para editar membresía del contrato */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-3xl" aria-describedby="edit-contract-description">
-          <VisuallyHidden>
-            <DialogTitle>Editar Contrato</DialogTitle>
-            <DialogDescription id="edit-contract-description">
-              Modifique la información del contrato según sea necesario.
-            </DialogDescription>
-          </VisuallyHidden>
-          {editingContract && (
-            <EditContractModal
-              contract={editingContract}
-              memberships={memberships}
-              onUpdateContract={(updatedData) => {
-                handleUpdateContract(editingContract.id, updatedData)
-              }}
-              onClose={() => setIsEditModalOpen(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-      
-      {/* Modal para cambiar estado del contrato */}
-      <Dialog open={isStatusModalOpen} onOpenChange={setIsStatusModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          {statusChangeContract && (
-            <ChangeStatusModal
-              contract={statusChangeContract}
-              onUpdateContract={(updatedData) => {
-                handleStatusUpdate(statusChangeContract.id, updatedData)
-              }}
-              onClose={() => setIsStatusModalOpen(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {selectedContract && isViewModalOpen && (
+        <ContractDetails
+          contract={selectedContract}
+          isOpen={isViewModalOpen}
+          onClose={() => setIsViewModalOpen(false)}
+        />
+      )}
+      {editingContract && isEditModalOpen && (
+        <EditContractModal
+          contract={editingContract}
+          onUpdateContract={handleUpdateContract}
+          onClose={() => setIsEditModalOpen(false)}
+          clients={clients}
+          memberships={memberships}
+        />
+      )}
+      {statusChangeContract && isStatusModalOpen && (
+        <ChangeStatusModal
+          contract={statusChangeContract}
+          isOpen={isStatusModalOpen}
+          onClose={() => setIsStatusModalOpen(false)}
+          onUpdateStatus={handleStatusUpdate}
+        />
+      )}
     </>
   )
 }

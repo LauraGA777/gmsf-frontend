@@ -37,6 +37,7 @@ import {
   TableRow,
 } from "@/shared/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import apiClient from '@/shared/services/api';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -94,26 +95,55 @@ export default function UsersPage() {
     setFilteredUsers(filtered);
   };
 
-  const getRoleName = (idRol: number) => {
-    const roles = {
-      1: "Administrador",
-      2: "Entrenador",
-      3: "Cliente",
-      4: "Beneficiario"
+  const [roles, setRoles] = useState<{ id: number; nombre: string }[]>([]);
+
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        console.log('Iniciando carga de roles...');
+        const response = await apiClient.get('/users/roles');
+        console.log('Respuesta de roles:', response);
+
+        const data = response.data as {
+          status: string;
+          data?: { roles?: { id: number; nombre: string }[] };
+        };
+
+        if (data.status === 'success' && data.data?.roles) {
+          const mappedRoles = data.data.roles.map((role: { id: number; nombre: string }) => ({
+            id: role.id,
+            nombre: role.nombre
+          }));
+          console.log('Roles procesados:', mappedRoles);
+          setRoles(mappedRoles);
+        } else {
+          console.error('Formato de respuesta incorrecto:', data);
+        }
+      } catch (error) {
+        console.error('Error cargando roles:', error);
+      }
     };
-    return roles[idRol as keyof typeof roles] || "Desconocido";
+    loadRoles();
+  }, []);
+
+  const getRoleName = (id_rol: number) => {
+    console.log('Buscando rol con ID:', id_rol);
+    console.log('Roles disponibles:', roles);
+    const rol = roles.find(r => r.id === id_rol);
+    if (!rol) {
+      console.log('Rol no encontrado para ID:', id_rol);
+      return "Desconocido";
+    }
+    return rol.nombre;
   };
 
-  const getRoleBadge = (idRol: number) => {
-    const styles = {
-      1: "bg-purple-100 text-purple-800 hover:bg-purple-100",
-      2: "bg-blue-100 text-blue-800 hover:bg-blue-100",
-      3: "bg-green-100 text-green-800 hover:bg-green-100",
-      4: "bg-orange-100 text-orange-800 hover:bg-orange-100",
-    };
-    return <Badge className={styles[idRol as keyof typeof styles] || "bg-gray-100 text-gray-800 hover:bg-gray-100"}>
-      {getRoleName(idRol)}
-    </Badge>;
+  const getRoleBadge = (id_rol: number) => {
+    console.log('ID del rol recibido:', id_rol); // Para debugging
+    return (
+      <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">
+        {getRoleName(id_rol)}
+      </Badge>
+    );
   };
 
   const getStatusBadge = (estado: boolean) => {
@@ -391,7 +421,6 @@ export default function UsersPage() {
                   <TableHead>Correo</TableHead>
                   <TableHead>Documento</TableHead>
                   <TableHead>Rol</TableHead>
-                  <TableHead>Asistencias</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Última Actualización</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
@@ -417,11 +446,6 @@ export default function UsersPage() {
                       <TableCell>{user.correo}</TableCell>
                       <TableCell>{user.numero_documento}</TableCell>
                       <TableCell>{getRoleBadge(user.id_rol)}</TableCell>
-                      <TableCell>
-                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                          {user.asistencias_totales || 0}
-                        </Badge>
-                      </TableCell>
                       <TableCell>
                         {getStatusBadge(user.estado)}
                       </TableCell>
@@ -526,4 +550,4 @@ export default function UsersPage() {
 
 function Label({ children, className }: { children: React.ReactNode; className?: string }) {
   return <label className={className}>{children}</label>;
-} 
+}

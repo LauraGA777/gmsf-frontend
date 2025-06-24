@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/shared/components/ui/textarea"
 import Swal from "sweetalert2"
 import type { User, UserFormData } from "../types/user"
+import apiClient from '@/shared/services/api';
 
 interface UserFormModalProps {
   isOpen: boolean
@@ -35,6 +36,8 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [roles, setRoles] = useState<{ id: number; nombre: string }[]>([])
+  const [isLoadingRoles, setIsLoadingRoles] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -71,6 +74,27 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
     setErrors({})
   }, [user, isOpen])
 
+  useEffect(() => {
+    const loadRoles = async () => {
+      setIsLoadingRoles(true);
+      try {
+        const response = await apiClient.get('/users/roles');
+        const data = response.data;
+        if (data.status === 'success' && data.data?.roles) {
+          setRoles(data.data.roles);
+        }
+      } catch (error) {
+        console.error('Error cargando roles:', error);
+      } finally {
+        setIsLoadingRoles(false);
+      }
+    };
+
+    if (isOpen) {
+      loadRoles();
+    }
+  }, [isOpen]);
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
@@ -100,7 +124,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
       }
       // Verificar si el correo ya existe
       if (existingUsers?.some(user =>
-        user.correo === formData.correo && user.id !== formData?.id
+        user.correo === formData.correo && user.id !== formData?.id_rol
       )) {
         newErrors.correo = "Este correo ya está registrado"
       }
@@ -162,7 +186,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
     }
 
     // Validación del rol
-    if (formData.id_rol && ![1, 2, 3, 4].includes(formData.id_rol)) {
+    if (!formData.id_rol) {
       newErrors.id_rol = "Rol inválido"
     }
 
@@ -400,15 +424,19 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
               <Select
                 value={formData.id_rol ? formData.id_rol.toString() : ""}
                 onValueChange={(value) => handleInputChange("id_rol", parseInt(value))}
+                disabled={isLoadingRoles}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar rol" />
+                  <SelectValue
+                    placeholder={isLoadingRoles ? "Cargando roles..." : "Seleccionar rol"}
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Administrador</SelectItem>
-                  <SelectItem value="2">Entrenador</SelectItem>
-                  <SelectItem value="3">Cliente</SelectItem>
-                  <SelectItem value="4">Beneficiario</SelectItem>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id.toString()}>
+                      {role.nombre}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {errors.id_rol && <p className="text-red-500 text-xs mt-1">{errors.id_rol}</p>}

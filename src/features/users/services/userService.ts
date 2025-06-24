@@ -1,5 +1,5 @@
 import apiClient from '@/shared/services/api';
-import type { User, UserFormData, UpdateUserFormData } from '../types/user';
+import type { User, UserFormData } from '../types/user';
 
 interface ApiResponse<T> {
   status: string;
@@ -57,7 +57,7 @@ export const userService = {
 
   // Eliminar usuario permanentemente
   deleteUserPermanently: async (id: number, motivo: string): Promise<void> => {
-    await apiClient.delete(`/users/${id}/permanent`, { data: { motivo } });
+    await apiClient.delete(`/users/${id}/permanent`, { params: { motivo } });
   },
 
   // Buscar usuarios

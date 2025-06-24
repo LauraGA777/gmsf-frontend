@@ -15,7 +15,7 @@ apiClient.interceptors.request.use(
         if (!token) {
             // Si no hay token, redirigir al login
             window.location.href = '/login';
-            return Promise.reject('No hay token de autenticación');
+            throw new Error('No hay token de autenticación');
         }
         
         if (config.headers) {

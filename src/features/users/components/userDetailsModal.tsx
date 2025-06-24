@@ -1,10 +1,12 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
 import { Badge } from "@/shared/components/ui/badge"
 import { Separator } from "@/shared/components/ui/separator"
-import { X, Mail, Phone, MapPin, Calendar, Shield, Activity, Users } from "lucide-react"
+import { Mail, Phone, MapPin, Calendar, Shield, Activity, Users } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import type { User } from "../types/user"
+import { useState, useEffect } from "react"
+import apiClient from '@/shared/services/api';
 
 interface UserDetailsModalProps {
   isOpen: boolean
@@ -15,24 +17,33 @@ interface UserDetailsModalProps {
 export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProps) {
   if (!user) return null
 
-  const getRoleName = (idRol: number) => {
-    const roles = {
-      1: "Administrador",
-      2: "Entrenador",
-      3: "Cliente",
-      4: "Beneficiario"
+  const [roles, setRoles] = useState<{ id: number; nombre: string }[]>([]);
+
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        const response = await apiClient.get('/users/roles');
+        const data = response.data;
+        if (data.status === 'success' && data.data?.roles) {
+          setRoles(data.data.roles.map(role => ({
+            id: role.id,
+            nombre: role.nombre
+          })));
+        }
+      } catch (error) {
+        console.error('Error cargando roles:', error);
+      }
     };
-    return roles[idRol as keyof typeof roles] || "Desconocido";
+    loadRoles();
+  }, []);
+
+  const getRoleName = (id_rol: number) => {
+    const rol = roles.find(r => r.id === id_rol);
+    return rol ? rol.nombre : 'Rol Desconocido';
   };
 
-  const getRoleBadge = (idRol: number) => {
-    const styles = {
-      1: "bg-purple-100 text-purple-800 hover:bg-purple-100",
-      2: "bg-blue-100 text-blue-800 hover:bg-blue-100",
-      3: "bg-green-100 text-green-800 hover:bg-green-100",
-      4: "bg-orange-100 text-orange-800 hover:bg-orange-100",
-    };
-    return styles[idRol as keyof typeof styles] || "bg-gray-100 text-gray-800 hover:bg-gray-100";
+  const getRoleBadge = (id_rol: number) => {
+    return "bg-gray-100 text-gray-800 hover:bg-gray-200";
   };
 
   const getStatusBadge = (estado: boolean) => {

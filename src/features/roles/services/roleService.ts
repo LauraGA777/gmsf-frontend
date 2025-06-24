@@ -401,6 +401,33 @@ class RoleService {
       return []
     }
   }
+
+  // Nueva función para obtener roles para el select
+  async getRolesForSelect(): Promise<{ id: number; nombre: string }[]> {
+    try {
+      console.log("Fetching roles for select dropdown...")
+
+      const data = await this.makeRequest(`${API_BASE_URL}/roles`)
+
+      if (data.status === "success") {
+        const rolesArray = data.data?.roles || data.roles || []
+        
+        // Filtrar solo roles activos y mapear solo los campos necesarios
+        return rolesArray
+          .filter((role: any) => role.estado)
+          .map((role: any) => ({
+            id: role.id,
+            nombre: role.nombre
+          }));
+      }
+
+      console.warn("No roles found or invalid response format")
+      return []
+    } catch (error) {
+      console.error("Error fetching roles for select:", error)
+      throw new Error("Error al cargar los roles disponibles")
+    }
+  }
 }
 
 export const roleService = new RoleService()

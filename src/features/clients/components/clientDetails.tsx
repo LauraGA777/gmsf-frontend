@@ -1,4 +1,5 @@
-import { format, differenceInDays } from "date-fns"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
 import { Button } from "@/shared/components/ui/button"
 import { Badge } from "@/shared/components/ui/badge"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
@@ -23,44 +24,16 @@ interface ClientDetailsProps {
   onClose: () => void
 }
 
-export function ClientDetails({ client, onClose }: ClientDetailsProps) {
-  // Función para determinar el estado de la membresía
-  const getMembershipStatus = () => {
-    if (!client.membershipEndDate || client.status === "Inactivo") {
-      return { label: "Sin membresía activa", color: "bg-gray-100 text-gray-800", icon: AlertCircle }
-    }
+export function ClientDetails({ client, isOpen, onClose }: ClientDetailsProps) {
+  if (!client) return null
 
-    const today = new Date()
-    const daysRemaining = differenceInDays(client.membershipEndDate, today)
+  const getStatusBadge = (estado: boolean) => {
+    return estado
+      ? "bg-green-100 text-green-800 hover:bg-green-100"
+      : "bg-red-100 text-red-800 hover:bg-red-100";
+  };
 
-    if (daysRemaining < 0) {
-      return {
-        label: "Membresía vencida",
-        color: "bg-red-100 text-red-800",
-        icon: AlertCircle,
-        detail: `Venció hace ${Math.abs(daysRemaining)} días`,
-      }
-    }
-
-    if (daysRemaining <= 7) {
-      return {
-        label: "Por vencer pronto",
-        color: "bg-yellow-100 text-yellow-800",
-        icon: AlertCircle,
-        detail: `Vence en ${daysRemaining} días`,
-      }
-    }
-
-    return {
-      label: "Activa",
-      color: "bg-green-100 text-green-800",
-      icon: CheckCircle,
-      detail: `Vence en ${daysRemaining} días`,
-    }
-  }
-
-  const membershipStatus = getMembershipStatus()
-  const MembershipIcon = membershipStatus.icon
+  const titleId = "client-details-title";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -117,40 +90,26 @@ export function ClientDetails({ client, onClose }: ClientDetailsProps) {
               </div>
             </div>
           </div>
-        </TabsContent>
 
-        <TabsContent value="membership" className="space-y-3">
-          <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-            <div className="flex items-center gap-2 mb-2">
-              <CreditCard className="h-4 w-4 text-gray-600" />
-              <p className="font-semibold text-sm">Información de Membresía</p>
-            </div>
+          <Separator />
 
-            <div className="space-y-2 text-sm">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <p className="text-gray-500 font-medium">Tipo de Membresía</p>
-                  <p className="font-medium">{client.membershipType || "No especificado"}</p>
-                </div>
-
+          {/* Contact Information */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Información de Contacto</h3>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <Mail className="w-5 h-5 text-gray-400" />
                 <div>
                   <p className="text-sm font-medium text-gray-900">Correo Electrónico</p>
                   <p className="text-sm text-gray-500">{client.usuario?.correo}</p>
                 </div>
               </div>
-
-              <div className="flex items-start gap-1">
-                <Calendar className="h-3 w-3 text-gray-500 mt-0.5" />
-                <div>
-                  <p className="text-gray-500 font-medium">Estado de Membresía</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge className={membershipStatus.color}>
-                      <MembershipIcon className="h-3 w-3 mr-1 inline" />
-                      {membershipStatus.label}
-                    </Badge>
-                    {membershipStatus.detail && (
-                      <span className="text-xs text-gray-500">{membershipStatus.detail}</span>
-                    )}
+              {client.usuario?.telefono && (
+                <div className="flex items-center space-x-3">
+                  <Phone className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Teléfono</p>
+                    <p className="text-sm text-gray-500">{client.usuario.telefono}</p>
                   </div>
                 </div>
               )}

@@ -4,7 +4,7 @@ import type { Contract } from "@/shared/types"
 import {
   User,
   CreditCard,
-  Calendar as CalendarIcon,
+  Calendar,
   Clock,
   FileSignature,
   Mail,
@@ -17,6 +17,7 @@ import { Button } from "@/shared/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/shared/components/ui/card"
 import { formatCOP } from "@/shared/lib/utils"
 import { Label } from "@/shared/components/ui/label"
+import { Separator } from "@/shared/components/ui/separator"
 
 interface ContractDetailsProps {
   contract: Contract
@@ -36,9 +37,12 @@ const getStatusBadge = (estado: Contract["estado"]) => {
 }
 
 const DetailItem = ({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: React.ReactNode }) => (
-  <div>
-    <Label className="text-sm text-gray-500 flex items-center gap-2"><Icon className="h-4 w-4" /> {label}</Label>
-    <div className="font-medium text-base ml-6">{value}</div>
+  <div className="flex items-center space-x-3">
+    <Icon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+    <div>
+      <p className="text-sm font-medium text-gray-900">{label}</p>
+      <p className="text-sm text-gray-500">{value}</p>
+    </div>
   </div>
 )
 
@@ -49,84 +53,107 @@ export function ContractDetails({ contract, onClose }: ContractDetailsProps) {
 
   return (
     <div className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Columna de Resumen (Izquierda) */}
-        <div className="lg:col-span-1 space-y-6">
-            <Card className="h-full">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                <FileSignature className="h-5 w-5" />
-                Resumen del Contrato
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-1">
-                    <Label className="text-gray-500">Cliente</Label>
-                    <p className="font-medium text-base truncate">
-                    {persona?.usuario?.nombre} {persona?.usuario?.apellido}
-                    </p>
-                    <p className="font-mono text-sm text-gray-500">{contract.codigo}</p>
-                </div>
-                <div className="border-t pt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <div className="flex items-center gap-2 font-medium">
-                        <CalendarIcon className="h-4 w-4" /> Fechas
-                    </div>
-                    <div />
-                    <div className="text-gray-600"><strong>Inicio:</strong> {format(new Date(contract.fecha_inicio), "dd/MM/yyyy", { locale: es })}</div>
-                    <div className="text-gray-600"><strong>Fin:</strong> {format(new Date(contract.fecha_fin), "dd/MM/yyyy", { locale: es })}</div>
-                </div>
-                <div className="border-t pt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <div className="flex items-center gap-2 font-medium">
-                        <Clock className="h-4 w-4" /> Duración
-                    </div>
-                    <div />
-                    <div className="text-gray-600"><strong>Vigencia:</strong> {differenceInDays(new Date(contract.fecha_fin), new Date(contract.fecha_inicio))} días</div>
-                </div>
-                <div className="border-t pt-4">
-                    <div className="flex items-center gap-2 text-lg font-semibold">
-                        <CreditCard className="h-5 w-5" />
-                        Total: {formatCOP(contract.membresia_precio)}
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                        Membresía: {membresia?.nombre ?? '...'}
-                    </p>
-                </div>
-            </CardContent>
-            </Card>
+      {/* Header */}
+      <div className="flex items-start space-x-4">
+        <div className="flex-shrink-0">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+            <FileSignature className="w-8 h-8 text-gray-400" />
+          </div>
         </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl font-bold text-gray-900">
+            Contrato: {membresia?.nombre || "No especificado"}
+          </h2>
+          <p className="text-sm text-gray-500">
+            Cliente: {persona?.usuario?.nombre} {persona?.usuario?.apellido}
+          </p>
+          <div className="flex items-center space-x-2 mt-2">
+            {getStatusBadge(contract.estado)}
+            <Badge variant="outline" className="font-mono">{contract.codigo}</Badge>
+          </div>
+        </div>
+      </div>
 
-        {/* Columna de Detalles (Derecha) */}
-        <div className="lg:col-span-2 space-y-6">
-            <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Info className="h-5 w-5"/>Información General</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <DetailItem icon={BadgeCheck} label="Estado" value={getStatusBadge(contract.estado)} />
-                    <DetailItem icon={FileSignature} label="Código Contrato" value={contract.codigo} />
-                </CardContent>
-            </Card>
-             <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><User className="h-5 w-5"/>Datos del Cliente</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <DetailItem icon={User} label="Nombre" value={`${persona?.usuario?.nombre} ${persona?.usuario?.apellido}`} />
-                    <DetailItem icon={Info} label="Documento" value={[persona?.usuario?.tipo_documento, persona?.usuario?.numero_documento].filter(Boolean).join(' ') || 'No especificado'} />
-                    <DetailItem icon={Mail} label="Correo" value={persona?.usuario?.correo ?? 'No especificado'} />
-                    <DetailItem icon={Phone} label="Teléfono" value={persona?.usuario?.telefono ?? 'No especificado'} />
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5"/>Datos de la Membresía</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <DetailItem icon={Info} label="Nombre" value={membresia?.nombre ?? 'No especificado'} />
-                    <DetailItem icon={CreditCard} label="Precio Pagado" value={formatCOP(contract.membresia_precio)} />
-                     <DetailItem icon={Clock} label="Vigencia" value={`${membresia?.vigencia_dias ?? '...'} días`} />
-                    <DetailItem icon={Clock} label="Días de Acceso" value={`${membresia?.dias_acceso ?? '...'} días`} />
-                </CardContent>
-            </Card>
+      <Separator />
+
+      {/* Contract Information */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Información del Contrato</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <DetailItem 
+            icon={Calendar} 
+            label="Fecha de Inicio" 
+            value={format(new Date(contract.fecha_inicio), "dd 'de' MMMM, yyyy", { locale: es })} 
+          />
+          <DetailItem 
+            icon={Calendar} 
+            label="Fecha de Fin" 
+            value={format(new Date(contract.fecha_fin), "dd 'de' MMMM, yyyy", { locale: es })} 
+          />
+          <DetailItem 
+            icon={Clock} 
+            label="Vigencia del Contrato" 
+            value={`${differenceInDays(new Date(contract.fecha_fin), new Date(contract.fecha_inicio))} días`} 
+          />
         </div>
+      </div>
+
+      <Separator />
+
+      {/* Membership Information */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Información de la Membresía</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <DetailItem 
+            icon={Info} 
+            label="Nombre de la Membresía" 
+            value={membresia?.nombre ?? "No especificado"} 
+          />
+          <DetailItem 
+            icon={CreditCard} 
+            label="Precio Pagado" 
+            value={formatCOP(contract.membresia_precio)} 
+          />
+          <DetailItem 
+            icon={Clock} 
+            label="Vigencia" 
+            value={`${membresia?.vigencia_dias ?? '...'} días`} 
+          />
+          <DetailItem 
+            icon={Clock} 
+            label="Días de Acceso" 
+            value={`${membresia?.dias_acceso ?? '...'} días`} 
+          />
         </div>
-        <div className="flex justify-end pt-4">
-            <Button onClick={onClose} className="bg-black hover:bg-gray-800">Cerrar</Button>
+      </div>
+      
+      <Separator />
+
+      {/* Client Information */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Información del Cliente</h3>
+        <div className="space-y-3">
+          <DetailItem 
+            icon={User}
+            label="Nombre Completo"
+            value={`${persona?.usuario?.nombre} ${persona?.usuario?.apellido}`}
+          />
+          <DetailItem
+            icon={Mail}
+            label="Correo Electrónico"
+            value={persona?.usuario?.correo ?? "No especificado"}
+          />
+          <DetailItem
+            icon={Phone}
+            label="Teléfono"
+            value={persona?.usuario?.telefono ?? "No especificado"}
+          />
         </div>
+      </div>
+      
+      <div className="flex justify-end pt-2">
+        <Button onClick={onClose} variant="outline">Cerrar</Button>
+      </div>
     </div>
   )
 }

@@ -331,23 +331,15 @@ export function SearchBar({ onSearch, trainers, services, includeContracts = fal
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Estado</label>
-          <Select value={filters.status || ""} onValueChange={(value) => setFilters({ ...filters, status: value })}>
+          <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
             <SelectTrigger>
-              <SelectValue placeholder="Todos los estados" />
+              <SelectValue placeholder="Seleccionar estado" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos los estados</SelectItem>
+              <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="Activo">Activo</SelectItem>
               <SelectItem value="Inactivo">Inactivo</SelectItem>
               <SelectItem value="Congelado">Congelado</SelectItem>
-              <SelectItem value="Pendiente de pago">Pendiente de pago</SelectItem>
-              {searchType === "contract" && (
-                <>
-                  <SelectItem value="Vencido">Vencido</SelectItem>
-                  <SelectItem value="Por vencer">Por vencer</SelectItem>
-                  <SelectItem value="Cancelado">Cancelado</SelectItem>
-                </>
-              )}
             </SelectContent>
           </Select>
         </div>

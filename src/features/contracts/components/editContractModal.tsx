@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useAuth } from "@/shared/contexts/authContext"
 import { Input } from "@/shared/components/ui/input"
+import { Textarea } from "@/shared/components/ui/textarea"
 import { Card, CardHeader, CardTitle, CardContent } from "@/shared/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/shared/components/ui/alert"
 
@@ -22,17 +23,7 @@ const updateContractFormSchema = z.object({
   id_membresia: z.number({ required_error: "Debe seleccionar una membresía" }),
   fecha_inicio: z.date({ required_error: "La fecha de inicio es requerida" }),
   estado: z.enum(["Activo", "Congelado", "Vencido", "Cancelado", "Por vencer"]),
-  motivo: z.string().optional(),
 })
-.refine(data => {
-    if (data.estado === 'Congelado') {
-        return data.motivo && data.motivo.trim().length >= 10 && data.motivo.trim().length <= 500;
-    }
-    return true;
-}, {
-    message: "El motivo debe tener entre 10 y 500 caracteres.",
-    path: ["motivo"],
-});
 
 type UpdateContractFormValues = z.infer<typeof updateContractFormSchema>
 
@@ -58,7 +49,6 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
       id_membresia: contract.id_membresia,
       fecha_inicio: new Date(contract.fecha_inicio),
       estado: contract.estado,
-      motivo: "",
     },
   })
 
@@ -107,7 +97,6 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
       id_membresia: contract.id_membresia,
       fecha_inicio: new Date(contract.fecha_inicio),
       estado: contract.estado,
-      motivo: "",
     })
   }, [contract, reset])
 
@@ -115,10 +104,7 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
     const updateData: Partial<UpdateContractFormValues> & { fecha_inicio: string; usuario_actualizacion?: number } = {
       ...data, 
       fecha_inicio: format(data.fecha_inicio, "yyyy-MM-dd"),
-      usuario_actualizacion: user?.id 
-    }
-    if (updateData.estado !== 'Congelado') {
-      delete updateData.motivo
+      usuario_actualizacion: user?.id ? Number(user.id) : undefined,
     }
     onUpdateContract(updateData)
     onClose()
@@ -219,6 +205,21 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
           </div>
         </div>
         
+        {watchStatus === "Congelado" && (
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+               <div className="flex">
+                   <div className="flex-shrink-0">
+                       <Info className="h-5 w-5 text-blue-400" />
+                   </div>
+                   <div className="ml-3">
+                       <p className="text-sm text-blue-700">
+                           Al congelar, la fecha de finalización del contrato se extenderá automáticamente por el tiempo que permanezca en este estado.
+                       </p>
+                   </div>
+               </div>
+           </div>
+        )}
+
         {/* Start Date */}
         <div className="space-y-2">
             <Label htmlFor="fecha_inicio" className="flex items-center gap-2"><CalendarDays className="h-4 w-4" />Fecha de Inicio</Label>
@@ -250,28 +251,6 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
             />
             {errors.fecha_inicio && <p className="text-red-500 text-sm">{errors.fecha_inicio.message}</p>}
         </div>
-
-        {/* Reason */}
-        {watchStatus === "Congelado" && (
-            <div className="space-y-4">
-                <Alert>
-                  <Terminal className="h-4 w-4" />
-                  <AlertTitle>¡Atención!</AlertTitle>
-                  <AlertDescription>
-                    Al congelar un contrato, se pausará temporalmente. El cliente no podrá acceder al gimnasio hasta que se reactive el contrato.
-                  </AlertDescription>
-                </Alert>
-                <div className="space-y-2">
-                    <Label htmlFor="motivo">Motivo del Congelamiento (Requerido)</Label>
-                    <Controller
-                        name="motivo"
-                        control={control}
-                        render={({ field }) => <Input id="motivo" placeholder="Ej: Viaje por trabajo, lesión temporal, etc." {...field} />}
-                    />
-                    {errors.motivo && <p className="text-red-500 text-sm">{errors.motivo.message}</p>}
-                </div>
-          </div>
-        )}
 
         <div className="flex justify-end gap-4 pt-4 col-span-1 sm:col-span-2">
           <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>

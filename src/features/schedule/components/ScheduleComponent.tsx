@@ -1,205 +1,294 @@
-import { useCallback } from "react"
-import { es } from "date-fns/locale"
-import { format, isSameDay, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addDays } from "date-fns"
-import { Card, CardContent } from "@/shared/components/ui/card"
-import { Button } from "@/shared/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
-import { Plus, ChevronLeft, ChevronRight } from "lucide-react"
+import { useCallback, useState, useRef } from "react"
+import FullCalendar from "@fullcalendar/react"
+import dayGridPlugin from "@fullcalendar/daygrid"
+import timeGridPlugin from "@fullcalendar/timegrid"
+import interactionPlugin from "@fullcalendar/interaction"
+import esLocale from "@fullcalendar/core/locales/es"
+import { EventDropArg, EventClickArg, EventContentArg, SlotLabelContentArg, MoreLinkArg, EventResizeDoneArg } from "@fullcalendar/core"
 import type { Training } from "@/shared/types/training"
-import { Badge } from "@/shared/components/ui/badge"
-import { CheckCircle2, AlertCircle, Clock3, XCircle } from "lucide-react"
+import { Button } from "@/shared/components/ui/button"
+import { cn } from "@/shared/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
+import { format, isPast } from "date-fns"
+import { es } from "date-fns/locale"
+import type { Calendar } from '@fullcalendar/core';
 
 interface ScheduleComponentProps {
-  onSelectDate: (date: Date) => void
   onTrainingClick: (training: Training) => void
-  selectedDate: Date
   trainings: Training[]
-  currentMonth: string
-  setCurrentMonth: (date: string) => void
-  onAddTraining: () => void
+  onAddTraining: (selection: { start: Date, end: Date }) => void
+  onUpdateTrainingDate: (trainingId: number, newStartDate: Date, newEndDate: Date) => void
+}
+
+interface DateClickArg {
+  date: Date
+  dateStr: string
+  allDay: boolean
+  jsEvent: MouseEvent
+  view: any
+  dayEl: HTMLElement
 }
 
 export function ScheduleComponent({
-  onSelectDate,
   onTrainingClick,
   trainings,
-  currentMonth,
-  setCurrentMonth,
-  onAddTraining
+  onAddTraining,
+  onUpdateTrainingDate
 }: ScheduleComponentProps) {
-  const getTrainingStatus = (training: Training) => {
-    switch (training.estado) {
-      case "Programado":
-        return {
-          label: "Programado",
-          color: "bg-blue-100 text-blue-800",
-          icon: <Clock3 className="h-3.5 w-3.5 mr-1" />,
-        }
-      case "En proceso":
-        return {
-          label: "En proceso",
-          color: "bg-yellow-100 text-yellow-800",
-          icon: <AlertCircle className="h-3.5 w-3.5 mr-1" />,
-        }
-      case "Completado":
-        return {
-          label: "Completado",
-          color: "bg-green-100 text-green-800",
-          icon: <CheckCircle2 className="h-3.5 w-3.5 mr-1" />,
-        }
-      case "Cancelado":
-        return {
-          label: "Cancelado",
-          color: "bg-red-100 text-red-800",
-          icon: <XCircle className="h-3.5 w-3.5 mr-1" />,
-        }
-      default:
-        return {
-          label: "Programado",
-          color: "bg-blue-100 text-blue-800",
-          icon: <Clock3 className="h-3.5 w-3.5 mr-1" />,
-        }
+  const [popoverState, setPopoverState] = useState<{
+    isOpen: boolean
+    target: HTMLElement | null
+    date: Date | null
+    events: Training[]
+  }>({ isOpen: false, target: null, date: null, events: [] })
+
+  const calendarRef = useRef<FullCalendar>(null);
+
+  const mapTrainingsToEvents = useCallback((trainings: Training[]) => {
+    return trainings.map(training => ({
+      id: training.id.toString(),
+      title: training.titulo,
+      start: new Date(training.fecha_inicio),
+      end: new Date(training.fecha_fin),
+      extendedProps: { ...training },
+    }))
+  }, [])
+
+  const getEventStatusClass = (status: Training["estado"]) => {
+    switch (status) {
+      case "Programado": return "bg-blue-500 border-blue-600 hover:bg-blue-600"
+      case "En proceso": return "bg-yellow-500 border-yellow-600 hover:bg-yellow-600"
+      case "Completado": return "bg-green-500 border-green-600 hover:bg-green-600"
+      case "Cancelado": return "bg-red-500 border-red-600 hover:bg-red-600"
+      default: return "bg-gray-500 border-gray-600 hover:bg-gray-600"
+    }
+  }
+  
+  const handleEventDrop = (arg: EventDropArg) => {
+    const { event } = arg
+    if (event.start && event.end) {
+      onUpdateTrainingDate(Number(event.id), event.start, event.end)
     }
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="bg-white p-6 rounded-lg shadow-sm">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-xl font-bold">Calendario de Entrenamientos</h2>
-            <p className="text-sm text-gray-500">Visualiza y agenda tus entrenamientos programados</p>
-          </div>
-        </div>
+  const handleEventResize = (resizeInfo: any) => {
+    const { event } = resizeInfo;
+    if (event.start && event.end) {
+        onUpdateTrainingDate(Number(event.id), event.start, event.end);
+    }
+  }
 
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center space-x-2">
-            <Select
-              value={format(new Date(currentMonth), "MMMM", { locale: es })}
-              onValueChange={(value) => {
-                const monthIndex = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"].indexOf(value.toLowerCase())
-                if (monthIndex !== -1) {
-                  const newDate = new Date(currentMonth)
-                  newDate.setMonth(monthIndex)
-                  setCurrentMonth(format(newDate, "yyyy-MM-dd"))
-                }
-              }}
-            >
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Mes" />
-              </SelectTrigger>
-              <SelectContent>
-                {["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"].map((month) => (
-                  <SelectItem key={month} value={month}>
-                    {month.charAt(0).toUpperCase() + month.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+  const handleSelect = (selectionInfo: any) => {
+    onAddTraining({ start: selectionInfo.start, end: selectionInfo.end });
+  }
 
-            <Select
-              value={format(new Date(currentMonth), "yyyy")}
-              onValueChange={(value) => {
-                const year = parseInt(value)
-                if (!isNaN(year)) {
-                  const newDate = new Date(currentMonth)
-                  newDate.setFullYear(year)
-                  setCurrentMonth(format(newDate, "yyyy-MM-dd"))
-                }
-              }}
-            >
-              <SelectTrigger className="w-[100px]">
-                <SelectValue placeholder="Año" />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map((year) => (
-                  <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+  const handleNavLinkDayClick = (date: Date) => {
+      const calendarApi = calendarRef.current?.getApi();
+      if (calendarApi) {
+          calendarApi.changeView('timeGridDay', date);
+      }
+  }
 
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" size="icon" onClick={() => setCurrentMonth(format(subMonths(new Date(currentMonth), 1), "yyyy-MM-dd"))}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" onClick={() => setCurrentMonth(format(new Date(), "yyyy-MM-dd"))}>
-              Hoy
-            </Button>
-            <Button variant="outline" size="icon" onClick={() => setCurrentMonth(format(addMonths(new Date(currentMonth), 1), "yyyy-MM-dd"))}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+  const handleEventClick = (arg: EventClickArg) => {
+    onTrainingClick(arg.event.extendedProps as Training)
+  }
 
-        <div className="rounded-md border">
-          {/* Cabecera de días de la semana */}
-          <div className="grid grid-cols-7 gap-px bg-gray-100 border-b">
-            {["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"].map((day) => (
-              <div key={day} className="text-center py-2 text-sm font-medium">
-                {day}
-              </div>
-            ))}
-          </div>
+  const handleDateClick = (arg: any) => {
+    onAddTraining({ start: arg.date, end: arg.date })
+  }
+  
+  const handleMoreLinkClick = (arg: MoreLinkArg) => {
+    setPopoverState({
+        isOpen: true,
+        target: arg.jsEvent.target as HTMLElement,
+        date: arg.date,
+        events: arg.allSegs.map(seg => seg.event.extendedProps as Training)
+    });
+    return "popover"; // Prevents default navigation
+  }
 
-          {/* Días del mes */}
-          <div className="grid grid-cols-7 gap-px bg-white">
-            {(() => {
-              const monthStart = startOfMonth(new Date(currentMonth))
-              const monthEnd = endOfMonth(new Date(currentMonth))
-              const startDate = monthStart
-              const endDate = monthEnd
+  const renderEventContent = (eventInfo: EventContentArg) => {
+    const training = eventInfo.event.extendedProps as Training;
+    const statusClass = getEventStatusClass(training.estado);
+    const isEventPast = isPast(new Date(training.fecha_fin));
 
-              // Ajustar para que comience en domingo
-              const daysToSubtract = getDay(startDate)
-
-              const startDateAdjusted = addDays(startDate, -daysToSubtract)
-              const daysInGrid = eachDayOfInterval({
-                start: startDateAdjusted,
-                end: addDays(startDateAdjusted, 41), // 6 weeks * 7 days
-              })
-
-              return daysInGrid.map((day) => {
-                const isCurrentMonthFlag = day.getMonth() === new Date(currentMonth).getMonth()
-                const dayTrainings = trainings.filter(training => 
-                  isSameDay(new Date(training.fecha_inicio), day)
-                )
-                
-                return (
-                  <div
-                    key={day.toISOString()}
-                    className={`border-t border-r min-h-[80px] p-1 cursor-pointer hover:bg-gray-50 ${isCurrentMonthFlag ? '' : 'bg-gray-50 text-gray-400'}`}
-                    onClick={() => onSelectDate(day)}
-                  >
-                    <div className="text-sm font-medium mb-1">{day.getDate()}</div>
-                    {dayTrainings.map((training) => {
-                      const status = getTrainingStatus(training)
-                      return (
-                        <div
-                          key={training.id}
-                          className="text-xs p-1 mb-1 rounded cursor-pointer hover:opacity-80"
-                          style={{ backgroundColor: status.color.includes('blue') ? '#dbeafe' : 
-                                   status.color.includes('yellow') ? '#fef3c7' :
-                                   status.color.includes('green') ? '#dcfce7' : '#fee2e2' }}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onTrainingClick(training)
-                          }}
-                        >
-                          <div className="truncate">{training.titulo}</div>
-                          <div className="truncate text-gray-600">
-                            {format(new Date(training.fecha_inicio), "HH:mm")}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })
-            })()}
-          </div>
-        </div>
+    return (
+      <div className={cn(
+          "p-1.5 w-full h-full text-white rounded-md text-xs overflow-hidden cursor-pointer",
+          statusClass,
+          { "opacity-75": isEventPast }
+      )}>
+        <b className="font-semibold">{eventInfo.timeText}</b>
+        <p className="truncate">{eventInfo.event.title}</p>
+        <p className="truncate italic opacity-80">{training.cliente?.usuario?.nombre}</p>
       </div>
+    );
+  };
+  
+  const renderSlotLabel = (arg: SlotLabelContentArg) => {
+    return (
+        <div className="text-xs text-muted-foreground pr-2">
+            {arg.text}
+        </div>
+    )
+  }
+
+
+  return (
+    <div className="h-full w-full bg-card text-card-foreground relative">
+        <style>{`
+            :root {
+                --fc-border-color: hsl(var(--border));
+                --fc-today-bg-color: hsla(var(--primary), 0.05);
+            }
+            /* General Toolbar */
+            .fc .fc-toolbar.fc-header-toolbar {
+                margin-bottom: 1.5em;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+            .fc .fc-toolbar-title {
+                font-size: 1.5rem;
+                font-weight: 700;
+                color: hsl(var(--foreground));
+                white-space: normal;
+            }
+            
+            /* General Button Styles */
+            .fc .fc-button {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background-color: transparent;
+                border: 1px solid hsl(var(--border));
+                color: hsl(var(--foreground));
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+                border-radius: var(--radius);
+                transition: all 0.2s;
+            }
+             .fc .fc-button:hover {
+                 background-color: hsl(var(--accent));
+                 color: hsl(var(--accent-foreground));
+             }
+            .fc .fc-button:focus, .fc .fc-button:active {
+                outline: none;
+                box-shadow: 0 0 0 2px hsl(var(--ring));
+            }
+
+            /* Today Button Style */
+            .fc .fc-today-button {
+                background-color: hsl(var(--secondary));
+                color: hsl(var(--secondary-foreground));
+            }
+            .fc .fc-today-button:disabled {
+                opacity: 0.7;
+            }
+             .fc .fc-today-button:hover {
+                background-color: hsl(var(--secondary) / 0.8) !important;
+             }
+
+
+            /* Prev/Next and View Switcher buttons */
+            .fc .fc-button-group {
+                display: inline-flex;
+                border-radius: var(--radius);
+                overflow: hidden;
+            }
+            .fc .fc-button-group > .fc-button {
+                 background-color: hsl(var(--primary));
+                 color: hsl(var(--primary-foreground));
+                 border: none;
+                 border-radius: 0;
+            }
+            .fc .fc-button-group > .fc-button:not(:first-child) {
+                 border-left: 1px solid hsl(var(--primary) / 0.5);
+            }
+             .fc .fc-button-group > .fc-button:hover {
+                background-color: hsl(var(--primary) / 0.9) !important;
+             }
+             .fc .fc-button-group > .fc-button.fc-button-active {
+                 background-color: hsl(var(--primary) / 0.8) !important;
+                 box-shadow: inset 0 2px 4px rgba(0,0,0,0.15);
+             }
+            
+            /* Calendar Grid Styles */
+            .fc .fc-daygrid-day.fc-day-today {
+                background-color: var(--fc-today-bg-color);
+            }
+             .fc .fc-timegrid-slot-lane {
+                border-bottom: 1px solid var(--fc-border-color) !important;
+             }
+             .fc .fc-timegrid-slot-label-cushion {
+                 text-align: right;
+                 padding-right: 1em;
+                 font-size: 0.8em;
+                 color: hsl(var(--muted-foreground));
+             }
+             .fc .fc-timegrid-slot-label {
+                 border-bottom: 0 !important;
+             }
+            .fc .fc-timegrid-now-indicator-line {
+                border-color: hsl(var(--primary));
+                border-width: 2px;
+            }
+            .fc .fc-scroller {
+                -ms-overflow-style: none; /* IE and Edge */
+                scrollbar-width: none; /* Firefox */
+            }
+            .fc .fc-scroller::-webkit-scrollbar {
+                display: none; /* Chrome, Safari, Opera */
+            }
+            .fc .fc-event-dragging {
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                opacity: 0.75;
+            }
+
+        `}</style>
+      <FullCalendar
+        ref={calendarRef}
+        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+        headerToolbar={{
+          left: "prev,next today",
+          center: "title",
+          right: "dayGridMonth,timeGridWeek,timeGridDay",
+        }}
+        buttonText={{
+            today:    'Hoy',
+            month:    'Mes',
+            week:     'Semana',
+            day:      'Día',
+        }}
+        initialView="dayGridMonth"
+        dayMaxEvents={1}
+        moreLinkClick={handleMoreLinkClick}
+        moreLinkContent={(arg) => `+ ${arg.num} más`}
+        locale={esLocale}
+        events={mapTrainingsToEvents(trainings)}
+        editable={true}
+        droppable={true}
+        selectable={true}
+        select={handleSelect}
+        eventDrop={handleEventDrop}
+        eventResize={handleEventResize}
+        eventClick={handleEventClick}
+        dateClick={handleDateClick}
+        navLinkDayClick={handleNavLinkDayClick}
+        eventContent={renderEventContent}
+        slotLabelFormat={{
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        }}
+        slotMinTime="06:00:00"
+        slotMaxTime="22:00:00"
+        allDaySlot={false}
+        height="100%"
+        contentHeight="auto"
+      />
     </div>
   )
 }

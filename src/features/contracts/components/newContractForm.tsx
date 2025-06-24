@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -7,16 +7,16 @@ import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog";
 import { Calendar, DollarSign, User, Clock, AlertCircle } from "lucide-react";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { clientService } from "@/features/clients/services/client.service";
 import { membershipService } from "@/features/memberships/services/membership.service";
 import { contractService } from "@/features/contracts/services/contract.service";
 import type { Client as DbClient, Membership, ContractFormData, UIClient } from "@/shared/types";
 import { mapDbClientToUiClient } from "@/shared/types";
-import Swal from "sweetalert2";
+import { useToast } from "@/shared/components/ui/use-toast";
 
 const contractSchema = z.object({
   id_persona: z.number().min(1, "Debe seleccionar un cliente"),
@@ -32,7 +32,7 @@ interface NewContractFormProps {
   onSuccess: () => void;
 }
 
-export const NewContractForm = memo(function NewContractForm({
+export function NewContractForm({
   isOpen,
   onClose,
   onSuccess,
@@ -41,6 +41,7 @@ export const NewContractForm = memo(function NewContractForm({
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const { toast } = useToast();
 
   const {
     register,
@@ -73,7 +74,7 @@ export const NewContractForm = memo(function NewContractForm({
         setLoadingData(true);
         
         const [clientsResponse, membershipsResponse] = await Promise.all([
-          clientService.getClients({}),
+          clientService.getActiveClients(),
           membershipService.getMemberships()
         ]);
 
@@ -108,14 +109,10 @@ export const NewContractForm = memo(function NewContractForm({
 
       } catch (error) {
         console.error("Error loading data:", error);
-        Swal.fire({
+        toast({
           title: 'Error',
-          text: 'Error al cargar los datos necesarios',
-          icon: 'error',
-          confirmButtonColor: '#000',
-          stopKeydownPropagation: false,
-          timer: 5000,
-          timerProgressBar: true
+          description: 'Error al cargar los datos necesarios',
+          type: 'error',
         });
       } finally {
         setLoadingData(false);
@@ -159,14 +156,10 @@ export const NewContractForm = memo(function NewContractForm({
     console.log("Found membership on submit:", finalSelectedMembership);
 
     if (!finalSelectedMembership) {
-      Swal.fire({
+      toast({
         title: "Error",
-        text: "Debe seleccionar una membresía",
-        icon: "error",
-        confirmButtonColor: "#000",
-        stopKeydownPropagation: false,
-        timer: 5000,
-        timerProgressBar: true
+        description: "Debe seleccionar una membresía",
+        type: "error",
       });
       return;
     }
@@ -178,14 +171,10 @@ export const NewContractForm = memo(function NewContractForm({
     });
 
     if (!validation.isValid) {
-      Swal.fire({
+      toast({
         title: "Datos inválidos",
-        text: validation.errors.join("\\n"),
-        icon: "error",
-        confirmButtonColor: "#000",
-        stopKeydownPropagation: false,
-        timer: 5000,
-        timerProgressBar: true
+        description: validation.errors.join("\\n"),
+        type: "error",
       });
       return;
     }
@@ -203,13 +192,10 @@ export const NewContractForm = memo(function NewContractForm({
       console.log("--- DEBUG: Sending this object to API ---", contractData);
       await contractService.createContract(contractData);
 
-      await Swal.fire({
+      toast({
         title: "¡Éxito!",
-        text: "Contrato creado correctamente",
-        icon: "success",
-        confirmButtonColor: "#000",
-        timer: 3000,
-        timerProgressBar: true,
+        description: "Contrato creado correctamente",
+        type: "success",
       });
 
       reset();
@@ -222,14 +208,10 @@ export const NewContractForm = memo(function NewContractForm({
         error.response?.data?.message ||
         "Error al crear el contrato. Verifique que el cliente no tenga un contrato activo.";
       
-      Swal.fire({
+      toast({
         title: "Error",
-        text: errorMessage,
-        icon: "error",
-        confirmButtonColor: "#000",
-        stopKeydownPropagation: false,
-        timer: 5000,
-        timerProgressBar: true
+        description: errorMessage,
+        type: "error",
       });
     } finally {
       setIsLoading(false);
@@ -244,11 +226,6 @@ export const NewContractForm = memo(function NewContractForm({
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent 
-        onPointerDownOutside={(e) => {
-            if ((e.target as HTMLElement)?.closest('.swal2-container')) {
-                e.preventDefault();
-            }
-        }}
         className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"
       >
         <DialogHeader>
@@ -256,6 +233,9 @@ export const NewContractForm = memo(function NewContractForm({
             <User className="h-5 w-5" />
             Crear Nuevo Contrato
           </DialogTitle>
+          <DialogDescription>
+            Complete el formulario para crear un nuevo contrato.
+          </DialogDescription>
         </DialogHeader>
 
         {loadingData ? (
@@ -448,4 +428,4 @@ export const NewContractForm = memo(function NewContractForm({
       </DialogContent>
     </Dialog>
   );
-});
+}

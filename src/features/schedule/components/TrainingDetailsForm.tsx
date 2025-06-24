@@ -7,11 +7,14 @@ import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
+import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover";
+import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/shared/components/ui/command";
 import { format, isBefore, startOfDay, differenceInMinutes } from "date-fns"
 import { es } from "date-fns/locale"
 import type { Training } from "@/shared/types/training"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
-import { CalendarIcon, Clock, User, Dumbbell, Info, FileText } from "lucide-react"
+import { CalendarIcon, Clock, User, Dumbbell, Info, FileText, Check, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/shared/lib/utils";
 
 const trainingSchema = z.object({
     titulo: z.string().min(1, "El título es requerido"),
@@ -201,31 +204,83 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="cliente">Cliente</Label>
-                        <Select onValueChange={(value) => setValue("id_cliente", parseInt(value))} value={watch("id_cliente")?.toString()} disabled={isReadOnly}>
-                            <SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger>
-                            <SelectContent>
-                                {validClients.map(client => (
-                                    <SelectItem key={client.id} value={client.id.toString()}>{client.name || 'Sin nombre'}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        {errors.id_cliente && <p className="text-sm text-red-500">{errors.id_cliente.message}</p>}
-                    </div>
+                    <Controller
+                        control={control}
+                        name="id_cliente"
+                        render={({ field }) => (
+                            <div className="space-y-2">
+                                <Label htmlFor="cliente">Cliente</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild disabled={isReadOnly}>
+                                        <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                                            {field.value ? validClients.find(c => c.id === field.value.toString())?.name : "Seleccione un cliente"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Buscar cliente..." />
+                                            <CommandEmpty>No se encontró el cliente.</CommandEmpty>
+                                            <CommandGroup>
+                                                {validClients.map(client => (
+                                                    <CommandItem
+                                                        key={client.id}
+                                                        value={client.name}
+                                                        onSelect={() => {
+                                                            setValue("id_cliente", parseInt(client.id, 10));
+                                                        }}
+                                                    >
+                                                        <Check className={cn("mr-2 h-4 w-4", field.value === parseInt(client.id, 10) ? "opacity-100" : "opacity-0")} />
+                                                        {client.name}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                                {errors.id_cliente && <p className="text-sm text-red-500">{errors.id_cliente.message}</p>}
+                            </div>
+                        )}
+                    />
 
-                    <div className="space-y-2">
-                        <Label htmlFor="entrenador">Entrenador</Label>
-                        <Select onValueChange={(value) => setValue("id_entrenador", parseInt(value))} value={watch("id_entrenador")?.toString()} disabled={isReadOnly}>
-                            <SelectTrigger><SelectValue placeholder="Seleccione un entrenador" /></SelectTrigger>
-                            <SelectContent>
-                                {validTrainers.map(trainer => (
-                                    <SelectItem key={trainer.id} value={trainer.id.toString()}>{trainer.name || 'Sin nombre'}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        {errors.id_entrenador && <p className="text-sm text-red-500">{errors.id_entrenador.message}</p>}
-                    </div>
+                    <Controller
+                        control={control}
+                        name="id_entrenador"
+                        render={({ field }) => (
+                            <div className="space-y-2">
+                                <Label htmlFor="entrenador">Entrenador</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild disabled={isReadOnly}>
+                                        <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                                            {field.value ? validTrainers.find(t => t.id === field.value.toString())?.name : "Seleccione un entrenador"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Buscar entrenador..." />
+                                            <CommandEmpty>No se encontró el entrenador.</CommandEmpty>
+                                            <CommandGroup>
+                                                {validTrainers.map(trainer => (
+                                                    <CommandItem
+                                                        key={trainer.id}
+                                                        value={trainer.name}
+                                                        onSelect={() => {
+                                                            setValue("id_entrenador", parseInt(trainer.id, 10));
+                                                        }}
+                                                    >
+                                                        <Check className={cn("mr-2 h-4 w-4", field.value === parseInt(trainer.id, 10) ? "opacity-100" : "opacity-0")} />
+                                                        {trainer.name}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                                {errors.id_entrenador && <p className="text-sm text-red-500">{errors.id_entrenador.message}</p>}
+                            </div>
+                        )}
+                    />
                 </div>
 
                 <div className="space-y-2">

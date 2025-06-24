@@ -1,147 +1,260 @@
-import { format } from "date-fns"
+import { format, differenceInDays } from "date-fns"
 import { Button } from "@/shared/components/ui/button"
 import { Badge } from "@/shared/components/ui/badge"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog"
 import type { Client } from "@/shared/types/client"
-import { User, Mail, Phone, Calendar, CreditCard, UserCheck, AlertCircle, CheckCircle, Shield, Contact } from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Activity,
+  FileText,
+  ShieldCheck,
+  Users
+} from "lucide-react"
+import { Separator } from "@/shared/components/ui/separator"
 
 interface ClientDetailsProps {
   client: Client
+  isOpen: boolean
   onClose: () => void
 }
 
 export function ClientDetails({ client, onClose }: ClientDetailsProps) {
-  const usuario = client.usuario
+  // Función para determinar el estado de la membresía
+  const getMembershipStatus = () => {
+    if (!client.membershipEndDate || client.status === "Inactivo") {
+      return { label: "Sin membresía activa", color: "bg-gray-100 text-gray-800", icon: AlertCircle }
+    }
+
+    const today = new Date()
+    const daysRemaining = differenceInDays(client.membershipEndDate, today)
+
+    if (daysRemaining < 0) {
+      return {
+        label: "Membresía vencida",
+        color: "bg-red-100 text-red-800",
+        icon: AlertCircle,
+        detail: `Venció hace ${Math.abs(daysRemaining)} días`,
+      }
+    }
+
+    if (daysRemaining <= 7) {
+      return {
+        label: "Por vencer pronto",
+        color: "bg-yellow-100 text-yellow-800",
+        icon: AlertCircle,
+        detail: `Vence en ${daysRemaining} días`,
+      }
+    }
+
+    return {
+      label: "Activa",
+      color: "bg-green-100 text-green-800",
+      icon: CheckCircle,
+      detail: `Vence en ${daysRemaining} días`,
+    }
+  }
+
+  const membershipStatus = getMembershipStatus()
+  const MembershipIcon = membershipStatus.icon
 
   return (
-    <div className="p-1">
-      <h2 className="text-xl font-bold mb-3 px-4">Detalles del Cliente</h2>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent 
+        className="sm:max-w-[90vw] md:max-w-[80vw] lg:max-w-[700px] max-h-[90vh] overflow-y-auto"
+        aria-labelledby={titleId}
+      >
+        <DialogHeader>
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                <User className="w-8 h-8 text-gray-400" />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <DialogTitle id={titleId} className="text-xl font-bold flex items-center gap-2">
+                {client.usuario?.nombre} {client.usuario?.apellido}
+              </DialogTitle>
+              <p className="text-sm font-normal text-gray-500 mt-1">Código: {client.codigo}</p>
+            </div>
+            <Badge className={getStatusBadge(client.estado)}>{client.estado ? "Activo" : "Inactivo"}</Badge>
+          </div>
+          <DialogDescription className="sr-only">
+            Información detallada del cliente {client.usuario?.nombre} {client.usuario?.apellido}.
+          </DialogDescription>
+        </DialogHeader>
 
-      <Tabs defaultValue="personal" className="w-full">
-        <TabsList className="grid grid-cols-3 mb-3 mx-4">
-          <TabsTrigger value="personal">Información Personal</TabsTrigger>
-          <TabsTrigger value="emergency">Contactos</TabsTrigger>
-          {client.beneficiarios && client.beneficiarios.length > 0 && (
-            <TabsTrigger value="beneficiaries">Beneficiarios</TabsTrigger>
-          )}
-        </TabsList>
+        <div className="space-y-6 pt-4">
+          <Separator />
 
-        <TabsContent value="personal" className="space-y-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><User className="h-5 w-5" /> Información Personal</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <div className="grid grid-cols-2 gap-4">
+          {/* Personal Information */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Información Personal</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center space-x-3">
+                <FileText className="w-5 h-5 text-gray-400" />
                 <div>
-                  <p className="font-medium text-gray-500">Nombre Completo</p>
-                  <p>{usuario?.nombre} {usuario?.apellido}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-500">Estado</p>
-                  <Badge variant={client.estado ? "default" : "destructive"}>
-                    {client.estado ? 'Activo' : 'Inactivo'}
-                  </Badge>
+                  <p className="text-sm font-medium text-gray-900">Documento</p>
+                  <p className="text-sm text-gray-500">
+                    {client.usuario?.tipo_documento} - {client.usuario?.numero_documento}
+                  </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center space-x-3">
+                <Calendar className="w-5 h-5 text-gray-400" />
                 <div>
-                  <p className="font-medium text-gray-500">Documento</p>
-                  <p>{usuario?.tipo_documento} {usuario?.numero_documento}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-500">Fecha de Nacimiento</p>
-                  <p>{usuario?.fecha_nacimiento ? format(new Date(usuario.fecha_nacimiento), "dd/MM/yyyy") : 'N/A'}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="font-medium text-gray-500">Correo Electrónico</p>
-                  <p>{usuario?.correo}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-500">Teléfono</p>
-                  <p>{usuario?.telefono || "No especificado"}</p>
+                  <p className="text-sm font-medium text-gray-900">Fecha de Nacimiento</p>
+                  <p className="text-sm text-gray-500">
+                    {client.usuario?.fecha_nacimiento
+                      ? format(new Date(client.usuario.fecha_nacimiento), "dd/MM/yyyy", { locale: es })
+                      : "No especificada"}
+                  </p>
                 </div>
               </div>
-              <div>
-                <p className="font-medium text-gray-500">Dirección</p>
-                <p>{usuario?.direccion || "No especificada"}</p>
-              </div>
-            </CardContent>
-          </Card>
-          {client.titular && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><UserCheck className="h-5 w-5"/> Información del Titular</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div>
-                  <p className="font-medium text-gray-500">Nombre</p>
-                  <p>{client.titular.usuario?.nombre} {client.titular.usuario?.apellido}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-500">Relación</p>
-                  <p>{client.relacion || 'No especificada'}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+            </div>
+          </div>
         </TabsContent>
 
-        <TabsContent value="emergency" className="space-y-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" /> Contactos de Emergencia</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {client.contactos_emergencia && client.contactos_emergencia.length > 0 ? (
-                <ul className="space-y-3">
-                  {client.contactos_emergencia.map(contact => (
-                    <li key={contact.id} className="p-3 bg-gray-50 rounded-lg border text-sm">
-                      <p className="font-semibold">{contact.nombre_contacto}</p>
-                      <p className="text-gray-600">{contact.relacion_contacto}</p>
-                      <p className="text-gray-600 flex items-center gap-2"><Phone className="h-3 w-3"/>{contact.telefono_contacto}</p>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-gray-500">No hay contactos de emergencia registrados.</p>
+        <TabsContent value="membership" className="space-y-3">
+          <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+            <div className="flex items-center gap-2 mb-2">
+              <CreditCard className="h-4 w-4 text-gray-600" />
+              <p className="font-semibold text-sm">Información de Membresía</p>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-gray-500 font-medium">Tipo de Membresía</p>
+                  <p className="font-medium">{client.membershipType || "No especificado"}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Correo Electrónico</p>
+                  <p className="text-sm text-gray-500">{client.usuario?.correo}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-1">
+                <Calendar className="h-3 w-3 text-gray-500 mt-0.5" />
+                <div>
+                  <p className="text-gray-500 font-medium">Estado de Membresía</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge className={membershipStatus.color}>
+                      <MembershipIcon className="h-3 w-3 mr-1 inline" />
+                      {membershipStatus.label}
+                    </Badge>
+                    {membershipStatus.detail && (
+                      <span className="text-xs text-gray-500">{membershipStatus.detail}</span>
+                    )}
+                  </div>
+                </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+              {client.usuario?.direccion && (
+                <div className="flex items-center space-x-3">
+                  <MapPin className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Dirección</p>
+                    <p className="text-sm text-gray-500">{client.usuario.direccion}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
-        {client.beneficiarios && client.beneficiarios.length > 0 && (
-          <TabsContent value="beneficiaries" className="space-y-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Beneficiarios</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3">
-                  {client.beneficiarios.map(beneficiary => (
-                    <li key={beneficiary.id_persona} className="p-3 bg-gray-50 rounded-lg border text-sm">
-                      <p className="font-semibold">{beneficiary.usuario?.nombre} {beneficiary.usuario?.apellido}</p>
-                      <p className="text-gray-600">{beneficiary.relacion}</p>
-                      <p className="text-gray-600 flex items-center gap-2"><Mail className="h-3 w-3"/>{beneficiary.usuario?.correo || 'N/A'}</p>
-                      <p className="text-gray-600 flex items-center gap-2"><Phone className="h-3 w-3"/>{beneficiary.usuario?.telefono || 'N/A'}</p>
-                    </li>
+          <Separator />
+
+          {/* Emergency Contacts */}
+          {client.contactos_emergencia && client.contactos_emergencia.length > 0 && (
+            <>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-gray-500" />
+                  Contactos de Emergencia
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {client.contactos_emergencia.map((contact, index) => (
+                    <div key={index} className="flex items-start space-x-3">
+                      <div className="flex-shrink-0 pt-1">
+                        <ShieldCheck className="w-5 h-5 text-blue-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{contact.nombre_contacto} ({contact.relacion_contacto})</p>
+                        <p className="text-sm text-gray-500">{contact.telefono_contacto}</p>
+                      </div>
+                    </div>
                   ))}
-                </ul>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
-      </Tabs>
+                </div>
+              </div>
+              <Separator />
+            </>
+          )}
 
-      <div className="mt-4 flex justify-end border-t pt-3 mx-4">
-        <Button size="sm" onClick={onClose} className="bg-black hover:bg-gray-800">
-          Cerrar
-        </Button>
-      </div>
-    </div>
+          {/* Beneficiaries */}
+          {client.beneficiarios && client.beneficiarios.length > 0 && (
+            <>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-gray-500" />
+                  Beneficiarios
+                </h3>
+                <div className="space-y-4">
+                  {client.beneficiarios.map((beneficiary, index) => (
+                    <div key={index} className="p-4 border rounded-lg bg-gray-50/50">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-gray-800">{beneficiary.persona_beneficiaria?.usuario?.nombre} {beneficiary.persona_beneficiaria?.usuario?.apellido}</p>
+                          <p className="text-sm text-gray-500">Relación: {beneficiary.relacion}</p>
+                        </div>
+                        <Badge variant="secondary">{beneficiary.persona_beneficiaria?.usuario?.tipo_documento} {beneficiary.persona_beneficiaria?.usuario?.numero_documento}</Badge>
+                      </div>
+                      <div className="mt-2 text-sm text-gray-600">
+                        <p>Correo: {beneficiary.persona_beneficiaria?.usuario?.correo}</p>
+                        {beneficiary.persona_beneficiaria?.usuario?.telefono && <p>Teléfono: {beneficiary.persona_beneficiaria.usuario.telefono}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <Separator />
+            </>
+          )}
+
+          {/* System Information */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Información del Sistema</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center space-x-3">
+                <Activity className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Fecha de Registro</p>
+                  <p className="text-sm text-gray-500">
+                    {client.fecha_registro
+                      ? format(new Date(client.fecha_registro), "dd/MM/yyyy HH:mm", { locale: es })
+                      : "No especificada"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Activity className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Última Actualización</p>
+                  <p className="text-sm text-gray-500">
+                    {client.fecha_actualizacion
+                      ? format(new Date(client.fecha_actualizacion), "dd/MM/yyyy HH:mm", { locale: es })
+                      : "No especificada"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

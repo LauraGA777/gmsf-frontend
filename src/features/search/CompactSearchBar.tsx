@@ -53,7 +53,7 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings, incl
     })
 
     // Buscar por estado
-    const estados = ["Activo", "Inactivo", "Congelado", "Pendiente de pago"]
+    const estados = ["Activo", "Inactivo", "Congelado"]
     if (includeContracts) {
       estados.push("Vencido", "Por vencer", "Cancelado")
     }

@@ -84,10 +84,10 @@ export const clientService = {
     return response.data;
   },
 
-  // Check user by document
+  // Check if a user exists by document
   checkUserByDocument: async (tipo_documento: string, numero_documento: string) => {
     clientService.checkAuth();
-    const response = await api.get<any>(`/clients/check-user`, {
+    const response = await api.get(`/clients/check-user`, {
       params: { tipo_documento, numero_documento },
     });
     return response.data;
@@ -244,7 +244,7 @@ export const clientService = {
         params: { limit: 1000 }
       });
 
-      const clients = response.data;
+      const clients = response.data.data;
       const stats = {
         total: clients.length,
         active: clients.filter(c => c.estado === true).length,

@@ -17,6 +17,14 @@ interface GymContextType {
   contractsLoading: boolean;
   membershipsLoading: boolean;
   
+  // Pagination for contracts
+  contractsPagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  
   // Stats
   stats: {
     totalClients: number;
@@ -30,7 +38,12 @@ interface GymContextType {
   // Actions
   refreshAll: () => Promise<void>;
   refreshClients: () => Promise<void>;
-  refreshContracts: () => Promise<void>;
+  refreshContracts: (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    estado?: string;
+  }) => Promise<void>;
   refreshMemberships: () => Promise<void>;
   
   // Client actions
@@ -80,6 +93,14 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [contractsLoading, setContractsLoading] = useState(false);
   const [membershipsLoading, setMembershipsLoading] = useState(false);
   
+  // Pagination State for Contracts
+  const [contractsPagination, setContractsPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+  });
+
   // Navigation state
   const [navigationCallbacks, setNavigationCallbacks] = useState<{
     toClients?: (clientId?: number) => void;
@@ -90,7 +111,7 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const stats = React.useMemo(() => {
     const totalClients = clients.length;
     const activeClients = clients.filter(c => c.estado === true).length;
-    const totalContracts = contracts.length;
+    const totalContracts = contractsPagination.total;
     const activeContracts = contracts.filter(c => c.estado === 'Activo').length;
     
     // Calculate expiring contracts (next 30 days)
@@ -115,7 +136,7 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       expiringContracts,
       revenue
     };
-  }, [clients, contracts]);
+  }, [clients, contracts, contractsPagination.total]);
 
   // Load data functions
   const refreshClients = useCallback(async () => {
@@ -130,11 +151,17 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const refreshContracts = useCallback(async () => {
+  const refreshContracts = useCallback(async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    estado?: string;
+  }) => {
     try {
       setContractsLoading(true);
-      const response = await contractService.getContracts({ limit: 1000 });
+      const response = await contractService.getContracts(params);
       setContracts(response.data);
+      setContractsPagination(response.pagination);
     } catch (error) {
       console.error('Error loading contracts:', error);
     } finally {
@@ -367,6 +394,9 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     clientsLoading,
     contractsLoading,
     membershipsLoading,
+    
+    // Pagination for contracts
+    contractsPagination,
     
     // Stats
     stats,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/shared/contexts/authContext";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -18,8 +18,8 @@ import {
   Plus,
 } from "lucide-react";
 import Swal from "sweetalert2";
-import type { Training } from "@/shared/types";
-import { format, isSameDay, addDays, subDays, isToday } from "date-fns";
+import { Training, TrainingsResponse, AvailabilityResponse } from "@/shared/types/training";
+import { format, isSameDay, addDays, subDays, isToday, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
@@ -30,6 +30,9 @@ import { ScheduleComponent } from "@/features/schedule/components/ScheduleCompon
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog";
 import { TrainingForm } from "@/features/schedule/components/TrainingForm";
 import { TrainingDetailsForm } from "@/features/schedule/components/TrainingDetailsForm";
+import { scheduleService } from "@/features/schedule/services/schedule.service";
+import { cn } from "@/shared/lib/utils";
+import { useToast } from "@/shared/components/ui/use-toast";
 
 export function ClientSchedulePage() {
   const { user } = useAuth();
@@ -39,452 +42,315 @@ export function ClientSchedulePage() {
   const [selectedTraining, setSelectedTraining] = useState<Training | null>(null);
   const [viewMode, setViewMode] = useState<"calendar" | "daily">("daily");
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentMonth, setCurrentMonth] = useState<string>(format(new Date(), "MMMM yyyy", { locale: es }));
+  const [fetchedTrainings, setFetchedTrainings] = useState<Training[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentMonth, setCurrentMonth] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  const [trainers, setTrainers] = useState<Array<{ id: string; name: string }>>([]);
+  const [clientsWithActiveContracts, setClientsWithActiveContracts] = useState<{ id: string; name: string }[]>([]);
+  const { toast } = useToast();
 
-  // Datos de ejemplo para servicios agendados (convertidos al formato Training)
-  const [trainings, setTrainings] = useState<Training[]>([
-    {
-      id: 1,
-      client: "Juan Pérez",
-      clientId: "0001",
-      trainer: "Carlos Ruiz",
-      trainerId: "t1",
-      service: "Entrenamiento personalizado",
-      date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-      startTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 10 * 60 * 60 * 1000),
-      endTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 11 * 60 * 60 * 1000),
-      maxCapacity: 1,
-      occupiedSpots: 1,
-      status: "Activo",
-    },
-    {
-      id: 2,
-      client: "María González",
-      clientId: "0002",
-      trainer: "Ana Gómez",
-      trainerId: "t2",
-      service: "Entrenamiento personalizado",
-      date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-      startTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000 + 16 * 60 * 60 * 1000),
-      endTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000 + 17 * 60 * 60 * 1000),
-      maxCapacity: 1,
-      occupiedSpots: 1,
-      status: "Activo",
-    },
-  ]);
+  const fetchData = useCallback(async () => {
+    if (!user?.personId) return;
 
-  const [filteredTrainings, setFilteredTrainings] = useState<Training[]>([]);
-  const [hasActiveMembership, setHasActiveMembership] = useState<boolean>(false);
+    try {
+      setIsLoading(true);
+      
+      const trainersPromise = scheduleService.getActiveTrainers();
+      
+      let trainingsPromise;
+      if (viewMode === 'calendar') {
+        trainingsPromise = scheduleService.getMonthlySchedule(new Date(currentMonth).getFullYear(), new Date(currentMonth).getMonth() + 1);
+      } else {
+        trainingsPromise = scheduleService.getClientSchedule(user.personId);
+      }
+      
+      const clientsPromise = scheduleService.getActiveClients();
 
-  // Trainers y servicios para el buscador
-  const trainers: string[] = ["Carlos Ruiz", "Ana Gómez", "Miguel Sánchez", "Laura Martínez"];
-  const services: string[] = ["Entrenamiento personalizado", "GAP", "Yoga", "Pilates", "Crossfit", "Funcional", "Zumba", "Spinning"];
-  const statusOptions: string[] = ["Activo", "Pendiente", "Completado", "Cancelado"];
+      const [trainersResponse, trainingsResponse, clientsResponse] = await Promise.all([
+        trainersPromise,
+        trainingsPromise,
+        clientsPromise
+      ]);
 
-  // Verificar si el usuario tiene membresía activa
-  useEffect(() => {
-    if (user?.contract?.estado === "Activo") {
-      setHasActiveMembership(true);
-    } else {
-      setHasActiveMembership(false);
+      if (trainersResponse.data) {
+        const mappedTrainers = trainersResponse.data.map((t: any) => ({
+          id: t.id.toString(),
+          name: `${t.name}`,
+        }));
+        setTrainers(mappedTrainers);
+      }
+
+      if (trainingsResponse.data) {
+        setFetchedTrainings(trainingsResponse.data);
+      }
+
+      if (clientsResponse.data) {
+        const mappedClients = clientsResponse.data.map((c: any) => ({
+          id: c.id.toString(),
+          name: `${c.nombre} ${c.apellido}`
+        }));
+        setClientsWithActiveContracts(mappedClients)
+      }
+
+      setError(null)
+    } catch (err) {
+      setError("Error al cargar los datos de la agenda.")
+      console.error("Error fetching data:", err)
+    } finally {
+      setIsLoading(false)
     }
-  }, [user]);
+  }, [user, selectedDate, currentMonth, viewMode]);
 
-  // Filtrar entrenamientos según la fecha seleccionada y el rol del usuario
   useEffect(() => {
-    let filtered = [...trainings];
+    fetchData();
+  }, [fetchData])
+  
+  const displayedTrainings = useMemo(() => {
+    let filtered = [...fetchedTrainings];
 
-    // Filtrar por fecha si estamos en vista diaria
+    // For clients, filter to show only their own trainings
+    if (user?.personId) {
+      filtered = filtered.filter(t => t.id_cliente === user.personId);
+    }
+
     if (viewMode === "daily") {
-      filtered = filtered.filter((training) => isSameDay(new Date(training.date), selectedDate));
+      filtered = filtered.filter((training) => isSameDay(new Date(training.fecha_inicio), selectedDate));
     }
 
-    // Si es cliente, solo mostrar sus propias citas
-    if (user?.role === "CLIENTE" && user.clientId) {
-      filtered = filtered.filter((training) => training.clientId === user.clientId);
-    }
-
-    // Aplicar filtro de búsqueda
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (training) =>
-          training.client.toLowerCase().includes(term) ||
-          training.trainer.toLowerCase().includes(term) ||
-          training.service.toLowerCase().includes(term) ||
-          training.status.toLowerCase().includes(term)
+      filtered = filtered.filter(t =>
+        t.titulo?.toLowerCase().includes(term) ||
+        t.entrenador?.nombre?.toLowerCase().includes(term) ||
+        t.entrenador?.apellido?.toLowerCase().includes(term) ||
+        t.estado?.toLowerCase().includes(term)
       );
     }
 
-    setFilteredTrainings(filtered);
-  }, [user, trainings, selectedDate, viewMode, searchTerm]);
+    return filtered;
+  }, [user, fetchedTrainings, selectedDate, viewMode, searchTerm]);
 
-  // Agrupar entrenamientos por hora para la vista diaria
   const groupedTrainings = useMemo(() => {
     const hours: { [key: string]: Training[] } = {};
-
-    filteredTrainings.forEach((training) => {
-      if (training.startTime) {
-        const hour = format(new Date(training.startTime), "HH:mm");
-        if (!hours[hour]) {
-          hours[hour] = [];
-        }
+    displayedTrainings.forEach((training) => {
+      if (training.fecha_inicio) {
+        const hour = format(new Date(training.fecha_inicio), "HH:mm");
+        if (!hours[hour]) hours[hour] = [];
         hours[hour].push(training);
       }
     });
-
     return hours;
-  }, [filteredTrainings]);
+  }, [displayedTrainings]);
 
   const handleSelectDate = (date: Date) => {
     setSelectedDate(date);
   };
 
-  const handleEditTraining = (id: number, updatedTraining: Partial<Training>) => {
-    // Solo permitir editar citas propias
-    if (user?.role === "CLIENTE" && selectedTraining?.clientId !== user.clientId) {
-      Swal.fire({
-        title: "Acceso denegado",
-        text: "Solo puedes editar las citas que tú mismo has agendado",
-        icon: "warning",
-        confirmButtonColor: "#000",
-        timer: 3000,
-        timerProgressBar: true,
+  const handleSubmitTraining = async (data: Partial<Training>) => {
+    try {
+      setIsLoading(true);
+      if (selectedTraining) {
+        await scheduleService.updateTraining(selectedTraining.id, data);
+      } else {
+        await scheduleService.createTraining({ ...data, id_cliente: user?.personId });
+      }
+      setIsFormOpen(false);
+      setIsEditFormOpen(false);
+      
+      await fetchData();
+
+      toast({
+        title: selectedTraining ? "¡Actualizado!" : "¡Agendado!",
+        description: `Tu entrenamiento ha sido ${selectedTraining ? "actualizado" : "agendado"} correctamente.`,
+        type: "success",
       });
-      return;
+
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || "Hubo un problema al guardar el entrenamiento.";
+      toast({ title: "Error", description: errorMessage, type: "error" });
+    } finally {
+      setIsLoading(false);
     }
-
-    const updatedTrainings = trainings.map((training) =>
-      training.id === id ? { ...training, ...updatedTraining } : training
-    );
-
-    setTrainings(updatedTrainings);
-    setIsEditFormOpen(false);
-
-    // Pequeño retraso para asegurar que el modal se cierre primero
-    setTimeout(() => {
-      Swal.fire({
-        title: "¡Actualizado!",
-        text: "El servicio ha sido actualizado correctamente.",
-        icon: "success",
-        confirmButtonColor: "#000",
-        timer: 5000,
-        timerProgressBar: true,
-      });
-    }, 300);
-  };
+  }
 
   const handleAddTraining = () => {
-    // Verificar si el usuario tiene un contrato activo antes de abrir el formulario
-    if (!hasActiveMembership) {
-      Swal.fire({
-        title: "Contrato inactivo",
-        text: "No tienes un contrato activo. Para agendar servicios, necesitas tener una membresía vigente.",
-        icon: "warning",
-        confirmButtonColor: "#000",
-        timer: 10000,
-        timerProgressBar: true,
+    const hasActiveContract = clientsWithActiveContracts.some(c => c.id === user?.personId.toString());
+    if (!hasActiveContract) {
+      toast({
+        title: "Contrato Requerido",
+        description: "Necesitas un contrato activo o por vencer para agendar nuevos entrenamientos.",
+        type: "info",
       });
       return;
     }
-
+    setSelectedTraining(null);
     setIsFormOpen(true);
-  };
-
-  const handleAddTrainingSubmit = (newTraining: Omit<Training, "id">) => {
-    // Validar que todos los campos requeridos estén completos
-    if (
-      !newTraining.client ||
-      !newTraining.trainer ||
-      !newTraining.service ||
-      !newTraining.date ||
-      !newTraining.startTime ||
-      !newTraining.endTime
-    ) {
-      Swal.fire({
-        title: "Datos incompletos",
-        text: "Por favor, completa todos los campos requeridos para agendar un entrenamiento personalizado.",
-        icon: "error",
-        confirmButtonColor: "#000",
-      });
-      return;
-    }
-
-    const id = Math.max(0, ...trainings.map((t) => t.id)) + 1;
-
-    // Añadir clientId según el usuario actual
-    const trainingToAdd: Training = {
-      ...newTraining,
-      id,
-      clientId: user?.clientId || "",
-      // Para servicios personalizados, siempre es capacidad 1
-      maxCapacity: 1,
-      occupiedSpots: 1,
-    };
-
-    setTrainings([...trainings, trainingToAdd]);
-    setIsFormOpen(false);
-
-    // Pequeño retraso para asegurar que el modal se cierre primero
-    setTimeout(() => {
-      Swal.fire({
-        title: "¡Servicio agendado!",
-        text: `Se ha programado ${newTraining.service} con ${newTraining.trainer} para ${format(new Date(newTraining.startTime || newTraining.date), "HH:mm")} a ${format(new Date(newTraining.endTime || new Date(newTraining.date.getTime() + 60 * 60 * 1000)), "HH:mm")}`,
-        icon: "success",
-        confirmButtonColor: "#000",
-        timer: 5000,
-        timerProgressBar: true,
-      });
-    }, 300);
   };
 
   const handleTrainingClick = (training: Training) => {
     setSelectedTraining(training);
+    setIsEditFormOpen(true);
+  };
+
+  const handleDeleteTraining = async (id: number) => {
+    setIsEditFormOpen(false);
     setTimeout(() => {
-      setIsEditFormOpen(true);
-    }, 100); // Asegurar que el estado se actualice antes de abrir el modal
-  };
-
-  const handleChangeStatus = (id: number, newStatus: Training["status"]) => {
-    // Solo permitir cambiar estado de citas propias
-    if (user?.role === "CLIENTE" && selectedTraining?.clientId !== user.clientId) {
       Swal.fire({
-        title: "Acceso denegado",
-        text: "Solo puedes modificar las citas que tú mismo has agendado",
+        title: "¿Estás seguro?",
+        text: "Esta acción cancelará el entrenamiento.",
         icon: "warning",
-        confirmButtonColor: "#000",
-        timer: 3000,
-        timerProgressBar: true,
+        showCancelButton: true,
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Sí, cancelar",
+        cancelButtonText: "No",
+      }).then(async (result) => {
+        if (result.isConfirmed) {
+          try {
+            await scheduleService.deleteTraining(id);
+            await fetchData();
+            toast({ title: "Cancelado", description: "El entrenamiento ha sido cancelado.", type: "success" });
+          } catch (error) {
+            toast({ title: "Error", description: "No se pudo cancelar el entrenamiento.", type: "error" });
+          }
+        }
       });
-      return;
-    }
+    }, 300);
+  }
 
-    const updatedTrainings = trainings.map((training) =>
-      training.id === id ? { ...training, status: newStatus } : training
+  const getStatusBadge = (estado: "Programado" | "Completado" | "Cancelado" | "En proceso") => {
+    const config = {
+      Programado: { class: "bg-blue-100 text-blue-800", icon: <Clock3 className="h-3.5 w-3.5 mr-1" /> },
+      "En proceso": { class: "bg-yellow-100 text-yellow-800", icon: <AlertCircle className="h-3.5 w-3.5 mr-1" /> },
+      Completado: { class: "bg-green-100 text-green-800", icon: <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> },
+      Cancelado: { class: "bg-red-100 text-red-800", icon: <XCircle className="h-3.5 w-3.5 mr-1" /> },
+    };
+    const { class: className, icon } = config[estado] || { class: "bg-gray-100 text-gray-800", icon: <AlertCircle className="h-3.5 w-3.5 mr-1" /> };
+    return (
+      <Badge className={className}>
+        {icon}
+        {estado}
+      </Badge>
     );
-
-    setTrainings(updatedTrainings);
-
-    Swal.fire({
-      title: "Estado actualizado",
-      text: `El servicio ahora está ${newStatus.toLowerCase()}.`,
-      icon: "success",
-      confirmButtonColor: "#000",
-      timer: 5000,
-      timerProgressBar: true,
-      toast: true,
-      position: "top-end",
-      showConfirmButton: false,
-    });
-  };
+  }
+  
+  if (isLoading) return <div className="flex justify-center items-center h-screen"><p>Cargando tu agenda...</p></div>;
+  if (error) return <div className="flex justify-center items-center h-screen"><p className="text-red-500">{error}</p></div>;
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex flex-col space-y-4">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Mi Agenda</h1>
-            <p className="text-gray-500">
-              {viewMode === "daily"
-                ? format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
-                : currentMonth}
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-            <Tabs
-              defaultValue="daily"
-              value={viewMode}
-              onValueChange={(value) => setViewMode(value as "daily" | "calendar")}
-              className="w-full sm:w-auto"
-            >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="daily" className="flex items-center gap-1">
-                  <Clock3 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Vista Diaria</span>
-                  <span className="sm:hidden">Diaria</span>
-                </TabsTrigger>
-                <TabsTrigger value="calendar" className="flex items-center gap-1">
-                  <CalendarDays className="h-4 w-4" />
-                  <span className="hidden sm:inline">Vista Calendario</span>
-                  <span className="sm:hidden">Calendario</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <Button
-              onClick={handleAddTraining}
-              className="flex items-center gap-1 whitespace-nowrap"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Agendar entrenamiento</span>
-              <span className="sm:hidden">Agendar</span>
-            </Button>
-          </div>
+    <div className="container mx-auto p-4 space-y-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Mi Agenda</h1>
+          <p className="text-gray-500 capitalize">
+            {viewMode === "daily"
+              ? format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
+              : format(new Date(currentMonth), "MMMM yyyy", { locale: es })
+            }
+          </p>
         </div>
-
-        {viewMode === "daily" && (
-          <div className="flex flex-col space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setSelectedDate(subDays(selectedDate, 1))}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  onClick={() => setSelectedDate(new Date())}
-                >
-                  <CalendarIcon className="h-4 w-4" />
-                  <span>Hoy</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="flex items-center space-x-2 w-full sm:w-auto">
-                <div className="relative w-full sm:w-auto">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                  <Input
-                    type="search"
-                    placeholder="Buscar..."
-                    className="pl-8 w-full"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              {Object.keys(groupedTrainings).length > 0 ? (
-                Object.keys(groupedTrainings)
-                  .sort()
-                  .map((hour) => (
-                    <Card key={hour} className="overflow-hidden">
-                      <CardHeader className="bg-gray-50 py-3">
-                        <CardTitle className="text-sm font-medium flex items-center">
-                          <Clock className="h-4 w-4 mr-2 text-gray-500" />
-                          {hour}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-0">
-                        <div className="divide-y divide-gray-100">
-                          {groupedTrainings[hour].map((training) => (
-                            <div
-                              key={training.id}
-                              className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                              onClick={() => handleTrainingClick(training)}
-                            >
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <h3 className="font-medium">{training.service}</h3>
-                                  <div className="flex items-center text-sm text-gray-500 mt-1">
-                                    <User className="h-3.5 w-3.5 mr-1" />
-                                    <span className="mr-3">{training.client}</span>
-                                    <Dumbbell className="h-3.5 w-3.5 mr-1" />
-                                    <span>{training.trainer}</span>
-                                  </div>
-                                </div>
-                                <Badge
-                                  className={`
-                                    ${training.status === "Activo" ? "bg-green-100 text-green-800" : ""}
-                                    ${training.status === "Pendiente" ? "bg-yellow-100 text-yellow-800" : ""}
-                                    ${training.status === "Completado" ? "bg-blue-100 text-blue-800" : ""}
-                                    ${training.status === "Cancelado" ? "bg-red-100 text-red-800" : ""}
-                                  `}
-                                >
-                                  {training.status === "Activo" && <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
-                                  {training.status === "Pendiente" && <AlertCircle className="h-3.5 w-3.5 mr-1" />}
-                                  {training.status === "Completado" && <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
-                                  {training.status === "Cancelado" && <XCircle className="h-3.5 w-3.5 mr-1" />}
-                                  {training.status}
-                                </Badge>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-              ) : (
-                <div className="text-center py-12">
-                  <CalendarIcon className="h-12 w-12 mx-auto text-gray-400" />
-                  <h3 className="mt-4 text-lg font-medium">No hay citas programadas</h3>
-                  <p className="mt-2 text-gray-500">
-                    No hay citas programadas para este día. Puedes agendar un nuevo entrenamiento usando el botón "Agendar entrenamiento".
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {viewMode === "calendar" && (
-          <ScheduleComponent
-            trainings={filteredTrainings}
-            onSelectDate={handleSelectDate}
-            selectedDate={selectedDate}
-            onTrainingClick={handleTrainingClick}
-          />
-        )}
+        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full sm:w-auto">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="daily"><Clock3 className="h-4 w-4 mr-2" />Diaria</TabsTrigger>
+              <TabsTrigger value="calendar"><CalendarDays className="h-4 w-4 mr-2" />Calendario</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Button onClick={handleAddTraining} className="flex items-center gap-1 whitespace-nowrap">
+            <Plus className="h-4 w-4" />Agendar
+          </Button>
+        </div>
       </div>
 
-      {/* Modal para agregar nuevo entrenamiento */}
+      {viewMode === "daily" && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 1))}><ChevronLeft className="h-4 w-4" /></Button>
+              <Button variant="outline" onClick={() => setSelectedDate(new Date())}>Hoy</Button>
+              <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 1))}><ChevronRight className="h-4 w-4" /></Button>
+            </div>
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Input type="search" placeholder="Buscar por título, entrenador..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {Object.keys(groupedTrainings).length > 0 ? (
+              Object.keys(groupedTrainings).sort().map((hour) => (
+                <Card key={hour}>
+                  <CardHeader className="bg-gray-50 py-3"><CardTitle className="text-sm font-medium flex items-center"><Clock className="h-4 w-4 mr-2 text-gray-500" />{hour}</CardTitle></CardHeader>
+                  <CardContent className="p-0 divide-y">
+                    {groupedTrainings[hour].map((training) => (
+                      <div key={training.id} className="p-4 hover:bg-gray-50 cursor-pointer" onClick={() => handleTrainingClick(training)}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-medium">{training.titulo}</h3>
+                            <div className="flex items-center text-sm text-gray-500 mt-1">
+                              <Dumbbell className="h-3.5 w-3.5 mr-1" />
+                              <span>{training.entrenador?.nombre} {training.entrenador?.apellido}</span>
+                            </div>
+                          </div>
+                          {getStatusBadge(training.estado as any)}
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <div className="text-center py-12">
+                <CalendarIcon className="h-12 w-12 mx-auto text-gray-400" />
+                <h3 className="mt-4 text-lg font-medium">No tienes nada agendado</h3>
+                <p className="mt-2 text-gray-500">No hay entrenamientos programados para este día.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {viewMode === "calendar" && (
+        <ScheduleComponent
+          trainings={displayedTrainings}
+          onSelectDate={handleSelectDate}
+          selectedDate={selectedDate}
+          onTrainingClick={handleTrainingClick}
+          currentMonth={currentMonth}
+          setCurrentMonth={setCurrentMonth}
+          onAddTraining={handleAddTraining}
+        />
+      )}
+
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-[600px]" aria-describedby="training-form-description">
-          <DialogHeader>
-            <DialogTitle>Agendar Nuevo Entrenamiento</DialogTitle>
-          </DialogHeader>
-          <DialogDescription id="training-form-description" className="sr-only">
-            Formulario para agendar un nuevo entrenamiento
-          </DialogDescription>
+        <DialogContent className="sm:max-w-[800px]">
+          <DialogHeader><DialogTitle>Agendar Entrenamiento</DialogTitle></DialogHeader>
           <TrainingForm
-            onSubmit={handleAddTrainingSubmit}
+            onSubmit={handleSubmitTraining}
             onCancel={() => setIsFormOpen(false)}
-            trainers={trainers}
-            services={services}
             initialDate={selectedDate}
-            isClient={user?.role === "CLIENTE"}
-            clientName={user?.nombre || ""}
-            clientsWithActiveContracts={[
-              { id: "1", name: "Juan Pérez" },
-              { id: "0002", name: "María González" }
-            ]}
+            clients={clientsWithActiveContracts.filter(c => c.id === user?.personId.toString())}
+            trainers={trainers}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Modal para editar entrenamiento */}
-      <Dialog open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
-        <DialogContent className="sm:max-w-[600px]" aria-describedby="training-details-description">
-          <DialogHeader>
-            <DialogTitle>Detalles del Entrenamiento</DialogTitle>
-          </DialogHeader>
-          <DialogDescription id="training-details-description" className="sr-only">
-            Detalles y opciones para gestionar el entrenamiento seleccionado
-          </DialogDescription>
-          {selectedTraining && (
+      {selectedTraining && (
+        <Dialog open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
+          <DialogContent className="sm:max-w-[800px]">
+            <DialogHeader><DialogTitle>Detalles del Entrenamiento</DialogTitle></DialogHeader>
             <TrainingDetailsForm
               training={selectedTraining}
-              onUpdate={(updates) => handleEditTraining(selectedTraining.id, updates)}
-              onChangeStatus={(status) => handleChangeStatus(selectedTraining.id, status)}
+              onUpdate={handleSubmitTraining}
+              onDelete={() => handleDeleteTraining(selectedTraining.id)}
               onClose={() => setIsEditFormOpen(false)}
-              isClient={user?.role === "CLIENTE"}
-              isEditable={user?.role !== "CLIENTE" || selectedTraining.clientId === user?.clientId}
+              trainers={trainers}
+              clients={clientsWithActiveContracts}
             />
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -122,10 +122,8 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
       if (!emailRegex.test(formData.correo)) {
         newErrors.correo = "Formato de correo inválido"
       }
-      // Verificar si el correo ya existe
-      if (existingUsers?.some(user =>
-        user.correo === formData.correo && user.id !== formData?.id_rol
-      )) {
+      // Verificar si el correo existe solo cuando se crea un nuevo usuario
+      if (!user && existingUsers?.some(existingUser => existingUser.correo === formData.correo)) {
         newErrors.correo = "Este correo ya está registrado"
       }
       // Verificar que los correos coincidan

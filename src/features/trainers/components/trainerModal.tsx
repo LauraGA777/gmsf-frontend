@@ -1,3 +1,5 @@
+"use client"
+
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
@@ -9,7 +11,7 @@ import { Calendar } from "@/shared/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { AlertCircle, Save, X, User, Mail, Phone, CalendarIcon, Check, FileText, MapPin } from "lucide-react"
+import { AlertCircle, Save, X, User, Mail, Phone, CalendarIcon, Check, FileText, MapPin, Lock } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import Swal from "sweetalert2"
 import type { Trainer } from "@/shared/types/trainer"
@@ -41,6 +43,9 @@ const isValidDocument = (doc: string): boolean => {
 }
 
 export function TrainerModal({ isOpen, onClose, onSave, trainer, title }: TrainerModalProps) {
+  // Determinar si estamos en modo edición
+  const isEditMode = !!trainer
+
   // Datos personales
   const [documentType, setDocumentType] = useState(trainer?.documentType || "CC")
   const [documentNumber, setDocumentNumber] = useState(trainer?.documentNumber || "")
@@ -52,7 +57,7 @@ export function TrainerModal({ isOpen, onClose, onSave, trainer, title }: Traine
   const [gender, setGender] = useState(trainer?.gender || "M")
   const [birthDate, setBirthDate] = useState<Date>(trainer?.birthDate ? new Date(trainer.birthDate) : new Date())
 
-  // Datos profesionales
+  // Datos profesionales (editables)
   const [specialty, setSpecialty] = useState(trainer?.specialty || "")
   const [hireDate, setHireDate] = useState<Date>(trainer?.hireDate ? new Date(trainer.hireDate) : new Date())
   const [isActive, setIsActive] = useState(trainer?.isActive !== false)
@@ -80,6 +85,7 @@ export function TrainerModal({ isOpen, onClose, onSave, trainer, title }: Traine
       setSpecialty(trainer.specialty || "")
       setHireDate(trainer.hireDate ? new Date(trainer.hireDate) : new Date())
       setIsActive(trainer.isActive !== false)
+      setUserFound(true) // En modo edición, el usuario ya está "encontrado"
     } else {
       // Si estamos creando, reinicia completamente el formulario
       setDocumentType("CC")
@@ -94,46 +100,54 @@ export function TrainerModal({ isOpen, onClose, onSave, trainer, title }: Traine
       setSpecialty("")
       setHireDate(new Date())
       setIsActive(true)
+      setUserFound(false)
     }
     setErrors({})
-    setUserFound(false)
-  }, [trainer, isOpen]) // Añade isOpen como dependencia para que se reinicie al abrir el modal
+  }, [trainer, isOpen])
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
-    if (!documentNumber) {
-      newErrors.documentNumber = "El número de documento es obligatorio"
-    } else if (!isValidDocument(documentNumber)) {
-      newErrors.documentNumber = "El número de documento debe tener entre 6 y 12 dígitos"
-    }
+    // En modo edición, solo validar especialidad
+    if (isEditMode) {
+      if (!specialty.trim()) {
+        newErrors.specialty = "La especialidad es obligatoria"
+      }
+    } else {
+      // En modo creación, validar todos los campos
+      if (!documentNumber) {
+        newErrors.documentNumber = "El número de documento es obligatorio"
+      } else if (!isValidDocument(documentNumber)) {
+        newErrors.documentNumber = "El número de documento debe tener entre 6 y 12 dígitos"
+      }
 
-    if (!name.trim()) {
-      newErrors.name = "El nombre es obligatorio"
-    }
+      if (!name.trim()) {
+        newErrors.name = "El nombre es obligatorio"
+      }
 
-    if (!lastName.trim()) {
-      newErrors.lastName = "El apellido es obligatorio"
-    }
+      if (!lastName.trim()) {
+        newErrors.lastName = "El apellido es obligatorio"
+      }
 
-    if (!email) {
-      newErrors.email = "El correo electrónico es obligatorio"
-    } else if (!isValidEmail(email)) {
-      newErrors.email = "El correo electrónico no es válido"
-    }
+      if (!email) {
+        newErrors.email = "El correo electrónico es obligatorio"
+      } else if (!isValidEmail(email)) {
+        newErrors.email = "El correo electrónico no es válido"
+      }
 
-    if (!phone) {
-      newErrors.phone = "El teléfono es obligatorio"
-    } else if (!isValidPhone(phone)) {
-      newErrors.phone = "El teléfono debe tener entre 7 y 10 dígitos"
-    }
+      if (!phone) {
+        newErrors.phone = "El teléfono es obligatorio"
+      } else if (!isValidPhone(phone)) {
+        newErrors.phone = "El teléfono debe tener entre 7 y 10 dígitos"
+      }
 
-    if (!address.trim()) {
-      newErrors.address = "La dirección es obligatoria"
-    }
+      if (!address.trim()) {
+        newErrors.address = "La dirección es obligatoria"
+      }
 
-    if (!specialty) {
-      newErrors.specialty = "La especialidad es obligatoria"
+      if (!specialty) {
+        newErrors.specialty = "La especialidad es obligatoria"
+      }
     }
 
     setErrors(newErrors)
@@ -210,27 +224,26 @@ export function TrainerModal({ isOpen, onClose, onSave, trainer, title }: Traine
 
     setIsProcessing(true)
 
-    // Crear objeto de entrenador
-    const trainerData: Omit<Trainer, "id"> = {
-      name,
-      lastName,
-      email,
-      phone,
-      address,
-      gender,
-      documentType,
-      documentNumber,
-      birthDate,
-      specialty,
-      bio: trainer?.bio || "",
-      hireDate,
-      isActive,
-      services: trainer?.services || [],
-    }
+    try {
+      // Crear objeto de entrenador
+      const trainerData: Omit<Trainer, "id"> = {
+        name,
+        lastName,
+        email,
+        phone,
+        address,
+        gender,
+        documentType,
+        documentNumber,
+        birthDate,
+        specialty,
+        bio: trainer?.bio || "",
+        hireDate,
+        isActive,
+        services: trainer?.services || [],
+      }
 
-    // Simular un retraso en la API
-    setTimeout(() => {
-      onSave(trainerData)
+      await onSave(trainerData)
       setIsProcessing(false)
 
       Swal.fire({
@@ -241,11 +254,172 @@ export function TrainerModal({ isOpen, onClose, onSave, trainer, title }: Traine
         timer: 2000,
         timerProgressBar: true,
       })
-    }, 600)
+    } catch (error: any) {
+      setIsProcessing(false)
+
+      let errorMessage = "Ocurrió un error inesperado"
+
+      if (error.message) {
+        if (error.message.includes("Usuario no encontrado")) {
+          errorMessage = "No se encontró un usuario con ese número de documento"
+        } else if (error.message.includes("ya existe")) {
+          errorMessage = "Ya existe un entrenador con ese número de documento"
+        } else {
+          errorMessage = error.message
+        }
+      }
+
+      Swal.fire({
+        title: "Error",
+        text: errorMessage,
+        icon: "error",
+        confirmButtonColor: "#000",
+      })
+    }
   }
 
   if (!isOpen) return null
 
+  // Renderizar formulario simplificado para modo edición
+  if (isEditMode) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
+            aria-label="Cerrar"
+          >
+            <X size={20} />
+          </button>
+
+          <div className="p-6 border-b">
+            <h2 className="text-xl font-semibold">{title}</h2>
+            <p className="text-sm text-gray-600 mt-1">Solo puedes editar la especialidad y el estado del entrenador</p>
+          </div>
+
+          <div className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Información Personal (Solo lectura) */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="text-lg font-medium mb-4 flex items-center">
+                  <Lock className="h-4 w-4 mr-2 text-gray-500" />
+                  Información Personal (Solo lectura)
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Documento</Label>
+                    <Input value={`${documentType} ${documentNumber}`} disabled className="bg-gray-100" />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Nombre Completo</Label>
+                    <Input value={`${name} ${lastName}`} disabled className="bg-gray-100" />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Email</Label>
+                    <Input value={email} disabled className="bg-gray-100" />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Teléfono</Label>
+                    <Input value={phone} disabled className="bg-gray-100" />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-medium text-gray-700">Dirección</Label>
+                    <Input value={address} disabled className="bg-gray-100" />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Género</Label>
+                    <Input value={gender === "M" ? "Masculino" : "Femenino"} disabled className="bg-gray-100" />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Fecha de Nacimiento</Label>
+                    <Input value={format(birthDate, "dd/MM/yyyy")} disabled className="bg-gray-100" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Información Profesional (Editable) */}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="text-lg font-medium mb-4 text-blue-800">Información Profesional (Editable)</h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="specialty" className="text-sm font-medium text-gray-700 mb-1">
+                      Especialidad <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="specialty"
+                      name="specialty"
+                      value={specialty}
+                      onChange={(e) => {
+                        setSpecialty(e.target.value)
+                        if (errors.specialty) {
+                          setErrors({ ...errors, specialty: "" })
+                        }
+                      }}
+                      className={cn(errors.specialty ? "border-red-500" : "")}
+                      placeholder="Ingrese la especialidad"
+                    />
+                    {errors.specialty && (
+                      <p className="text-red-500 text-xs mt-1 flex items-center">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        {errors.specialty}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Fecha de Registro</Label>
+                    <Input value={format(hireDate, "dd/MM/yyyy")} disabled className="bg-gray-100" />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <Label htmlFor="isActive" className="text-sm font-medium">
+                        Estado del Entrenador
+                      </Label>
+                      <div className="flex items-center space-x-2">
+                        <Switch id="isActive" checked={isActive} onCheckedChange={setIsActive} />
+                        <span className={cn("text-sm font-medium", isActive ? "text-green-600" : "text-red-600")}>
+                          {isActive ? "Activo" : "Inactivo"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botones */}
+              <div className="flex justify-end space-x-2 pt-4 border-t">
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-black hover:bg-gray-800" disabled={isProcessing}>
+                  {isProcessing ? (
+                    <>Actualizando...</>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Actualizar Entrenador
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Renderizar formulario completo para modo creación
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto relative">
@@ -620,7 +794,7 @@ export function TrainerModal({ isOpen, onClose, onSave, trainer, title }: Traine
                       ) : (
                         <>
                           <Save className="h-4 w-4 mr-2" />
-                          {trainer ? "Actualizar" : "Guardar"}
+                          Guardar
                         </>
                       )}
                     </Button>

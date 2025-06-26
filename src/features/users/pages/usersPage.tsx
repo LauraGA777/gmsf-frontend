@@ -422,7 +422,7 @@ export default function UsersPage() {
                   <TableHead>Documento</TableHead>
                   <TableHead>Rol</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Última Actualización</TableHead>
+                  
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -448,11 +448,6 @@ export default function UsersPage() {
                       <TableCell>{getRoleBadge(user.id_rol)}</TableCell>
                       <TableCell>
                         {getStatusBadge(user.estado)}
-                      </TableCell>
-                      <TableCell>
-                        {user.fecha_actualizacion
-                          ? format(new Date(user.fecha_actualizacion), "dd/MM/yyyy HH:mm", { locale: es })
-                          : "N/A"}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>

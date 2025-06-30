@@ -6,7 +6,7 @@ import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
 import { Textarea } from "@/shared/components/ui/textarea"
-import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
+import { AlertTriangle, CheckCircle, Loader2, Eye, EyeOff } from "lucide-react"
 import Swal from "sweetalert2"
 import type { User, UserFormData } from "../types/user"
 import { userService } from "../services/userService"
@@ -59,6 +59,10 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
   // Debounce para las verificaciones
   const debouncedDocument = useDebounce(formData.numero_documento, 500)
   const debouncedEmail = useDebounce(formData.correo, 500)
+
+  // Estados para mostrar/ocultar contraseñas
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -534,24 +538,52 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="contrasena">Contraseña</Label>
-                <Input
-                  id="contrasena"
-                  type="password"
-                  value={formData.contrasena}
-                  onChange={(e) => handleInputChange("contrasena", e.target.value)}
-                  placeholder="********"
-                />
+                <div className="relative">
+                  <Input
+                    id="contrasena"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.contrasena}
+                    onChange={(e) => handleInputChange("contrasena", e.target.value)}
+                    placeholder="********"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 {errors.contrasena && <p className="text-red-500 text-xs mt-1">{errors.contrasena}</p>}
               </div>
               <div>
                 <Label htmlFor="confirmarContrasena">Confirmar Contraseña</Label>
-                <Input
-                  id="confirmarContrasena"
-                  type="password"
-                  value={formData.confirmarContrasena}
-                  onChange={(e) => handleInputChange("confirmarContrasena", e.target.value)}
-                  placeholder="********"
-                />
+                <div className="relative">
+                  <Input
+                    id="confirmarContrasena"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={formData.confirmarContrasena}
+                    onChange={(e) => handleInputChange("confirmarContrasena", e.target.value)}
+                    placeholder="********"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 {errors.confirmarContrasena && (
                   <p className="text-red-500 text-xs mt-1">{errors.confirmarContrasena}</p>
                 )}

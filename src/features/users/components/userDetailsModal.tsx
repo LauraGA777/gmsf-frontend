@@ -23,9 +23,9 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
     const loadRoles = async () => {
       try {
         const response = await apiClient.get('/users/roles');
-        const data = response.data;
+        const data = response.data as any;
         if (data.status === 'success' && data.data?.roles) {
-          setRoles(data.data.roles.map(role => ({
+          setRoles(data.data.roles.map((role: any) => ({
             id: role.id,
             nombre: role.nombre
           })));
@@ -42,7 +42,7 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
     return rol ? rol.nombre : 'Rol Desconocido';
   };
 
-  const getRoleBadge = (id_rol: number) => {
+  const getRoleBadge = () => {
     return "bg-gray-100 text-gray-800 hover:bg-gray-200";
   };
 
@@ -78,7 +78,7 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
               </h2>
               <p className="text-sm text-gray-500">ID: {user.id}</p>
               <div className="flex items-center space-x-2 mt-2">
-                <Badge className={getRoleBadge(user.id_rol)}>{getRoleName(user.id_rol)}</Badge>
+                <Badge className={getRoleBadge()}>{getRoleName(user.id_rol)}</Badge>
                 <Badge className={getStatusBadge(user.estado)}>{user.estado ? "Activo" : "Inactivo"}</Badge>
               </div>
             </div>

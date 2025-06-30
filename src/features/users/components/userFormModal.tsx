@@ -6,8 +6,11 @@ import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
 import { Textarea } from "@/shared/components/ui/textarea"
+import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
 import Swal from "sweetalert2"
 import type { User, UserFormData } from "../types/user"
+import { userService } from "../services/userService"
+import { useDebounce } from "@/shared/hooks/useDebounce"
 import apiClient from '@/shared/services/api';
 
 interface UserFormModalProps {
@@ -15,60 +18,80 @@ interface UserFormModalProps {
   onClose: () => void
   onSave: (userData: UserFormData) => void
   user?: User | null
-  existingUsers: User[]
+  existingUsers?: User[] // Hacer opcional ya que ahora verificamos en tiempo real
 }
 
-export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: UserFormModalProps) {
+export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalProps) {
   const [formData, setFormData] = useState<UserFormData>({
-    tipo_documento: "",
+    tipo_documento: undefined,
     numero_documento: "",
     nombre: "",
     apellido: "",
     correo: "",
+    confirmarCorreo: "",
     contrasena: "",
     confirmarContrasena: "",
     id_rol: 0,
     fecha_nacimiento: "",
     telefono: "",
     direccion: "",
-    genero: ""
+    genero: undefined
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [roles, setRoles] = useState<{ id: number; nombre: string }[]>([])
   const [isLoadingRoles, setIsLoadingRoles] = useState(false)
+  
+  // Estados para verificación de documento y correo
+  const [documentValidation, setDocumentValidation] = useState<{
+    isChecking: boolean;
+    exists: boolean;
+    message: string;
+  }>({ isChecking: false, exists: false, message: "" })
+  
+  const [emailValidation, setEmailValidation] = useState<{
+    isChecking: boolean;
+    exists: boolean;
+    message: string;
+  }>({ isChecking: false, exists: false, message: "" })
+
+  // Debounce para las verificaciones
+  const debouncedDocument = useDebounce(formData.numero_documento, 500)
+  const debouncedEmail = useDebounce(formData.correo, 500)
 
   useEffect(() => {
     if (user) {
       setFormData({
-        tipo_documento: user.tipo_documento,
+        tipo_documento: user.tipo_documento as 'CC' | 'CE' | 'TI' | 'PP' | 'DIE',
         numero_documento: user.numero_documento,
         nombre: user.nombre,
         apellido: user.apellido,
         correo: user.correo,
+        confirmarCorreo: user.correo,
         contrasena: "",
         confirmarContrasena: "",
         id_rol: user.id_rol,
         fecha_nacimiento: user.fecha_nacimiento,
         telefono: user.telefono || "",
         direccion: user.direccion || "",
-        genero: user.genero || ""
+        genero: user.genero as 'M' | 'F' | 'O' || undefined
       })
     } else {
       setFormData({
-        tipo_documento: "",
+        tipo_documento: undefined,
         numero_documento: "",
         nombre: "",
         apellido: "",
         correo: "",
+        confirmarCorreo: "",
         contrasena: "",
         confirmarContrasena: "",
         id_rol: 0,
         fecha_nacimiento: "",
         telefono: "",
         direccion: "",
-        genero: ""
+        genero: undefined
       })
     }
     setErrors({})
@@ -79,7 +102,10 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
       setIsLoadingRoles(true);
       try {
         const response = await apiClient.get('/users/roles');
-        const data = response.data;
+        const data = response.data as {
+          status: string;
+          data?: { roles?: { id: number; nombre: string }[] };
+        };
         if (data.status === 'success' && data.data?.roles) {
           setRoles(data.data.roles);
         }
@@ -94,6 +120,90 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
       loadRoles();
     }
   }, [isOpen]);
+
+  // Verificar número de documento
+  useEffect(() => {
+    const checkDocument = async () => {
+      if (!debouncedDocument || debouncedDocument.length < 5) {
+        setDocumentValidation({ isChecking: false, exists: false, message: "" });
+        return;
+      }
+
+      setDocumentValidation({ isChecking: true, exists: false, message: "" });
+
+      try {
+        const exists = await userService.checkDocumentExists(
+          debouncedDocument, 
+          user?.id // Excluir el usuario actual al editar
+        );
+        
+        if (exists) {
+          setDocumentValidation({
+            isChecking: false,
+            exists: true,
+            message: "Este número de documento ya está registrado"
+          });
+        } else {
+          setDocumentValidation({
+            isChecking: false,
+            exists: false,
+            message: "Número de documento disponible"
+          });
+        }
+      } catch (error) {
+        console.error('Error verificando documento:', error);
+        setDocumentValidation({
+          isChecking: false,
+          exists: false,
+          message: "Error al verificar el documento"
+        });
+      }
+    };
+
+    checkDocument();
+  }, [debouncedDocument, user?.id]);
+
+  // Verificar correo electrónico
+  useEffect(() => {
+    const checkEmail = async () => {
+      if (!debouncedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(debouncedEmail)) {
+        setEmailValidation({ isChecking: false, exists: false, message: "" });
+        return;
+      }
+
+      setEmailValidation({ isChecking: true, exists: false, message: "" });
+
+      try {
+        const exists = await userService.checkEmailExists(
+          debouncedEmail.toLowerCase(),
+          user?.id // Excluir el usuario actual al editar
+        );
+        
+        if (exists) {
+          setEmailValidation({
+            isChecking: false,
+            exists: true,
+            message: "Este correo ya está registrado"
+          });
+        } else {
+          setEmailValidation({
+            isChecking: false,
+            exists: false,
+            message: "Correo disponible"
+          });
+        }
+      } catch (error) {
+        console.error('Error verificando correo:', error);
+        setEmailValidation({
+          isChecking: false,
+          exists: false,
+          message: "Error al verificar el correo"
+        });
+      }
+    };
+
+    checkEmail();
+  }, [debouncedEmail, user?.id]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
@@ -122,14 +232,19 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
       if (!emailRegex.test(formData.correo)) {
         newErrors.correo = "Formato de correo inválido"
       }
-      // Verificar si el correo existe solo cuando se crea un nuevo usuario
-      if (!user && existingUsers?.some(existingUser => existingUser.correo === formData.correo)) {
-        newErrors.correo = "Este correo ya está registrado"
-      }
       // Verificar que los correos coincidan
       if (formData.correo !== formData.confirmarCorreo) {
         newErrors.confirmarCorreo = "Los correos no coinciden"
       }
+      // Verificar si existe en tiempo real
+      if (emailValidation.exists) {
+        newErrors.correo = emailValidation.message
+      }
+    }
+
+    // Verificar documento en tiempo real
+    if (documentValidation.exists) {
+      newErrors.numero_documento = documentValidation.message
     }
 
     // Validación de contraseña para nuevos usuarios
@@ -202,6 +317,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
     try {
       // Preparar datos para enviar (excluimos confirmarCorreo)
       const userDataToSend = {
+        ...(user && { codigo: user.codigo }), // Incluir ID y código cuando se está editando
         nombre: formData.nombre?.trim(),
         apellido: formData.apellido?.trim(),
         correo: formData.correo?.trim().toLowerCase(),
@@ -286,12 +402,37 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
 
             <div className="space-y-2">
               <Label htmlFor="numero_documento">Número de Documento</Label>
-              <Input
-                id="numero_documento"
-                value={formData.numero_documento}
-                onChange={(e) => handleInputChange("numero_documento", e.target.value)}
-                placeholder="Ingrese el número de documento"
-              />
+              <div className="relative">
+                <Input
+                  id="numero_documento"
+                  value={formData.numero_documento}
+                  onChange={(e) => handleInputChange("numero_documento", e.target.value)}
+                  placeholder="Ingrese el número de documento"
+                  className={documentValidation.exists ? "border-red-500" : documentValidation.message && !documentValidation.exists ? "border-green-500" : ""}
+                />
+                {documentValidation.isChecking && (
+                  <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                )}
+                {!documentValidation.isChecking && documentValidation.message && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    {documentValidation.exists ? (
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    )}
+                  </div>
+                )}
+              </div>
+              {documentValidation.message && (
+                <p className={`text-xs mt-1 flex items-center gap-1 ${documentValidation.exists ? 'text-red-500' : 'text-green-600'}`}>
+                  {documentValidation.exists ? (
+                    <AlertTriangle className="h-3 w-3" />
+                  ) : (
+                    <CheckCircle className="h-3 w-3" />
+                  )}
+                  {documentValidation.message}
+                </p>
+              )}
               {errors.numero_documento && <p className="text-red-500 text-sm">{errors.numero_documento}</p>}
             </div>
           </div>
@@ -338,13 +479,38 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="correo">Correo Electrónico</Label>
-              <Input
-                id="correo"
-                type="email"
-                value={formData.correo}
-                onChange={(e) => handleInputChange("correo", e.target.value)}
-                placeholder="ejemplo@correo.com"
-              />
+              <div className="relative">
+                <Input
+                  id="correo"
+                  type="email"
+                  value={formData.correo}
+                  onChange={(e) => handleInputChange("correo", e.target.value)}
+                  placeholder="ejemplo@correo.com"
+                  className={emailValidation.exists ? "border-red-500" : emailValidation.message && !emailValidation.exists ? "border-green-500" : ""}
+                />
+                {emailValidation.isChecking && (
+                  <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                )}
+                {!emailValidation.isChecking && emailValidation.message && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    {emailValidation.exists ? (
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    )}
+                  </div>
+                )}
+              </div>
+              {emailValidation.message && (
+                <p className={`text-xs mt-1 flex items-center gap-1 ${emailValidation.exists ? 'text-red-500' : 'text-green-600'}`}>
+                  {emailValidation.exists ? (
+                    <AlertTriangle className="h-3 w-3" />
+                  ) : (
+                    <CheckCircle className="h-3 w-3" />
+                  )}
+                  {emailValidation.message}
+                </p>
+              )}
               {errors.correo && <p className="text-red-500 text-xs mt-1">{errors.correo}</p>}
             </div>
 
@@ -461,7 +627,17 @@ export function UserFormModal({ isOpen, onClose, onSave, user, existingUsers }: 
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="bg-black hover:bg-gray-800">
+            <Button 
+              type="submit" 
+              disabled={
+                isSubmitting || 
+                documentValidation.isChecking || 
+                emailValidation.isChecking ||
+                documentValidation.exists ||
+                emailValidation.exists
+              } 
+              className="bg-black hover:bg-gray-800"
+            >
               {isSubmitting ? "Guardando..." : user ? "Actualizar" : "Registrar"}
             </Button>
           </div>

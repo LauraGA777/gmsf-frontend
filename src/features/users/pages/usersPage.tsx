@@ -17,8 +17,6 @@ import {
   RotateCcw,
   Power
 } from "lucide-react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { userService } from "../services/userService";
 import type { User, UserFormData } from "../types/user";
 import Swal from "sweetalert2";
@@ -41,6 +39,7 @@ import apiClient from '@/shared/services/api';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]); // Para almacenar todos los usuarios cuando hay filtros
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [isNewUserOpen, setIsNewUserOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -51,21 +50,45 @@ export default function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [hasFilters, setHasFilters] = useState(false);
   const itemsPerPage = 10;
 
   useEffect(() => {
+    // Carga inicial de usuarios
     loadUsers();
   }, []);
 
   useEffect(() => {
+    const hasActiveFilters = searchTerm.trim() !== "" || statusFilter !== "all";
+    setHasFilters(hasActiveFilters);
+    
+    if (hasActiveFilters) {
+      // Si hay filtros, cargar todos los usuarios
+      loadAllUsers();
+    } else {
+      // Si no hay filtros, usar paginación del backend
+      setCurrentPage(1); // Reset a la primera página
+      loadUsers();
+    }
+  }, [searchTerm, statusFilter]);
+
+  useEffect(() => {
+    if (!hasFilters) {
+      loadUsers();
+    }
+  }, [currentPage, hasFilters]);
+
+  useEffect(() => {
     filterUsers();
-  }, [users, searchTerm, statusFilter]);
+  }, [users, allUsers, searchTerm, statusFilter, hasFilters]);
 
   const loadUsers = async () => {
     try {
       setIsLoading(true);
       const response = await userService.getUsers(currentPage, itemsPerPage);
       setUsers(response.data);
+      setTotalPages(response.totalPages);
     } catch (error) {
       console.error('Error loading users:', error);
       setError('Error al cargar los usuarios');
@@ -74,8 +97,23 @@ export default function UsersPage() {
     }
   };
 
+  const loadAllUsers = async () => {
+    try {
+      setIsLoading(true);
+      // Cargar todos los usuarios (usar un límite alto)
+      const response = await userService.getUsers(1, 1000);
+      setAllUsers(response.data);
+    } catch (error) {
+      console.error('Error loading all users:', error);
+      setError('Error al cargar los usuarios');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const filterUsers = () => {
-    let filtered = [...users];
+    let dataToFilter = hasFilters ? allUsers : users;
+    let filtered = [...dataToFilter];
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -93,6 +131,11 @@ export default function UsersPage() {
     }
 
     setFilteredUsers(filtered);
+    
+    // Calcular paginación para filtros locales
+    if (hasFilters) {
+      setTotalPages(Math.ceil(filtered.length / itemsPerPage));
+    }
   };
 
   const [roles, setRoles] = useState<{ id: number; nombre: string }[]>([]);
@@ -167,7 +210,12 @@ export default function UsersPage() {
   const handleCreateUser = async (data: UserFormData) => {
     try {
       await userService.createUser(data);
-      await loadUsers();
+      // Recargar datos según el estado actual
+      if (hasFilters) {
+        await loadAllUsers();
+      } else {
+        await loadUsers();
+      }
       setIsNewUserOpen(false);
       setEditingUser(null);
       
@@ -188,7 +236,12 @@ export default function UsersPage() {
     
     try {
       await userService.updateUser(editingUser.id, data);
-      await loadUsers();
+      // Recargar datos según el estado actual
+      if (hasFilters) {
+        await loadAllUsers();
+      } else {
+        await loadUsers();
+      }
       setIsNewUserOpen(false);
       setEditingUser(null);
       
@@ -204,7 +257,7 @@ export default function UsersPage() {
     }
   };
 
-  const handleToggleUserStatus = async (id: number, currentStatus: boolean, user: User) => {
+  const handleToggleUserStatus = async (id: number, currentStatus: boolean) => {
     const result = await Swal.fire({
       title: currentStatus ? "¿Desactivar usuario?" : "¿Activar usuario?",
       text: currentStatus ? "¿Está seguro que desea desactivar este usuario?" : "¿Está seguro que desea activar este usuario?",
@@ -223,7 +276,12 @@ export default function UsersPage() {
         } else {
           await userService.activateUser(id);
         }
-        await loadUsers();
+        // Recargar datos según el estado actual
+        if (hasFilters) {
+          await loadAllUsers();
+        } else {
+          await loadUsers();
+        }
         
         Swal.fire({
           title: currentStatus ? "¡Desactivado!" : "¡Activado!",
@@ -283,7 +341,12 @@ export default function UsersPage() {
     if (motivo) {
       try {
         await userService.deleteUserPermanently(id, motivo);
-        await loadUsers();
+        // Recargar datos según el estado actual
+        if (hasFilters) {
+          await loadAllUsers();
+        } else {
+          await loadUsers();
+        }
         
         Swal.fire({
           title: "¡Eliminado permanentemente!",
@@ -304,12 +367,9 @@ export default function UsersPage() {
     }
   };
 
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = hasFilters 
+    ? filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+    : filteredUsers;
 
   if (users.length === 0 && !isLoading) {
     return (
@@ -338,7 +398,11 @@ export default function UsersPage() {
             variant="outline"
             onClick={() => {
               setError(null);
-              loadUsers();
+              if (hasFilters) {
+                loadAllUsers();
+              } else {
+                loadUsers();
+              }
             }}
             className="mt-2"
           >
@@ -355,7 +419,13 @@ export default function UsersPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={loadUsers}
+            onClick={() => {
+              if (hasFilters) {
+                loadAllUsers();
+              } else {
+                loadUsers();
+              }
+            }}
             disabled={isLoading}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -465,7 +535,7 @@ export default function UsersPage() {
                               <Edit className="w-4 h-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleUserStatus(user.id, user.estado, user)}>
+                            <DropdownMenuItem onClick={() => handleToggleUserStatus(user.id, user.estado)}>
                               {user.estado ? (
                                 <Power className="w-4 h-4 mr-2" />
                               ) : (
@@ -537,12 +607,7 @@ export default function UsersPage() {
         }}
         onSave={editingUser ? handleUpdateUser : handleCreateUser}
         user={editingUser}
-        existingUsers={users}
       />
     </div>
   );
-}
-
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <label className={className}>{children}</label>;
 }

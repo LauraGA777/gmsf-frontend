@@ -66,5 +66,31 @@ export const userService = {
       `/users/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
     );
     return response.data;
+  },
+
+  // Verificar si un número de documento ya existe
+  checkDocumentExists: async (numeroDocumento: string, excludeUserId?: number): Promise<boolean> => {
+    try {
+      const response = await apiClient.get<ApiResponse<{ exists: boolean }>>(`/users/check-document/${encodeURIComponent(numeroDocumento)}`, {
+        params: excludeUserId ? { excludeUserId } : {}
+      });
+      return response.data.data.exists;
+    } catch (error) {
+      console.error('Error checking document:', error);
+      return false;
+    }
+  },
+
+  // Verificar si un correo ya existe
+  checkEmailExists: async (email: string, excludeUserId?: number): Promise<boolean> => {
+    try {
+      const response = await apiClient.get<ApiResponse<{ exists: boolean }>>(`/users/check-email/${encodeURIComponent(email)}`, {
+        params: excludeUserId ? { excludeUserId } : {}
+      });
+      return response.data.data.exists;
+    } catch (error) {
+      console.error('Error checking email:', error);
+      return false;
+    }
   }
 };

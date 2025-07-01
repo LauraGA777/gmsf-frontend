@@ -388,13 +388,19 @@ export default function AttendanceRegistry() {
                           </TableCell>
                           <TableCell className="font-mono">{record.persona?.usuario?.numero_documento}</TableCell>
                           <TableCell>
-                            <Badge variant={record.contrato?.estado === "Activo" ? "default" : "secondary"}>
+                            <Badge 
+                              variant={record.contrato?.estado === "Activo" ? "default" : "destructive"}
+                              className="hover:bg-default"
+                            >
                               {record.contrato?.estado}
                             </Badge>
                           </TableCell>
                           <TableCell className="font-mono">{record.hora_registro}</TableCell>
                           <TableCell>
-                            <Badge variant={record.contrato?.estado === "Activo" ? "default" : "destructive"}>
+                            <Badge 
+                              variant={record.contrato?.estado === "Activo" ? "default" : "destructive"}
+                              className="hover:bg-default"
+                            >
                               {record.contrato?.estado}
                             </Badge>
                           </TableCell>

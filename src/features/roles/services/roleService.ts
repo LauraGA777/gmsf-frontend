@@ -95,7 +95,8 @@ class RoleService {
         data = await response.json()
       } catch (parseError) {
         console.error("Error parsing JSON response:", parseError)
-        throw new Error(`Error parsing server response: ${parseError.message}`)
+        const errorMessage = parseError instanceof Error ? parseError.message : "Error parsing response"
+        throw new Error(`Error parsing server response: ${errorMessage}`)
       }
 
       console.log(`Response from ${url}:`, data)
@@ -124,7 +125,7 @@ class RoleService {
       console.error(`Detailed error in request to ${url}:`, error)
 
       // Provide more specific error messages
-      if (error.name === "TypeError" && error.message.includes("Failed to fetch")) {
+      if (error instanceof TypeError && error.message.includes("Failed to fetch")) {
         throw new Error("No se pudo conectar al servidor. Verifique la URL o su conexión.")
       }
 
@@ -208,7 +209,7 @@ class RoleService {
     } catch (error) {
       console.error(`Error fetching role ${id}:`, error)
 
-      if (error.message.includes("No autorizado")) {
+      if (error instanceof Error && error.message.includes("No autorizado")) {
         throw new Error("Sesión expirada. Por favor, inicie sesión nuevamente.")
       }
 
@@ -234,7 +235,7 @@ class RoleService {
     } catch (error) {
       console.error("Error creating role:", error)
 
-      if (error.message.includes("No autorizado")) {
+      if (error instanceof Error && error.message.includes("No autorizado")) {
         throw new Error("Sesión expirada. Por favor, inicie sesión nuevamente.")
       }
 
@@ -260,7 +261,7 @@ class RoleService {
     } catch (error) {
       console.error(`Error updating role ${role.id}:`, error)
 
-      if (error.message.includes("No autorizado")) {
+      if (error instanceof Error && error.message.includes("No autorizado")) {
         throw new Error("Sesión expirada. Por favor, inicie sesión nuevamente.")
       }
 
@@ -282,7 +283,7 @@ class RoleService {
     } catch (error) {
       console.error(`Error deleting role ${id}:`, error)
 
-      if (error.message.includes("No autorizado")) {
+      if (error instanceof Error && error.message.includes("No autorizado")) {
         throw new Error("Sesión expirada. Por favor, inicie sesión nuevamente.")
       }
 
@@ -302,7 +303,7 @@ class RoleService {
     } catch (error) {
       console.error("Error searching roles:", error)
 
-      if (error.message.includes("No autorizado")) {
+      if (error instanceof Error && error.message.includes("No autorizado")) {
         throw new Error("Sesión expirada. Por favor, inicie sesión nuevamente.")
       }
 
@@ -329,7 +330,7 @@ class RoleService {
     } catch (error) {
       console.error("Error fetching permissions and privileges:", error)
 
-      if (error.message.includes("No autorizado")) {
+      if (error instanceof Error && error.message.includes("No autorizado")) {
         throw new Error("Sesión expirada. Por favor, inicie sesión nuevamente.")
       }
 
@@ -359,10 +360,10 @@ class RoleService {
         })) || []
 
       // Cambiamos el estado
-      const updatedRole = {
+      const updatedRole: Role = {
         ...currentRole,
         estado: !currentRole.estado,
-        status: currentRole.estado ? "Inactivo" : "Activo",
+        status: (currentRole.estado ? "Inactivo" : "Activo") as "Activo" | "Inactivo",
         isActive: !currentRole.estado,
       }
 
@@ -376,7 +377,6 @@ class RoleService {
   // Convertir permisos del backend a formato de selección del frontend
   convertToPermissionSelection(
     permissions: Permission[],
-    rolePermissions?: Permission[],
     rolePrivileges?: any[],
   ): PermissionSelection[] {
     return permissions.map((permission) => ({

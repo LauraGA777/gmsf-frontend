@@ -172,10 +172,12 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const refreshMemberships = useCallback(async () => {
     try {
       setMembershipsLoading(true);
-      const response = await membershipService.getMemberships({ limit: 1000 });
+      // Usar un límite más razonable por defecto
+      const response = await membershipService.getMemberships({ limit: 50 });
       setMemberships(response.data);
     } catch (error) {
       // Silenciosamente manejar el error
+      console.warn('No se pudieron cargar las membresías:', error);
     } finally {
       setMembershipsLoading(false);
     }
@@ -377,12 +379,16 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNavigationCallbacks(callbacks);
   }, []);
 
-  // Load initial data only when authenticated
+  // Load initial data only when authenticated (excluding memberships)
   useEffect(() => {
     if (isAuthenticated) {
-      refreshAll();
+      // Solo cargar clientes y contratos inicialmente
+      Promise.all([
+        refreshClients(),
+        refreshContracts()
+      ]);
     }
-  }, [isAuthenticated, refreshAll]);
+  }, [isAuthenticated, refreshClients, refreshContracts]);
 
   const value: GymContextType = {
     // Data

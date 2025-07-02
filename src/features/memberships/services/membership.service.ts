@@ -265,7 +265,8 @@ class MembershipService {
   async getActiveMemberships(): Promise<Membership[]> {
     try {
       this.checkAuth();
-      const response = await this.getMemberships({ estado: true, limit: 1000 });
+      // Usar un límite más razonable o paginación
+      const response = await this.getMemberships({ estado: true, limit: 50 });
       return response.data.filter(m => m.estado);
     } catch (error) {
       console.error('Error fetching active memberships:', error);

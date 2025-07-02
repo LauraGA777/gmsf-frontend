@@ -1,5 +1,5 @@
 import React from "react";
-import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
+import { PermissionProtectedRoute } from "@/shared/components/PermissionProtectedRoute";
 import { GymDashboard } from "@/features/dashboard/pages/gymDashboard";
 import { DashboardPage } from "@/features/dashboard/pages/dashboardPage";
 import { AttendanceChart } from "../components/attendanceChart";
@@ -27,53 +27,77 @@ export const dashboardRoutes = [
     {
         path: "dashboard",
         element: (
-            <ProtectedRoute allowedRoles={[1, 2]}>
+            <PermissionProtectedRoute 
+                requiredModule="Panel de control" 
+                requiredPrivilege="Leer"
+                fallbackRoles={[1, 2]} // Admin y entrenadores
+            >
                 <DashboardPage />
-            </ProtectedRoute>
+            </PermissionProtectedRoute>
         )
     },
     {
         path: "dashboard/gym",
         element: (
-            <ProtectedRoute allowedRoles={[1, 2]}>
+            <PermissionProtectedRoute 
+                requiredModule="Panel de control" 
+                requiredPrivilege="Leer"
+                fallbackRoles={[1, 2]} // Admin y entrenadores
+            >
                 <GymDashboard />
-            </ProtectedRoute>
+            </PermissionProtectedRoute>
         )
     },
     // Mantenemos rutas individuales para acceso directo a componentes específicos
     {
         path: "dashboard/attendance",
         element: (
-            <ProtectedRoute allowedRoles={[1, 2]}>
+            <PermissionProtectedRoute 
+                requiredModule="Panel de control" 
+                requiredPrivilege="Leer"
+                fallbackRoles={[1, 2]} // Admin y entrenadores
+            >
                 <AttendanceChart />
-            </ProtectedRoute>
+            </PermissionProtectedRoute>
         ),
     },
     {
         path: "dashboard/classes",
         element: (
-            <ProtectedRoute allowedRoles={[1, 2]}>
+            <PermissionProtectedRoute 
+                requiredModule="Panel de control" 
+                requiredPrivilege="Leer"
+                fallbackRoles={[1, 2]} // Admin y entrenadores
+            >
                 <PopularMembershipsChart />
-            </ProtectedRoute>
+            </PermissionProtectedRoute>
         ),
     },
     {
         path: "dashboard/satisfaction",
         element: (
-            <ProtectedRoute allowedRoles={[1, 2]}>
+            <PermissionProtectedRoute 
+                requiredModule="Panel de control" 
+                requiredPrivilege="Leer"
+                fallbackRoles={[1, 2]} // Admin y entrenadores
+            >
                 <SatisfactionChart data={satisfactionData} />
-            </ProtectedRoute>
+            </PermissionProtectedRoute>
         ),
     },
     {
         path: "dashboard/services-satisfaction",
         element: (
-            <ProtectedRoute allowedRoles={[1, 2]}>
+            <PermissionProtectedRoute 
+                requiredModule="Panel de control" 
+                requiredPrivilege="Leer"
+                fallbackRoles={[1, 2]} // Admin y entrenadores
+            >
                 <ServiceSatisfactionChart
                     data={serviceSatisfactionData}
                     title="Satisfacción por Servicio"
                 />
-            </ProtectedRoute>
+            </PermissionProtectedRoute>
         ),
     },
 ];

@@ -1,5 +1,5 @@
 import { RouteObject } from "react-router-dom";
-import { ProtectedRoute } from "../../auth/components/protectedRoute";
+import { PermissionProtectedRoute } from "@/shared/components/PermissionProtectedRoute";
 import ProfilePage from "@/features/auth/pages/profilePage";
 import UsersPage from "../pages/usersPage";
 
@@ -7,17 +7,25 @@ export const userRoutes: RouteObject[] = [
     {
         path: "/users",
         element: (
-        <ProtectedRoute allowedRoles={[1]}>    
-        <UsersPage/>
-        </ProtectedRoute>
-    )
+            <PermissionProtectedRoute 
+                requiredModule="Gestión de usuarios" 
+                requiredPrivilege="Leer"
+                fallbackRoles={[1]} // Admin siempre tiene acceso
+            >    
+                <UsersPage/>
+            </PermissionProtectedRoute>
+        )
     },
     {
         path: "/profile",
         element: (
-        <ProtectedRoute allowedRoles={[1, 2, 3]}>    
-        <ProfilePage/>
-        </ProtectedRoute>
-    )
+            <PermissionProtectedRoute 
+                requiredModule="Panel de control" 
+                requiredPrivilege="Leer"
+                fallbackRoles={[1, 2, 3, 4]} // Todos los usuarios pueden ver su perfil
+            >    
+                <ProfilePage/>
+            </PermissionProtectedRoute>
+        )
     }
 ];

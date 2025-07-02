@@ -112,6 +112,10 @@ class RoleService {
           throw new Error("No tiene permisos para realizar esta acción.")
         }
 
+        if (response.status === 404) {
+          throw new Error("El endpoint de roles no fue encontrado.")
+        }
+
         throw new Error(data.message || `HTTP error! status: ${response.status}`)
       }
 
@@ -165,21 +169,30 @@ class RoleService {
       console.error("Detailed error in getRoles:", error)
 
       // Check if it's an authentication error
-      if (error.message.includes("No autorizado") || error.message.includes("No se proporcionó token")) {
-        throw new Error("Sesión expirada. Por favor, inicie sesión nuevamente.")
+      if (error instanceof Error) {
+        if (error.message.includes("No autorizado") || error.message.includes("No se proporcionó token")) {
+          throw new Error("Sesión expirada. Por favor, inicie sesión nuevamente.")
+        }
+
+        // Check if it's a permission error
+        if (error.message.includes("No tiene permisos")) {
+          console.warn("Usuario sin permisos para consultar roles - esto puede ser normal para algunos roles")
+          throw new Error("No tiene permisos para consultar los roles del sistema.")
+        }
+
+        // Check if it's a network error
+        if (error instanceof TypeError && error.message.includes("fetch")) {
+          throw new Error("Error de conexión. Verifique su conexión a internet.")
+        }
+
+        // Check if it's a CORS error
+        if (error instanceof TypeError && error.message.includes("CORS")) {
+          throw new Error("Error de CORS. El servidor no permite el acceso desde este dominio.")
+        }
       }
 
-      // Check if it's a network error
-      if (error instanceof TypeError && error.message.includes("fetch")) {
-        throw new Error("Error de conexión. Verifique su conexión a internet.")
-      }
-
-      // Check if it's a CORS error
-      if (error instanceof TypeError && error.message.includes("CORS")) {
-        throw new Error("Error de CORS. El servidor no permite el acceso desde este dominio.")
-      }
-
-      throw new Error(`Error al cargar los roles: ${error.message}`)
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido"
+      throw new Error(`Error al cargar los roles: ${errorMessage}`)
     }
   }
 

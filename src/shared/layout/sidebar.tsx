@@ -1,6 +1,3 @@
-"use client"
-
-import type React from "react"
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
 import {
@@ -129,15 +126,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     } else if (path.includes("/trainers")) {
       setActiveItem("trainers")
       setActiveGroup(null)
-    } else if (path.includes("/services/custom")) {
-      setActiveItem("services.custom")
-      setActiveGroup("services")
-    } else if (path.includes("/services")) {
-      setActiveItem("services.list")
-      setActiveGroup("services")
     } else if (path.includes("/calendar")) {
       setActiveItem("calendar")
-      setActiveGroup("services")
+      setActiveGroup(null)
     } else if (path.includes("/clients")) {
       setActiveItem("clients.list")
       setActiveGroup("clients")
@@ -150,9 +141,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     } else if (path.includes("/attendance")) {
       setActiveItem("attendance.list")
       setActiveGroup("memberships")
-    } else if (path.includes("/surveys")) {
-      setActiveItem("surveys.list")
-      setActiveGroup("feedback")
     }
   }, [location.pathname])
 
@@ -179,10 +167,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
   )
 
-  // Verificar si el grupo de ventas tiene al menos un módulo accesible
+  // Verificar acceso a diferentes grupos de módulos
   const hasVentasAccess = hasModuleAccess("Gestión de contratos") || hasModuleAccess("Gestión de clientes")
-
-  // Verificar si el grupo de membresías tiene al menos un módulo accesible
+  
   const hasMembresíasAccess = hasModuleAccess("Gestión de membresías") || hasModuleAccess("Control de asistencia")
 
   if (!shouldRender || isLoading) return null
@@ -193,8 +180,41 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Encabezado del Sidebar */}
         <div className="p-4 border-b border-gray-100">
           <div className="flex gap-2 items-center">
-            <img src="/favicon.ico" alt="Logo GMSF" className="h-8 w-8" />
-            <h2 className="text-2xl font-bold text-black-800">GMSF</h2>
+            {/* Logo GMSF */}
+            <Link
+            to="/dashboard" 
+              className="text-2xl font-bold text-black-800 font-gmsf font-normal not-italic hover:text-black-800 transition-colors duration-200 cursor-pointer"
+              onClick={() => {
+                handleItemClick("dashboard")
+                if (window.innerWidth < 768) onClose()
+              }}
+              aria-label="Ir al Dashboard">
+            <img src="/favicon.ico" alt="Logo GMSF" className="h-10 w-10" />
+            </Link>
+            {/* Título GMSF clickeable que redirecciona al dashboard */}
+            <Link 
+              to="/dashboard" 
+              className="text-2xl font-bold text-black-800 font-gmsf font-normal not-italic hover:text-black-800 transition-colors duration-200 cursor-pointer"
+              onClick={() => {
+                handleItemClick("dashboard")
+                if (window.innerWidth < 768) onClose()
+              }}
+              aria-label="Ir al Dashboard"
+            >
+              GMSF
+            </Link>
+            {/* 
+            Opciones alternativas de fuentes:
+            - font-title: Fuente Inter moderna y limpia
+            - font-brand: Fuente Roboto corporativa  
+            - font-modern: Fuente Poppins moderna (actual)
+            - font-tech: Fuente Fira Code estilo tecnológico
+            - font-elegant: Fuente Playfair Display elegante
+            - font-mono: Fuente monospace del sistema
+            - font-sans: Fuente sans-serif por defecto
+            - font-serif: Fuente serif tradicional
+            - font-gmsf: Fuente Fugaz One personalizada para GMSF
+            */}
             <Button variant="ghost" size="sm" onClick={onClose} className="md:hidden p-1" aria-label="Cerrar menú">
               <X className="h-5 w-5" />
             </Button>
@@ -262,7 +282,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               label="Agenda"
               active={activeItem === "calendar"}
               onClick={() => {
-                handleItemClick("calendar", "services")
+                handleItemClick("calendar")
                 if (window.innerWidth < 768) onClose()
               }}
               to="/calendar"
@@ -402,6 +422,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               </>
             )}
 
+            {/* Separador visual */}
+            <li className="my-2">
+              <hr className="border-gray-200 dark:border-gray-700" />
+            </li>
+
             {/* Cerrar Sesión - Siempre visible */}
             <NavItem
               icon={<LogOut className="h-5 w-5 text-red-600" aria-hidden="true" />}
@@ -410,7 +435,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               onClick={logout}
               onClose={onClose}
               id="nav-logout"
-              className="text-red-600 hover:text-red-700"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
             />
           </ul>
         </nav>

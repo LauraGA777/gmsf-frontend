@@ -1,13 +1,18 @@
 import { ProtectedRoute } from "../../auth/components/protectedRoute";
 import { RolesPage } from "@/features/roles/pages/rolesPage"
+import { PermissionProtectedRoute } from "@/shared/components/PermissionProtectedRoute";
 
 export const rolesRoutes = [
   {
     path: "/roles",
     element: (
-      <ProtectedRoute allowedRoles={[1]}>
+      <PermissionProtectedRoute 
+        requiredModule="Gestión de roles" 
+        requiredPrivilege="Leer"
+        fallbackRoles={[1]}
+      >
         <RolesPage />
-      </ProtectedRoute>
+      </PermissionProtectedRoute>
     ),
   },
 ]

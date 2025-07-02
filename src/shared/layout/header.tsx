@@ -1,17 +1,16 @@
 import { useLocation } from "react-router-dom"
 import { UserMenu } from "./userMenu"
-import { Menu, Home, Users, UserCog, Dumbbell, FileSignature, User, ClipboardCheck, MessageSquare } from "lucide-react"
+import { Menu, Home, Users, UserCog, FileSignature, User, ClipboardCheck, Calendar, BadgeCheck, UserCheck } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { cn } from "@/shared/lib/formatCop"
 import { useEffect, useState } from "react"
-import { useAuth, ROLES } from "@/shared/contexts/authContext"
+import { useAuth } from "@/shared/contexts/authContext"
 
 interface HeaderProps {
   toggleSidebar: () => void
-  currentSection?: string
 }
 
-export function Header({ toggleSidebar, currentSection }: HeaderProps) {
+export function Header({ toggleSidebar }: HeaderProps) {
   const { user } = useAuth()
   const location = useLocation()
   const [pathIcon, setPathIcon] = useState<React.ReactNode>(<Home />)
@@ -26,9 +25,8 @@ export function Header({ toggleSidebar, currentSection }: HeaderProps) {
     if (path.includes("/dashboard")) {
       icon = <Home />
       items = ["Panel de Control"]
-    }
-    else if (path.includes("/roles")) {
-      icon = <Users />
+    } else if (path.includes("/roles")) {
+      icon = <BadgeCheck />
       items = ["Roles"]
     } else if (path.includes("/users")) {
       icon = <Users />
@@ -36,12 +34,9 @@ export function Header({ toggleSidebar, currentSection }: HeaderProps) {
     } else if (path.includes("/trainers")) {
       icon = <UserCog />
       items = ["Entrenadores"]
-    } else if (path.includes("/services")) {
-      icon = <Dumbbell />
-      items = ["Servicios"]
     } else if (path.includes("/calendar")) {
-      icon = <Dumbbell />
-      items = user?.id_rol === ROLES.CLIENTE ? ["Agenda"] : ["Servicios", "Agenda"]
+      icon = <Calendar />
+      items = ["Agenda"]
     } else if (path.includes("/contracts")) {
       icon = <FileSignature />
       items = ["Ventas", "Contratos"]
@@ -52,11 +47,8 @@ export function Header({ toggleSidebar, currentSection }: HeaderProps) {
       icon = <ClipboardCheck />
       items = ["Membresías"]
     } else if (path.includes("/attendance")) {
-      icon = <ClipboardCheck />
+      icon = <UserCheck />
       items = ["Membresías", "Asistencia"]
-    } else if (path.includes("/surveys")) {
-      icon = <MessageSquare />
-      items = ["Encuestas"]
     }
 
     setPathIcon(icon)
@@ -102,15 +94,6 @@ export function Header({ toggleSidebar, currentSection }: HeaderProps) {
         </div>
 
         <div className="flex-1" />
-        
-        {/* Status indicator - green dot when user is active 
-        <div className="hidden md:flex items-center mr-4">
-          <div className="flex items-center mr-2">
-            <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-            <span className="text-sm text-gray-600">Activo</span>
-          </div>
-        </div>*/}
-        
         <UserMenu />
       </div>
     </header>

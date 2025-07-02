@@ -14,6 +14,15 @@ export const useMemberships = () => {
 
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [membershipsLoaded, setMembershipsLoaded] = useState(false);
+
+  // Función para cargar membresías bajo demanda
+  const loadMembershipsIfNeeded = useCallback(async () => {
+    if (!membershipsLoaded && memberships.length === 0) {
+      await refreshMemberships();
+      setMembershipsLoaded(true);
+    }
+  }, [membershipsLoaded, memberships.length, refreshMemberships]);
 
   // Get membership statistics
   const getMembershipStats = useCallback((membershipId: string) => {
@@ -174,10 +183,11 @@ export const useMemberships = () => {
     );
   }, [memberships]);
 
-  // Get active memberships for selects
-  const getActiveMemberships = useCallback(() => {
+  // Get active memberships for selects (carga bajo demanda)
+  const getActiveMemberships = useCallback(async () => {
+    await loadMembershipsIfNeeded();
     return memberships.filter(m => m.estado);
-  }, [memberships]);
+  }, [memberships, loadMembershipsIfNeeded]);
 
   // Get most popular memberships (by active contracts)
   const getPopularMemberships = useCallback((limit: number = 5) => {
@@ -195,7 +205,7 @@ export const useMemberships = () => {
   return {
     // Data
     memberships,
-    activeMemberships: getActiveMemberships(),
+    activeMemberships: memberships.filter(m => m.estado), // Versión síncrona
     membershipStats: getAllMembershipStats(),
     popularMemberships: getPopularMemberships(),
     
@@ -214,7 +224,9 @@ export const useMemberships = () => {
     getMembershipById,
     getMembershipStats,
     getPopularMemberships,
+    getActiveMemberships, // Versión async que carga bajo demanda
     validateMembershipData,
     isNameUnique,
+    loadMembershipsIfNeeded,
   };
 };

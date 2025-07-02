@@ -1,14 +1,18 @@
 import { RouteObject } from "react-router-dom";
-import { ProtectedRoute } from "../../auth/components/protectedRoute";
+import { PermissionProtectedRoute } from "@/shared/components/PermissionProtectedRoute";
 import AttendanceRegistry from "../components/attendance";
 
 export const attendanceRoutes: RouteObject[] = [
     {
         path: "/attendance",
         element: (
-            <ProtectedRoute allowedRoles={[1]}>
+            <PermissionProtectedRoute 
+                requiredModule="Control de asistencia" 
+                requiredPrivilege="Leer"
+                fallbackRoles={[1, 2]} // Admin y entrenadores
+            >
                 <AttendanceRegistry />
-            </ProtectedRoute>
+            </PermissionProtectedRoute>
         )
     },
 ];

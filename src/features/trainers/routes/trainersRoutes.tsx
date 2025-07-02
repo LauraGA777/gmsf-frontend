@@ -1,13 +1,17 @@
-import { ProtectedRoute } from "../../auth/components/protectedRoute";
+import { PermissionProtectedRoute } from "@/shared/components/PermissionProtectedRoute";
 import { TrainersPage } from "@/features/trainers/pages/trainersPage"
 
 export const trainersRoutes = [
   {
     path: "trainers",
     element: (
-      <ProtectedRoute allowedRoles={[1]}>
+      <PermissionProtectedRoute 
+        requiredModule="Gestión de entrenadores" 
+        requiredPrivilege="Leer"
+        fallbackRoles={[1]}
+      >
         <TrainersPage />
-      </ProtectedRoute>
+      </PermissionProtectedRoute>
     ),
   },
 ]

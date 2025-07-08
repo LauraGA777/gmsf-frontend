@@ -9,6 +9,7 @@ export interface User {
   role?: Role; // Rol completo con permisos y privilegios
   roleCode?: string; // Código del rol para compatibilidad
   roleName?: string; // Nombre del rol para UI
+  roleSource?: string; // Origen del rol: 'database' | 'fallback' | 'unknown'
   clientId?: string;
   trainerId?: string;
   avatar?: string;

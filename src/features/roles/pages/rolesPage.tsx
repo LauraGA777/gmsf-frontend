@@ -1,5 +1,3 @@
-"use client"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
@@ -9,7 +7,7 @@ import { Plus, Search, MoreHorizontal, RefreshCw, Edit, Eye, Trash2, RotateCcw, 
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { roleService } from "../services/roleService"
-import type { Role, PermissionSelection } from "@/shared/types/role"
+import type { Role } from "@/shared/types/role"
 import Swal from "sweetalert2"
 import {
   DropdownMenu,
@@ -98,25 +96,13 @@ export function RolesPage() {
     setIsModalOpen(true)
   }
 
-  const handleSaveRole = async (roleData: Omit<Role, "id">, selectedPermissions: PermissionSelection[]) => {
+  const handleSaveRole = async () => {
     try {
-      if (editingRole) {
-        await roleService.updateRole(
-          {
-            ...roleData,
-            id: editingRole.id,
-          },
-          selectedPermissions,
-        )
-      } else {
-        await roleService.createRole(roleData, selectedPermissions)
-      }
       await loadRoles()
       setIsModalOpen(false)
       setEditingRole(null)
     } catch (error) {
-      console.error("Error saving role:", error)
-      throw error
+      console.error("Error reloading roles:", error)
     }
   }
 
@@ -134,7 +120,7 @@ export function RolesPage() {
 
     if (result.isConfirmed) {
       try {
-        await roleService.deleteRole(role.id.toString())
+        await roleService.deleteRole(role.id)
         await loadRoles()
 
         Swal.fire({
@@ -173,7 +159,7 @@ export function RolesPage() {
 
     if (result.isConfirmed) {
       try {
-        await roleService.toggleRoleStatus(role.id.toString())
+        await roleService.toggleRoleStatus(role.id, !role.estado)
         await loadRoles()
 
         Swal.fire({
@@ -442,14 +428,13 @@ export function RolesPage() {
 
       {/* New/Edit Role Modal */}
       <RoleModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false)
-          setEditingRole(null)
+        open={isModalOpen}
+        onOpenChange={(open: boolean) => {
+          setIsModalOpen(open)
+          if (!open) setEditingRole(null)
         }}
-        onSave={handleSaveRole}
-        role={editingRole || undefined}
-        title={editingRole ? "Editar Rol" : "Nuevo Rol"}
+        onSuccess={handleSaveRole}
+        role={editingRole || null}
       />
     </div>
   )

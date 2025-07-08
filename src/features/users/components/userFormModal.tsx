@@ -11,7 +11,7 @@ import Swal from "sweetalert2"
 import type { User, UserFormData } from "../types/user"
 import { userService } from "../services/userService"
 import { useDebounce } from "@/shared/hooks/useDebounce"
-import apiClient from '@/shared/services/api';
+import { roleService } from '@/features/roles/services/roleService';
 
 interface UserFormModalProps {
   isOpen: boolean
@@ -105,14 +105,8 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
     const loadRoles = async () => {
       setIsLoadingRoles(true);
       try {
-        const response = await apiClient.get('/users/roles');
-        const data = response.data as {
-          status: string;
-          data?: { roles?: { id: number; nombre: string }[] };
-        };
-        if (data.status === 'success' && data.data?.roles) {
-          setRoles(data.data.roles);
-        }
+        const roles = await roleService.getRolesForSelect();
+        setRoles(roles);
       } catch (error) {
         console.error('Error cargando roles:', error);
       } finally {

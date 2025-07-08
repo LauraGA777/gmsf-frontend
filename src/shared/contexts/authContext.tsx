@@ -1,8 +1,3 @@
-"use client"
-
-import type React from "react"
-
-// src/features/auth/context/AuthContext.tsx
 import { createContext, useContext, useState, useEffect } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import type { User } from "../types/index" // Asegúrate de importar el tipo User correct
@@ -10,6 +5,7 @@ import type { Role } from "../types/role" // Importar el tipo Role
 import { authService } from "@/features/auth/services/authService"
 import { roleService } from "@/features/roles/services/roleService"
 import { permissionService } from "@/shared/services/permissionService"
+import { installRoleDebugger } from "@/shared/utils/roleDebugger"
 
 // Tipos
 interface AuthResponse {
@@ -39,6 +35,7 @@ interface AuthContextType {
   refreshUserPermissions: () => Promise<void>
   isInitialized: boolean
   error: string | null
+  diagnoseRoleStatus: () => void // Agregar función de diagnóstico
 }
 
 interface NormalizedUser {
@@ -74,18 +71,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error("Formato de datos de roles inválido")
       }
       
-      setRoles(rolesData)
-      console.log("✅ Roles cargados desde BD:", rolesData.length, "roles")
-      return rolesData
+      // Marcar roles como provenientes de BD
+      const rolesWithSource = rolesData.map(role => ({
+        ...role,
+        source: 'database' // Agregar flag para identificar origen
+      }))
+      
+      setRoles(rolesWithSource)
+      console.log("✅ Roles cargados desde BD:", rolesWithSource.length, "roles")
+      console.log("📋 Roles de BD:", rolesWithSource.map(r => `${r.nombre} (ID: ${r.id})`))
+      return rolesWithSource
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error desconocido"
       console.error("❌ Error cargando roles desde BD:", errorMessage)
       setError(`Error cargando roles: ${errorMessage}`)
       
-      // Solo usar fallback si es crítico
-      console.warn("⚠️ Usando roles fallback temporalmente")
-      const fallbackRoles = Object.values(DEFAULT_ROLES) as any[]
+      // Solo usar fallback en casos críticos y con advertencia clara
+      console.warn("⚠️ ADVERTENCIA: Usando roles fallback - esto NO es ideal")
+      const fallbackRoles = Object.values(DEFAULT_ROLES).map(role => ({
+        ...role,
+        source: 'fallback' // Marcar como fallback
+      })) as any[]
       setRoles(fallbackRoles)
+      console.warn("🔄 Roles fallback:", fallbackRoles.map(r => `${r.nombre} (ID: ${r.id})`))
       return fallbackRoles as Role[]
     }
   }
@@ -121,6 +129,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("🚀 Iniciando carga de roles...")
         await loadRoles()
 
+        // 2. Instalar debugger de roles (solo en desarrollo)
+        if (process.env.NODE_ENV === 'development') {
+          // Crear un contexto temporal para el debugger
+          const debugContext = {
+            roles,
+            user,
+            loadRoles,
+            diagnoseRoleStatus
+          }
+          installRoleDebugger(debugContext)
+        }
+
         // 2. Verificar sesión guardada
         const storedUser = localStorage.getItem("user")
         const storedAccessToken = localStorage.getItem("accessToken")
@@ -137,12 +157,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // Enriquecer datos del usuario con información fresca del rol
             const userRole = roles.find((r) => r.id === parsedUser.id_rol)
+            const roleSource = userRole ? ((userRole as any).source || 'database') : 'not-found'
+            
+            console.log(`🔍 Rol del usuario en sesión: ${parsedUser.id_rol}`)
+            console.log(`🔍 Rol encontrado: ${userRole ? userRole.nombre : 'NO ENCONTRADO'}`)
+            console.log(`🔍 Origen del rol: ${roleSource}`)
+            
+            if (roleSource === 'fallback') {
+              console.warn("⚠️ ADVERTENCIA: Usuario en sesión tiene rol fallback")
+              setError("Configuración temporal activa. Reinicie sesión para actualizar.")
+            }
             
             const enrichedUser: User = {
               ...parsedUser,
               role: userRole, // Objeto completo del rol actualizado
               roleName: userRole ? userRole.nombre : parsedUser.roleName || "Usuario", // Nombre del rol actualizado
-              roleCode: userRole ? userRole.nombre?.toLowerCase() : parsedUser.roleCode || "usuario"
+              roleCode: userRole ? userRole.nombre?.toLowerCase() : parsedUser.roleCode || "usuario",
+              roleSource: roleSource // Agregar origen del rol
             }
 
             console.log("🔄 Usuario enriquecido con rol actualizado:", enrichedUser)
@@ -194,9 +225,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const role = roles.find((r) => r.id === roleId)
 
       if (role) {
+        // Verificar el origen del rol
+        const roleSource = (role as any).source || 'unknown'
+        console.log(`🔍 Rol encontrado: ${role.nombre} (ID: ${roleId}) - Origen: ${roleSource}`)
+        
+        if (roleSource === 'fallback') {
+          console.warn("⚠️ ADVERTENCIA: Usando rol fallback para redirección - debería ser de BD")
+          setError("Usando configuración temporal. Algunos permisos pueden estar limitados.")
+        }
+
         // Mapeo dinámico de rutas basado en datos de la BD
         const routeMap: { [key: string]: string } = {
-          admin: "/dashboard",
           administrador: "/dashboard",
           entrenador: "/dashboard",
           trainer: "/dashboard",
@@ -208,23 +247,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Usar ruta específica del rol de la BD o mapeo por nombre
         const targetRoute = role.ruta || routeMap[role.nombre?.toLowerCase() || ""] || "/dashboard"
         
-        console.log(`🚀 Redirigiendo a ${targetRoute} para rol ${role.nombre} (ID: ${roleId})`)
+        console.log(`🚀 Redirigiendo a ${targetRoute} para rol ${role.nombre} (ID: ${roleId}) - Origen: ${roleSource}`)
         navigate(targetRoute)
         return
       }
 
-      // Fallback solo si no se encuentra en roles dinámicos
-      console.warn("⚠️ Rol no encontrado en BD, usando fallback:", roleId)
-      const defaultRole = Object.values(DEFAULT_ROLES).find((r) => r.id === roleId)
+      // Si no se encuentra el rol, esto es un error crítico
+      console.error("❌ ROL NO ENCONTRADO - esto es un error crítico")
+      console.error("📊 Datos de debug:", {
+        roleId,
+        availableRoles: roles.map(r => ({ id: r.id, nombre: r.nombre, source: (r as any).source })),
+        rolesCount: roles.length
+      })
       
-      if (defaultRole) {
-        console.log(`🔄 Usando ruta fallback: ${defaultRole.ruta}`)
-        navigate(defaultRole.ruta)
-      } else {
-        console.error("❌ Rol no reconocido, redirigiendo a dashboard:", roleId)
-        setError(`Rol no reconocido: ${roleId}`)
-        navigate("/dashboard")
-      }
+      setError(`Rol ${roleId} no encontrado en el sistema`)
+      navigate("/dashboard")
+      
     } catch (error) {
       console.error("❌ Error en redirección:", error)
       setError("Error en redirección de usuario")
@@ -271,11 +309,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const authData = data
 
-      // Extraer datos del usuario con múltiples formatos posibles
+      // Extraer datos del usuario with multiple possible formats
       const userData = authData.data?.user || authData.user || authData.data || {}
       console.log("👤 Datos del usuario extraídos:", userData)
 
-      // Extraer tokens con múltiples formatos posibles
+      // Extraer tokens with multiple possible formats
       const tokens = {
         accessToken: authData.data?.accessToken || authData.accessToken || authData.token,
         refreshToken: authData.data?.refreshToken || authData.refreshToken,
@@ -358,22 +396,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Buscar el rol en los datos dinámicos de la BD
       let userRole = roles.find((r) => r.id === authData.user.id_rol)
+      let roleSource = 'unknown'
 
-      if (!userRole) {
-        console.warn("⚠️ Rol no encontrado en roles de BD, recargando roles...")
+      if (userRole) {
+        roleSource = (userRole as any).source || 'database'
+        console.log(`✅ Rol encontrado en memoria: ${userRole.nombre} (ID: ${userRole.id}) - Origen: ${roleSource}`)
+      } else {
+        console.warn("⚠️ Rol no encontrado en roles cargados, intentando recargar desde BD...")
         
         // Intentar recargar roles si no se encuentra (ahora con token disponible)
-        const freshRoles = await loadRoles()
-        userRole = freshRoles.find((r) => r.id === authData.user.id_rol)
-        
-        if (!userRole) {
-          console.warn("⚠️ Rol aún no encontrado, usando fallback")
-          userRole = Object.values(DEFAULT_ROLES).find((r) => r.id === authData.user.id_rol)
+        try {
+          const freshRoles = await loadRoles()
+          userRole = freshRoles.find((r) => r.id === authData.user.id_rol)
+          
+          if (userRole) {
+            roleSource = (userRole as any).source || 'database'
+            console.log(`✅ Rol encontrado tras recarga: ${userRole.nombre} (ID: ${userRole.id}) - Origen: ${roleSource}`)
+          } else {
+            console.error("❌ Rol NO encontrado incluso después de recargar desde BD")
+            throw new Error(`Rol ${authData.user.id_rol} no existe en la base de datos`)
+          }
+        } catch (reloadError) {
+          console.error("❌ Error recargando roles:", reloadError)
+          throw new Error(`No se pudo cargar el rol ${authData.user.id_rol} desde la base de datos`)
         }
       }
 
+      // Verificar que el rol NO venga del fallback
+      if (roleSource === 'fallback') {
+        console.error("❌ PROBLEMA CRÍTICO: El rol viene del fallback en lugar de la BD")
+        setError("Error: Rol no encontrado en la base de datos. Contacte al administrador.")
+        throw new Error("Rol no encontrado en la base de datos")
+      }
+
       const roleKey = userRole ? userRole.nombre?.toLowerCase() || "usuario" : "usuario"
-      console.log("🔍 Rol identificado:", roleKey, "para ID:", authData.user.id_rol)
+      console.log(`🔍 Rol identificado desde BD: ${roleKey} (ID: ${authData.user.id_rol}) - Origen: ${roleSource}`)
 
       // Crear usuario con información completa
       const userWithRole: User = {
@@ -384,10 +441,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: userRole, // Objeto completo del rol
         roleCode: roleKey, // Código del rol para compatibilidad
         roleName: userRole ? userRole.nombre : "Usuario", // Nombre del rol para UI
+        roleSource: roleSource, // Agregar origen del rol para debugging
         clientId: [3, 4].includes(authData.user.id_rol) ? authData.user.id.toString() : undefined,
       }
 
-      console.log("✅ Usuario final creado:", userWithRole)
+      console.log("✅ Usuario final creado con rol desde BD:", userWithRole)
 
       // Guardar estado del usuario
       setUser(userWithRole)
@@ -447,32 +505,79 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false
       }
 
-      // Buscar primero en roles dinámicos de la BD
+      // Buscar el rol en los roles cargados
       const userRole = roles.find((r) => r.id === user.id_rol)
-
+      
       if (userRole) {
+        const roleSource = (userRole as any).source || 'unknown'
         const hasAccess = requiredRoles.includes(userRole.id)
-        console.log(`🔍 Verificación BD - Usuario rol ${userRole.nombre} (${userRole.id}), requiere: [${requiredRoles.join(", ")}], acceso: ${hasAccess}`)
+        
+        console.log(`🔍 Verificación de permisos:`)
+        console.log(`   - Usuario: ${user.nombre} (Rol: ${userRole.nombre}, ID: ${userRole.id})`)
+        console.log(`   - Origen del rol: ${roleSource}`)
+        console.log(`   - Roles requeridos: [${requiredRoles.join(", ")}]`)
+        console.log(`   - Acceso: ${hasAccess}`)
+        
+        if (roleSource === 'fallback') {
+          console.warn("⚠️ ADVERTENCIA: Verificando permisos con rol fallback - esto NO es ideal")
+        }
+        
         return hasAccess
       }
 
-      // Fallback a roles por defecto solo si es necesario
-      console.warn("⚠️ Usando verificación de permisos fallback para rol:", user.id_rol)
-      const defaultRole = Object.values(DEFAULT_ROLES).find((r) => r.id === user.id_rol)
+      // Si no se encuentra el rol, es un error crítico
+      console.error("❌ ROL NO ENCONTRADO para verificación de permisos")
+      console.error("📊 Debug info:", {
+        userId: user.id,
+        userRoleId: user.id_rol,
+        userName: user.nombre,
+        availableRoles: roles.map(r => ({ id: r.id, nombre: r.nombre, source: (r as any).source }))
+      })
       
-      if (!defaultRole) {
-        console.error("❌ Rol no encontrado en BD ni en fallback:", user.id_rol)
-        return false
-      }
-
-      const hasDefaultAccess = requiredRoles.includes(defaultRole.id)
-      console.log(`🔄 Verificación fallback - Rol ${defaultRole.nombre} (${defaultRole.id}), acceso: ${hasDefaultAccess}`)
-      return hasDefaultAccess
+      return false
       
     } catch (error) {
       console.error("❌ Error verificando permisos:", error)
       return false
     }
+  }
+
+  // Función para diagnosticar el estado de los roles (útil para debugging)
+  const diagnoseRoleStatus = () => {
+    console.log("🔍 DIAGNÓSTICO DE ROLES:")
+    console.log("========================")
+    console.log(`📊 Total de roles cargados: ${roles.length}`)
+    
+    const rolesBySource = roles.reduce((acc, role) => {
+      const source = (role as any).source || 'unknown'
+      acc[source] = (acc[source] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+    
+    console.log("📋 Roles por origen:")
+    Object.entries(rolesBySource).forEach(([source, count]) => {
+      console.log(`   - ${source}: ${count} roles`)
+    })
+    
+    console.log("📝 Detalle de roles:")
+    roles.forEach(role => {
+      const source = (role as any).source || 'unknown'
+      console.log(`   - ${role.nombre} (ID: ${role.id}) - Origen: ${source}`)
+    })
+    
+    if (user) {
+      const userRole = roles.find(r => r.id === user.id_rol)
+      const userRoleSource = userRole ? ((userRole as any).source || 'unknown') : 'not-found'
+      console.log(`👤 Usuario actual: ${user.nombre}`)
+      console.log(`🎭 Rol del usuario: ${userRole ? userRole.nombre : 'NO ENCONTRADO'} (ID: ${user.id_rol})`)
+      console.log(`🔍 Origen del rol del usuario: ${userRoleSource}`)
+      
+      if (userRoleSource === 'fallback') {
+        console.warn("⚠️ PROBLEMA: El usuario actual tiene un rol fallback")
+      }
+    }
+    
+    console.log("========================")
   }
 
   return (
@@ -491,6 +596,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         refreshUserPermissions,
         isInitialized,
         error,
+        diagnoseRoleStatus,
       }}
     >
       {children}
@@ -510,25 +616,25 @@ export const useAuth = () => {
 export const DEFAULT_ROLES = {
   ADMIN: {
     id: 1,
-    nombre: "admin",
+    nombre: "Administrador",
     ruta: "/dashboard",
     permisos: ["ver_usuarios", "editar_usuarios", "ver_estadisticas"],
   },
   ENTRENADOR: {
     id: 2,
-    nombre: "entrenador",
+    nombre: "Entrenador",
     ruta: "/dashboard", // Cambiar a dashboard
     permisos: ["ver_clientes", "editar_rutinas", "ver_horarios"],
   },
   CLIENTE: {
     id: 3,
-    nombre: "cliente",
+    nombre: "Cliente",
     ruta: "/client",
     permisos: ["ver_perfil", "ver_rutinas", "ver_membresia"],
   },
   BENEFICIARIO: {
     id: 4,
-    nombre: "beneficiario",
+    nombre: "Benenficiario",
     ruta: "/client",
     permisos: ["ver_perfil", "ver_rutinas", "ver_membresia"],
   },

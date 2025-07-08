@@ -35,7 +35,7 @@ import {
   TableRow,
 } from "@/shared/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
-import apiClient from '@/shared/services/api';
+import { roleService } from '@/features/roles/services/roleService';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -87,6 +87,12 @@ export default function UsersPage() {
     try {
       setIsLoading(true);
       const response = await userService.getUsers(currentPage, itemsPerPage);
+      console.log('=== DEBUGGING USER DATA ===');
+      console.log('Response from backend:', response);
+      console.log('Users data:', response.data);
+      console.log('Sample user:', response.data[0]);
+      console.log('Sample user rol_id:', response.data[0]?.id_rol);
+      console.log('=== END DEBUG ===');
       setUsers(response.data);
       setTotalPages(response.totalPages);
     } catch (error) {
@@ -144,24 +150,9 @@ export default function UsersPage() {
     const loadRoles = async () => {
       try {
         console.log('Iniciando carga de roles...');
-        const response = await apiClient.get('/users/roles');
-        console.log('Respuesta de roles:', response);
-
-        const data = response.data as {
-          status: string;
-          data?: { roles?: { id: number; nombre: string }[] };
-        };
-
-        if (data.status === 'success' && data.data?.roles) {
-          const mappedRoles = data.data.roles.map((role: { id: number; nombre: string }) => ({
-            id: role.id,
-            nombre: role.nombre
-          }));
-          console.log('Roles procesados:', mappedRoles);
-          setRoles(mappedRoles);
-        } else {
-          console.error('Formato de respuesta incorrecto:', data);
-        }
+        const roles = await roleService.getRolesForSelect();
+        console.log('Roles cargados:', roles);
+        setRoles(roles);
       } catch (error) {
         console.error('Error cargando roles:', error);
       }

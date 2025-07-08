@@ -1,4 +1,3 @@
-import { ProtectedRoute } from "../../auth/components/protectedRoute";
 import { RolesPage } from "@/features/roles/pages/rolesPage"
 import { PermissionProtectedRoute } from "@/shared/components/PermissionProtectedRoute";
 

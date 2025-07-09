@@ -1,5 +1,5 @@
-import { PermissionProtectedRoute } from "@/shared/components/PermissionProtectedRoute";
 import DashboardPage from "@/features/dashboard/pages/dashboardPage";
+import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
 
 export const dashboardRoutes = [
     {

@@ -27,45 +27,71 @@ export function PermissionProtectedRoute({
     requiredModule,
     requiredPrivilege,
     requireAllPrivileges = false,
-    emergencyBypass = false // Solo para casos críticos
+    emergencyBypass = false
 }: PermissionProtectedRouteProps) {
-    const { isAuthenticated, isLoading, user, isInitialized, error } = useAuth()
-    const { hasModuleAccess, hasPrivilege, hasAnyPrivilege, hasAllPrivileges, isLoading: permissionsLoading } = usePermissions()
+    const { isAuthenticated, isLoading: authLoading, user, isInitialized, error } = useAuth()
+    const {
+        hasModuleAccess,
+        hasPrivilege,
+        hasAnyPrivilege,
+        hasAllPrivileges,
+        isLoading: permissionsLoading,
+        isReady: permissionsReady,
+        lastError: permissionsError
+    } = usePermissions()
     const location = useLocation()
 
-    // 🔄 Loading state - Mejorado con más contexto
-    if (isLoading || permissionsLoading || !isInitialized) {
+    // 🔄 ESTADOS DE CARGA MEJORADOS
+    const isAppLoading = authLoading || permissionsLoading || !isInitialized || !permissionsReady
+    const hasErrors = error || permissionsError
+
+    // 🔄 Loading state - Más específico y detallado
+    if (isAppLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-gray-50">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-sm text-gray-600">
-                        {isLoading ? "Verificando autenticación..." :
-                            permissionsLoading ? "Cargando permisos..." :
-                                "Inicializando aplicación..."}
+                <div className="text-center max-w-md p-6">
+                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto mb-6"></div>
+                    <h2 className="text-xl font-semibold text-gray-800 mb-2">Cargando aplicación</h2>
+                    <p className="text-sm text-gray-600 mb-4">
+                        {authLoading ? "🔐 Verificando autenticación..." :
+                            permissionsLoading ? "🔑 Cargando permisos del usuario..." :
+                                !isInitialized ? "⚙️ Inicializando sistema..." :
+                                    !permissionsReady ? "🎯 Finalizando configuración..." :
+                                        "📋 Preparando interfaz..."}
                     </p>
+                    <div className="text-xs text-gray-500">
+                        Por favor espere mientras se configura su sesión
+                    </div>
                 </div>
             </div>
         )
     }
 
-    // ❌ Error state - Nuevo manejo de errores
-    if (error) {
-        console.error("🚨 Error en PermissionProtectedRoute:", error)
+    // ❌ Error state SOLO después de intentar cargar
+    if (hasErrors) {
+        console.error("🚨 Error en PermissionProtectedRoute:", { error, permissionsError })
         return (
             <div className="flex items-center justify-center min-h-screen bg-red-50">
                 <div className="text-center max-w-md p-6">
                     <div className="text-red-500 text-6xl mb-4">⚠️</div>
-                    <h2 className="text-xl font-semibold text-red-800 mb-2">Error de Autenticación</h2>
+                    <h2 className="text-xl font-semibold text-red-800 mb-2">Error al cargar permisos</h2>
                     <p className="text-red-600 mb-4">
-                        No se pudieron cargar los permisos de usuario. Por favor, inicie sesión nuevamente.
+                        {permissionsError || error || "Error desconocido al cargar los permisos del usuario"}
                     </p>
-                    <button
-                        onClick={() => window.location.href = '/login'}
-                        className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-                    >
-                        Ir a Login
-                    </button>
+                    <div className="flex gap-2 justify-center">
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                        >
+                            Reintentar
+                        </button>
+                        <button
+                            onClick={() => window.location.href = '/login'}
+                            className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+                        >
+                            Iniciar Sesión
+                        </button>
+                    </div>
                 </div>
             </div>
         )
@@ -104,14 +130,14 @@ export function PermissionProtectedRoute({
     // 1. 🔍 Verificar acceso al módulo requerido (OBLIGATORIO)
     const hasModulePermission = hasModuleAccess(requiredModule)
     console.log(`🔍 [BD] Verificando acceso al módulo "${requiredModule}":`, hasModulePermission)
-    
+
     if (!hasModulePermission) {
         // 🚨 BYPASS DE EMERGENCIA SOLO PARA ADMIN (usar con extrema precaución)
         if (emergencyBypass && user.id_rol === BACKEND_ROLES.ADMINISTRADOR) {
             console.warn(`⚠️ [EMERGENCIA] Bypass activado para admin en módulo "${requiredModule}" - REVISAR PERMISOS EN BD`)
             return <>{children}</>
         }
-        
+
         console.log(`❌ [BD] Acceso denegado: sin permisos para el módulo "${requiredModule}"`)
         return <Navigate to="/not-authorized" replace />
     }
@@ -119,11 +145,11 @@ export function PermissionProtectedRoute({
     // 2. 🔑 Verificar privilegios específicos (si se requieren)
     if (requiredPrivilege) {
         let hasRequiredPrivilege = false
-        
+
         if (Array.isArray(requiredPrivilege)) {
             // Si se pasa un array de privilegios
             const privilegeList = requiredPrivilege as PrivilegeName[]
-            
+
             if (requireAllPrivileges) {
                 hasRequiredPrivilege = hasAllPrivileges(requiredModule, privilegeList)
                 console.log(`🔑 [BD] Verificando TODOS los privilegios [${privilegeList.join(', ')}] para "${requiredModule}":`, hasRequiredPrivilege)
@@ -136,14 +162,14 @@ export function PermissionProtectedRoute({
             hasRequiredPrivilege = hasPrivilege(requiredModule, requiredPrivilege)
             console.log(`🔑 [BD] Verificando privilegio "${requiredPrivilege}" para "${requiredModule}":`, hasRequiredPrivilege)
         }
-        
+
         if (!hasRequiredPrivilege) {
             // 🚨 BYPASS DE EMERGENCIA SOLO PARA ADMIN (usar con extrema precaución)
             if (emergencyBypass && user.id_rol === BACKEND_ROLES.ADMINISTRADOR) {
                 console.warn(`⚠️ [EMERGENCIA] Bypass activado para admin en privilegio "${requiredPrivilege}" - REVISAR PERMISOS EN BD`)
                 return <>{children}</>
             }
-            
+
             console.log(`❌ [BD] Acceso denegado: sin privilegios requeridos para "${requiredModule}"`)
             return <Navigate to="/not-authorized" replace />
         }

@@ -1,5 +1,5 @@
 import { ClientsPage } from "@/features/clients/pages/clientsPage";
-import { PermissionProtectedRoute } from "@/shared/components/PermissionProtectedRoute";
+import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
 
 // Rutas de clientes
 export const clientsRoutes = [

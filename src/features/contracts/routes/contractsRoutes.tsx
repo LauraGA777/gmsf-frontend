@@ -1,6 +1,5 @@
 import { ContractsPage } from "@/features/contracts/pages/contractsPage";
-import { PermissionProtectedRoute } from "@/shared/components/PermissionProtectedRoute";
-
+import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
 // Rutas de contratos
 export const contractsRoutes = [
   {

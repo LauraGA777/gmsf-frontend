@@ -1,5 +1,5 @@
 import { RolesPage } from "@/features/roles/pages/rolesPage"
-import { PermissionProtectedRoute } from "@/shared/components/PermissionProtectedRoute";
+import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
 
 export const rolesRoutes = [
   {

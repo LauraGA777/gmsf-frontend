@@ -62,21 +62,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadRoles = async (): Promise<Role[]> => {
     try {
       setError(null)
-      
+
       // Verificar si ya tenemos roles cargados en memoria
       if (roles.length > 0) {
         console.log("� Usando roles desde caché:", roles.length, "roles")
         return roles
       }
-      
+
       console.log("�🔄 Cargando roles desde la base de datos...")
-      
+
       const rolesData = await authService.getRoles() // Usar authService que es más rápido
-      
+
       if (!rolesData || !Array.isArray(rolesData)) {
         throw new Error("Formato de datos de roles inválido")
       }
-      
+
       // Transformar roles con menos procesamiento
       const processedRoles = rolesData.map(role => ({
         id: role.id,
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         status: role.estado ? "Activo" : "Inactivo", // Para UI
         source: 'database'
       })) as Role[]
-      
+
       setRoles(processedRoles)
       console.log("✅ Roles cargados desde BD:", processedRoles.length, "roles")
       return processedRoles
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const errorMessage = error instanceof Error ? error.message : "Error desconocido"
       console.error("❌ Error cargando roles:", errorMessage)
       setError(`Error cargando roles: ${errorMessage}`)
-      
+
       // Fallback más simple
       const fallbackRoles = Object.values(DEFAULT_ROLES).map(role => ({
         ...role,
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null)
       console.log("🔄 Refrescando permisos para usuario:", user.id_rol)
-      
+
       await permissionService.initializeWithUserId(user.id_rol)
       console.log("✅ Permisos refrescados exitosamente")
     } catch (error) {
@@ -135,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setIsLoading(true)
         setError(null)
-        
+
         // Verificar sesión guardada primero (más rápido)
         const storedUser = localStorage.getItem("user")
         const storedAccessToken = localStorage.getItem("accessToken")
@@ -145,18 +145,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (storedUser && storedAccessToken && storedRefreshToken) {
           try {
             const parsedUser = JSON.parse(storedUser) as User
-            
+
             if (parsedUser.id && parsedUser.id_rol) {
               console.log("🔐 Restaurando sesión de usuario:", parsedUser.nombre, "con rol:", parsedUser.id_rol)
-              
+
               // Configurar usuario inmediatamente para UI rápida
               setUser(parsedUser)
               setAccessToken(storedAccessToken)
               setRefreshToken(storedRefreshToken)
-              
+
               // ✅ IMPORTANTE: Solo cargar permisos para usuarios AUTENTICADOS
               console.log("📋 Cargando permisos para usuario autenticado...")
-              
+
               // Cargar roles y permisos en paralelo (en background)
               Promise.all([
                 loadRoles(),
@@ -169,13 +169,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setError("Error cargando configuración")
                 setIsInitialized(true)
               })
-              
+
               // Instalar debugger solo en desarrollo
               if (process.env.NODE_ENV === 'development') {
                 const debugContext = { roles, user: parsedUser, loadRoles, diagnoseRoleStatus }
                 installRoleDebugger(debugContext)
               }
-              
+
               // Finalizar carga inicial rápidamente
               setIsLoading(false)
               return
@@ -192,15 +192,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Si no hay sesión, solo cargar roles básicos (NO permisos)
         console.log("🌍 No hay sesión guardada, iniciando modo público...")
         console.log("❌ NO se cargarán permisos hasta que el usuario se autentique")
-        
+
         // Solo cargar roles para el sistema (no permisos de usuario)
         await loadRoles()
-        
+
         // Limpiar cualquier permiso residual en el servicio
         permissionService.clearPermissions()
-        
+
         setIsInitialized(true)
-        
+
       } catch (initError) {
         const errorMessage = initError instanceof Error ? initError.message : "Error de inicialización"
         console.error("❌ Error durante inicialización:", errorMessage)
@@ -249,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Fallback final
       console.warn(`⚠️ Rol ${roleId} no encontrado, usando dashboard por defecto`)
       navigate("/dashboard")
-      
+
     } catch (error) {
       console.error("❌ Error en redirección:", error)
       navigate("/dashboard")
@@ -260,7 +260,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null)
       setIsLoading(true)
-      
+
       // Validaciones básicas
       if (!correo || !contrasena) {
         throw new Error("Email y contraseña son requeridos")
@@ -271,7 +271,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       console.log("🔐 Intentando login para:", correo)
-      
+
       const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
         method: "POST",
         headers: {
@@ -342,16 +342,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(`Campos requeridos faltantes: ${missingFields.join(", ")}`)
       }
 
-      // Crear estructura normalizada
-      const normalizedData = {
-        ...authData,
-        ...tokens,
-        user: normalizedUser,
+      // ✅ CONFIGURAR USUARIO INMEDIATAMENTE PARA UI REACTIVA
+      const basicUser: User = {
+        id: normalizedUser.id.toString(),
+        nombre: normalizedUser.nombre,
+        correo: normalizedUser.correo,
+        id_rol: normalizedUser.id_rol!,
+        roleCode: "usuario",
+        roleName: "Usuario",
+        clientId: [3, 4].includes(normalizedUser.id_rol!) ? normalizedUser.id.toString() : undefined,
       }
 
-      await handleSuccessfulLogin(normalizedData as AuthResponse, normalizedUser.correo)
+      // ✅ ACTUALIZAR ESTADO INMEDIATAMENTE
+      setUser(basicUser)
+      setAccessToken(tokens.accessToken)
+      setRefreshToken(tokens.refreshToken)
+
+      // ✅ GUARDAR EN LOCALSTORAGE INMEDIATAMENTE
+      localStorage.setItem("user", JSON.stringify(basicUser))
+      localStorage.setItem("accessToken", tokens.accessToken)
+      if (tokens.refreshToken) {
+        localStorage.setItem("refreshToken", tokens.refreshToken)
+      }
+
+      // ✅ CARGAR PERMISOS ANTES DE REDIRIGIR (CON AWAIT)
+      console.log("🔄 Inicializando permisos para usuario ANTES de redirigir:", normalizedUser.id_rol)
+
+      try {
+        await permissionService.initializeWithUserId(normalizedUser.id_rol!)
+        console.log("✅ Permisos inicializados correctamente ANTES de redirección")
+        setIsInitialized(true)
+      } catch (permissionError) {
+        console.error("❌ Error inicializando permisos:", permissionError)
+        // Continuar con el login aunque fallen los permisos
+        setIsInitialized(true)
+      }
+
+      // ✅ REDIRIGIR SOLO DESPUÉS DE CARGAR PERMISOS
+      console.log("🚀 Redirigiendo con permisos ya cargados...")
+      redirectBasedOnRole(normalizedUser.id_rol!)
+
       return { success: true }
-      
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error desconocido en el login"
       console.error("❌ Error durante login:", {
@@ -359,11 +391,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         tipo: error instanceof Error ? error.name : typeof error,
         error: error,
       })
-      
+
       setError(errorMessage)
-      throw new Error(errorMessage)
+      return { success: false, error: errorMessage }
     } finally {
-      setIsLoading(false)
+      setIsLoading(false) // ✅ SIEMPRE TERMINAR LOADING
     }
   }
 
@@ -402,7 +434,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Cargar roles y permisos en background
       loadRoles().then(async () => {
         const userRole = roles.find((r) => r.id === authData.user.id_rol)
-        
+
         if (userRole) {
           // Actualizar usuario con información completa
           const enrichedUser: User = {
@@ -411,10 +443,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             roleCode: userRole.nombre?.toLowerCase() || "usuario",
             roleName: userRole.nombre || "Usuario",
           }
-          
+
           setUser(enrichedUser)
           localStorage.setItem("user", JSON.stringify(enrichedUser))
-          
+
           // Inicializar permisos
           try {
             await permissionService.initializeWithUserId(authData.user.id_rol)
@@ -426,7 +458,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }).catch(error => {
         console.error("❌ Error cargando roles en background:", error)
       })
-      
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error procesando login exitoso"
       console.error("❌ Error en handleSuccessfulLogin:", errorMessage)
@@ -474,36 +506,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log("🔍 DIAGNÓSTICO DE ROLES:")
     console.log("========================")
     console.log(`📊 Total de roles cargados: ${roles.length}`)
-    
+
     const rolesBySource = roles.reduce((acc, role) => {
       const source = (role as any).source || 'unknown'
       acc[source] = (acc[source] || 0) + 1
       return acc
     }, {} as Record<string, number>)
-    
+
     console.log("📋 Roles por origen:")
     Object.entries(rolesBySource).forEach(([source, count]) => {
       console.log(`   - ${source}: ${count} roles`)
     })
-    
+
     console.log("📝 Detalle de roles:")
     roles.forEach(role => {
       const source = (role as any).source || 'unknown'
       console.log(`   - ${role.nombre} (ID: ${role.id}) - Origen: ${source}`)
     })
-    
+
     if (user) {
       const userRole = roles.find(r => r.id === user.id_rol)
       const userRoleSource = userRole ? ((userRole as any).source || 'unknown') : 'not-found'
       console.log(`👤 Usuario actual: ${user.nombre}`)
       console.log(`🎭 Rol del usuario: ${userRole ? userRole.nombre : 'NO ENCONTRADO'} (ID: ${user.id_rol})`)
       console.log(`🔍 Origen del rol del usuario: ${userRoleSource}`)
-      
+
       if (userRoleSource === 'fallback') {
         console.warn("⚠️ PROBLEMA: El usuario actual tiene un rol fallback")
       }
     }
-    
+
     console.log("========================")
   }
 

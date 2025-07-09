@@ -1,5 +1,5 @@
 import { RouteObject } from "react-router-dom";
-import { PermissionProtectedRoute } from "@/shared/components/PermissionProtectedRoute";
+import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
 import AttendanceRegistry from "../components/attendance";
 
 export const attendanceRoutes: RouteObject[] = [

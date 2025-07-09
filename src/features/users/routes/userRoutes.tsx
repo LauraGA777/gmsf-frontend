@@ -1,7 +1,7 @@
 import { RouteObject } from "react-router-dom";
-import { PermissionProtectedRoute } from "@/shared/components/PermissionProtectedRoute";
 import ProfilePage from "@/features/auth/pages/profilePage";
 import UsersPage from "../pages/usersPage";
+import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
 
 export const userRoutes: RouteObject[] = [
     {

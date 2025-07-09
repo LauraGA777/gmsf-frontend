@@ -1,5 +1,5 @@
-import { PermissionProtectedRoute } from "@/shared/components/PermissionProtectedRoute";
-import { TrainersPage } from "@/features/trainers/pages/trainersPage"
+import { TrainersPage } from "@/features/trainers/pages/trainersPage";
+import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
 
 export const trainersRoutes = [
   {

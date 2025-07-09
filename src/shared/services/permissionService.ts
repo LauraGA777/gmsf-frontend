@@ -226,6 +226,8 @@ class PermissionService {
   private userPrivileges: Privilege[] = []
   private isInitialized = false
   private currentUserId: number | null = null
+  private isLoading = false // ✅ NUEVO: Estado de carga
+  private lastError: string | null = null // ✅ NUEVO: Último error
 
   // ✅ MAPEO SIMPLIFICADO - ELIMINAMOS FALLBACKS COMPLEJOS
   public readonly PERMISSION_MODULE_MAP = {
@@ -265,6 +267,9 @@ class PermissionService {
 
   async getUserPermissions(userId?: number): Promise<void> {
     try {
+      this.isLoading = true // ✅ Iniciar carga
+      this.lastError = null // ✅ Limpiar errores previos
+      
       console.log("🔄 Obteniendo permisos del usuario desde backend...", userId)
 
       if (userId) {
@@ -297,6 +302,7 @@ class PermissionService {
         this.userPermissions = []
         this.userPrivileges = []
         this.isInitialized = true
+        this.isLoading = false // ✅ Finalizar carga
         return
       }
 
@@ -308,8 +314,12 @@ class PermissionService {
       console.log("🔑 Privilegios extraídos del backend:", this.userPrivileges)
 
       this.isInitialized = true
+      this.isLoading = false // ✅ Finalizar carga exitosa
+      
     } catch (error) {
       console.error("❌ Error al obtener permisos del backend:", error)
+      this.isLoading = false // ✅ Finalizar carga con error
+      this.lastError = error instanceof Error ? error.message : "Error desconocido"
 
       // 🔒 SEGURIDAD: Solo aplicar fallback si tenemos un usuario válido
       if (!this.currentUserId) {
@@ -328,6 +338,19 @@ class PermissionService {
       
       throw error // Re-lanzar para que el AuthContext maneje el error
     }
+  }
+
+  // ✅ NUEVOS MÉTODOS PARA ESTADOS
+  getLoadingState(): boolean {
+    return this.isLoading
+  }
+
+  getLastError(): string | null {
+    return this.lastError
+  }
+
+  isReady(): boolean {
+    return this.isInitialized && !this.isLoading
   }
 
   hasModuleAccess(moduleName: PermissionName): boolean {
@@ -438,12 +461,73 @@ class PermissionService {
 
   // Método de debugging para inspeccionar permisos
   debugPermissions(): void {
-    console.log("🔍 DEBUG: Estado actual de permisos")
-    console.log("- Inicializado:", this.isInitialized)
-    console.log("- Usuario actual:", this.currentUserId)
-    console.log("- Permisos:", this.userPermissions)
-    console.log("- Privilegios:", this.userPrivileges)
-    console.log("- Módulos accesibles:", this.getAccessibleModules())
+    console.log("🔍 === DEBUG DE PERMISOS DEL USUARIO ===")
+    console.log("========================================")
+    
+    console.log("📊 Estado del servicio:")
+    console.log(`  - Inicializado: ${this.isInitialized}`)
+    console.log(`  - Cargando: ${this.isLoading}`)
+    console.log(`  - Usuario actual: ${this.currentUserId}`)
+    console.log(`  - Último error: ${this.lastError || "Ninguno"}`)
+    
+    console.log("🎭 Permisos del usuario:")
+    console.log(`  - Total permisos: ${this.userPermissions.length}`)
+    this.userPermissions.forEach((permission, index) => {
+      console.log(`  ${index + 1}. ${permission.nombre} (${permission.codigo})`)
+    })
+    
+    console.log("🔑 Privilegios del usuario:")
+    console.log(`  - Total privilegios: ${this.userPrivileges.length}`)
+    this.userPrivileges.forEach((privilege, index) => {
+      console.log(`  ${index + 1}. ${privilege.nombre} (${privilege.codigo})`)
+    })
+    
+    console.log("🎯 Verificaciones específicas:")
+    const testModules = ['SISTEMA', 'USUARIOS', 'CLIENTES', 'CONTRATOS', 'MEMBRESIAS', 'ASISTENCIAS', 'HORARIOS', 'ENTRENADORES']
+    testModules.forEach(module => {
+      const hasAccess = this.hasModuleAccess(module as PermissionName)
+      console.log(`  - ${module}: ${hasAccess ? '✅ SÍ' : '❌ NO'}`)
+    })
+    
+    console.log("========================================")
+  }
+  debugModuleAccess(moduleName: PermissionName): boolean {
+    console.log(`🔍 === DEBUG ACCESO A MÓDULO: ${moduleName} ===`)
+    
+    if (!this.isInitialized) {
+      console.log(`❌ Permisos no inicializados`)
+      return false
+    }
+
+    if (!this.currentUserId) {
+      console.log(`❌ Sin usuario autenticado`)
+      return false
+    }
+
+    console.log(`👤 Usuario ID: ${this.currentUserId}`)
+    console.log(`📋 Permisos disponibles: ${this.userPermissions.length}`)
+    
+    // Buscar permiso exacto
+    const exactPermission = this.userPermissions.find(p => p.codigo === moduleName)
+    if (exactPermission) {
+      console.log(`✅ Permiso encontrado: ${exactPermission.nombre} (${exactPermission.codigo})`)
+      return true
+    }
+
+    // Buscar por nombre
+    const namePermission = this.userPermissions.find(p => p.nombre === moduleName)
+    if (namePermission) {
+      console.log(`✅ Permiso encontrado por nombre: ${namePermission.nombre} (${namePermission.codigo})`)
+      return true
+    }
+
+    console.log(`❌ Permiso "${moduleName}" NO encontrado`)
+    console.log(`📝 Permisos disponibles:`)
+    this.userPermissions.forEach(p => {
+      console.log(`   - ${p.nombre} (${p.codigo})`)
+    })
+    
+    return false
   }
 }
 

@@ -245,7 +245,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             )}
 
             {/* 2. Gestión de roles */}
-            {hasModuleAccess(PERMISSIONS.SISTEMA) && (
+            {hasModuleAccess('SISTEMA') && (
               <NavItem
                 icon={<BadgeCheck className="h-5 w-5" aria-hidden="true" />}
                 label="Roles"

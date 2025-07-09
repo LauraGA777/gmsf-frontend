@@ -12,6 +12,7 @@ export interface User {
   roleSource?: string; // Origen del rol: 'database' | 'fallback' | 'unknown'
   clientId?: string;
   trainerId?: string;
+  personId?: string; // Para clientes que tienen personId
   avatar?: string;
   estado?: boolean;
   fecha_creacion?: Date;

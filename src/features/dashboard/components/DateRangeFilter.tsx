@@ -1,296 +1,233 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
-import { Badge } from '@/shared/components/ui/badge';
-import { Calendar } from '@/shared/components/ui/calendar';
+import { Card, CardContent } from '@/shared/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
+import { Calendar } from '@/shared/components/ui/calendar';
+import { Badge } from '@/shared/components/ui/badge';
 import { 
   CalendarDays, 
+  ChevronDown, 
   Calendar as CalendarIcon,
-  ChevronDown,
-  Filter,
   Clock,
-  History
+  TrendingUp
 } from 'lucide-react';
-import { format, subDays, subWeeks, subMonths, subYears, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays, subWeeks, subMonths, subYears } from 'date-fns';
 import { es } from 'date-fns/locale';
-
-export interface DateRange {
-  from: Date;
-  to: Date;
-  label: string;
-  period: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
-}
+import { DateRange } from '../services/dashboardService';
 
 interface DateRangeFilterProps {
   selectedRange: DateRange;
   onRangeChange: (range: DateRange) => void;
-  loading?: boolean;
 }
 
-export function DateRangeFilter({ selectedRange, onRangeChange, loading }: DateRangeFilterProps) {
-  const [showCustom, setShowCustom] = useState(false);
-  const [customFrom, setCustomFrom] = useState<Date | undefined>();
-  const [customTo, setCustomTo] = useState<Date | undefined>();
+export function DateRangeFilter({ selectedRange, onRangeChange }: DateRangeFilterProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [customCalendarOpen, setCustomCalendarOpen] = useState(false);
 
-  // Rangos predefinidos organizados por categoría
-  const quickRanges: DateRange[] = [
+  // Presets tipo Power BI
+  const presets = [
     {
-      from: new Date(),
-      to: new Date(),
       label: 'Hoy',
-      period: 'daily'
+      value: 'today',
+      icon: <Clock className="h-3 w-3" />,
+      getValue: () => ({
+        from: startOfDay(new Date()),
+        to: endOfDay(new Date()),
+        label: 'Hoy',
+        period: 'daily' as const
+      })
     },
     {
-      from: subDays(new Date(), 1),
-      to: subDays(new Date(), 1),
       label: 'Ayer',
-      period: 'daily'
+      value: 'yesterday',
+      icon: <Clock className="h-3 w-3" />,
+      getValue: () => {
+        const yesterday = subDays(new Date(), 1);
+        return {
+          from: startOfDay(yesterday),
+          to: endOfDay(yesterday),
+          label: 'Ayer',
+          period: 'daily' as const
+        };
+      }
     },
     {
-      from: subDays(new Date(), 7),
-      to: new Date(),
       label: 'Últimos 7 días',
-      period: 'weekly'
+      value: 'last7days',
+      icon: <TrendingUp className="h-3 w-3" />,
+      getValue: () => ({
+        from: subDays(new Date(), 6),
+        to: endOfDay(new Date()),
+        label: 'Últimos 7 días',
+        period: 'weekly' as const
+      })
     },
     {
-      from: startOfWeek(new Date(), { weekStartsOn: 1 }),
-      to: endOfWeek(new Date(), { weekStartsOn: 1 }),
       label: 'Esta semana',
-      period: 'weekly'
-    }
-  ];
-
-  const monthlyRanges: DateRange[] = [
+      value: 'thisweek',
+      icon: <CalendarIcon className="h-3 w-3" />,
+      getValue: () => ({
+        from: startOfWeek(new Date(), { weekStartsOn: 1 }),
+        to: endOfWeek(new Date(), { weekStartsOn: 1 }),
+        label: 'Esta semana',
+        period: 'weekly' as const
+      })
+    },
     {
-      from: startOfMonth(new Date()),
-      to: endOfMonth(new Date()),
+      label: 'Semana pasada',
+      value: 'lastweek',
+      icon: <CalendarIcon className="h-3 w-3" />,
+      getValue: () => {
+        const lastWeek = subWeeks(new Date(), 1);
+        return {
+          from: startOfWeek(lastWeek, { weekStartsOn: 1 }),
+          to: endOfWeek(lastWeek, { weekStartsOn: 1 }),
+          label: 'Semana pasada',
+          period: 'weekly' as const
+        };
+      }
+    },
+    {
       label: 'Este mes',
-      period: 'monthly'
+      value: 'thismonth',
+      icon: <CalendarDays className="h-3 w-3" />,
+      getValue: () => ({
+        from: startOfMonth(new Date()),
+        to: endOfMonth(new Date()),
+        label: 'Este mes',
+        period: 'monthly' as const
+      })
     },
     {
-      from: startOfMonth(subMonths(new Date(), 1)),
-      to: endOfMonth(subMonths(new Date(), 1)),
       label: 'Mes pasado',
-      period: 'monthly'
+      value: 'lastmonth',
+      icon: <CalendarDays className="h-3 w-3" />,
+      getValue: () => {
+        const lastMonth = subMonths(new Date(), 1);
+        return {
+          from: startOfMonth(lastMonth),
+          to: endOfMonth(lastMonth),
+          label: 'Mes pasado',
+          period: 'monthly' as const
+        };
+      }
     },
     {
-      from: subDays(new Date(), 30),
-      to: new Date(),
-      label: 'Últimos 30 días',
-      period: 'monthly'
-    },
-    {
-      from: subDays(new Date(), 90),
-      to: new Date(),
-      label: 'Últimos 3 meses',
-      period: 'monthly'
-    }
-  ];
-
-  const yearlyRanges: DateRange[] = [
-    {
-      from: startOfYear(new Date()),
-      to: endOfYear(new Date()),
       label: 'Este año',
-      period: 'yearly'
+      value: 'thisyear',
+      icon: <CalendarDays className="h-3 w-3" />,
+      getValue: () => ({
+        from: startOfYear(new Date()),
+        to: endOfYear(new Date()),
+        label: 'Este año',
+        period: 'yearly' as const
+      })
     },
     {
-      from: startOfYear(subYears(new Date(), 1)),
-      to: endOfYear(subYears(new Date(), 1)),
       label: 'Año pasado',
-      period: 'yearly'
+      value: 'lastyear',
+      icon: <CalendarDays className="h-3 w-3" />,
+      getValue: () => {
+        const lastYear = subYears(new Date(), 1);
+        return {
+          from: startOfYear(lastYear),
+          to: endOfYear(lastYear),
+          label: 'Año pasado',
+          period: 'yearly' as const
+        };
+      }
     }
   ];
 
-  const handlePredefinedRange = (range: DateRange) => {
+  const handlePresetSelect = (preset: typeof presets[0]) => {
+    const range = preset.getValue();
     onRangeChange(range);
-    setShowCustom(false);
+    setIsOpen(false);
   };
 
-  const handleCustomRange = () => {
-    if (customFrom && customTo) {
-      const customRange: DateRange = {
-        from: customFrom,
-        to: customTo,
-        label: `${format(customFrom, 'dd/MM/yyyy')} - ${format(customTo, 'dd/MM/yyyy')}`,
+  const handleCustomDateSelect = (from: Date | undefined, to: Date | undefined) => {
+    if (from && to) {
+      const range: DateRange = {
+        from: startOfDay(from),
+        to: endOfDay(to),
+        label: `${format(from, 'dd/MM/yyyy')} - ${format(to, 'dd/MM/yyyy')}`,
         period: 'custom'
       };
-      onRangeChange(customRange);
-      setShowCustom(false);
+      onRangeChange(range);
+      setCustomCalendarOpen(false);
+      setIsOpen(false);
     }
   };
 
   return (
-    <div className="space-y-4">
-      {/* Header del filtro con período seleccionado */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Filter className="h-5 w-5 text-blue-600" />
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800">Filtros de Fecha</h3>
-            <p className="text-sm text-gray-600">
-              {format(selectedRange.from, 'dd/MM/yyyy')} - {format(selectedRange.to, 'dd/MM/yyyy')}
-            </p>
-          </div>
-        </div>
-        <Badge className="bg-blue-600 text-white hover:bg-blue-700 font-medium px-3 py-1">
-          {selectedRange.label}
-        </Badge>
-      </div>
-
-      {/* Layout horizontal compacto de filtros */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Rangos rápidos */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 mb-2">
-            <Clock className="h-4 w-4 text-emerald-600" />
-            <span className="text-sm font-medium text-emerald-800">Rápido</span>
-          </div>
-          <div className="grid grid-cols-2 gap-1">
-            {quickRanges.map((range, index) => (
-              <Button
-                key={index}
-                variant={selectedRange.label === range.label ? "default" : "outline"}
-                size="sm"
-                onClick={() => handlePredefinedRange(range)}
-                disabled={loading}
-                className="justify-center text-xs h-8 px-2"
-              >
-                {range.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Rangos mensuales */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 mb-2">
-            <CalendarDays className="h-4 w-4 text-purple-600" />
-            <span className="text-sm font-medium text-purple-800">Mensual</span>
-          </div>
-          <div className="grid grid-cols-1 gap-1">
-            {monthlyRanges.map((range, index) => (
-              <Button
-                key={index}
-                variant={selectedRange.label === range.label ? "default" : "outline"}
-                size="sm"
-                onClick={() => handlePredefinedRange(range)}
-                disabled={loading}
-                className="justify-center text-xs h-8 px-2"
-              >
-                {range.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Rangos anuales */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 mb-2">
-            <History className="h-4 w-4 text-orange-600" />
-            <span className="text-sm font-medium text-orange-800">Anual</span>
-          </div>
-          <div className="grid grid-cols-1 gap-1">
-            {yearlyRanges.map((range, index) => (
-              <Button
-                key={index}
-                variant={selectedRange.label === range.label ? "default" : "outline"}
-                size="sm"
-                onClick={() => handlePredefinedRange(range)}
-                disabled={loading}
-                className="justify-center text-xs h-8 px-2"
-              >
-                {range.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Rango personalizado */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 mb-2">
-            <CalendarIcon className="h-4 w-4 text-gray-600" />
-            <span className="text-sm font-medium text-gray-800">Personalizado</span>
-          </div>
-          <div className="space-y-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowCustom(!showCustom)}
-              className="w-full justify-center text-xs h-8 px-2"
-            >
-              <ChevronDown className={`h-3 w-3 mr-1 transition-transform ${showCustom ? 'rotate-180' : ''}`} />
-              Rango Custom
-            </Button>
-            
-            {showCustom && (
-              <div className="space-y-1">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full justify-center text-xs h-8 px-2"
-                    >
-                      <CalendarIcon className="h-3 w-3 mr-1" />
-                      {customFrom ? format(customFrom, 'dd/MM') : 'Desde'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={customFrom}
-                      onSelect={setCustomFrom}
-                      initialFocus
-                      locale={es}
-                    />
-                  </PopoverContent>
-                </Popover>
-                
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full justify-center text-xs h-8 px-2"
-                    >
-                      <CalendarIcon className="h-3 w-3 mr-1" />
-                      {customTo ? format(customTo, 'dd/MM') : 'Hasta'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={customTo}
-                      onSelect={setCustomTo}
-                      initialFocus
-                      locale={es}
-                      disabled={(date) => customFrom ? date < customFrom : false}
-                    />
-                  </PopoverContent>
-                </Popover>
-                
-                <Button
-                  size="sm"
-                  onClick={handleCustomRange}
-                  disabled={!customFrom || !customTo || loading}
-                  className="w-full h-8 text-xs"
+    <div className="flex items-center gap-2">
+      {/* Filtro principal compacto */}
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="h-8 px-3 text-xs font-medium border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500"
+          >
+            <CalendarDays className="h-3 w-3 mr-2" />
+            {selectedRange.label}
+            <ChevronDown className="h-3 w-3 ml-2" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-0" align="start">
+          <div className="p-2">
+            <div className="text-xs font-medium text-gray-700 mb-2 px-2">Períodos rápidos</div>
+            <div className="space-y-1">
+              {presets.map((preset) => (
+                <button
+                  key={preset.value}
+                  onClick={() => handlePresetSelect(preset)}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-left hover:bg-gray-100 rounded-md transition-colors"
                 >
-                  Aplicar
-                </Button>
-              </div>
-            )}
+                  {preset.icon}
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            
+            <div className="border-t border-gray-200 mt-2 pt-2">
+              <Popover open={customCalendarOpen} onOpenChange={setCustomCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <button className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-left hover:bg-gray-100 rounded-md transition-colors">
+                    <CalendarIcon className="h-3 w-3" />
+                    Rango personalizado
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" side="right">
+                  <Calendar
+                    mode="range"
+                    selected={{
+                      from: selectedRange.from,
+                      to: selectedRange.to
+                    }}
+                    onSelect={(range) => {
+                      if (range?.from && range?.to) {
+                        handleCustomDateSelect(range.from, range.to);
+                      }
+                    }}
+                    locale={es}
+                    className="rounded-md border"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
-        </div>
-      </div>
+        </PopoverContent>
+      </Popover>
 
-      {/* Footer informativo compacto */}
-      <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
-        <div className="flex items-center justify-between">
-          <span>📊 {Math.ceil((selectedRange.to.getTime() - selectedRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1} días</span>
-          <span>🔄 {format(new Date(), 'HH:mm:ss')}</span>
-        </div>
+      {/* Indicadores de período */}
+      <div className="flex items-center gap-1">
+        <Badge variant="secondary" className="text-xs px-2 py-0.5">
+          {format(selectedRange.from, 'dd MMM', { locale: es })}
+        </Badge>
+        <span className="text-xs text-gray-400">-</span>
+        <Badge variant="secondary" className="text-xs px-2 py-0.5">
+          {format(selectedRange.to, 'dd MMM', { locale: es })}
+        </Badge>
       </div>
     </div>
   );

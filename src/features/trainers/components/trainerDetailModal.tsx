@@ -6,15 +6,15 @@ import { Separator } from "@/shared/components/ui/separator"
 import { Mail, Phone, MapPin, Calendar, Shield, Activity, Dumbbell, User, Award } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import type { Trainer } from "@/shared/types/trainer"
+import type { TrainerDisplayData } from "@/shared/types/trainer"
 import { Button } from "@/shared/components/ui/button"
 
 interface TrainerDetailModalProps {
   isOpen: boolean
   onClose: () => void
-  trainer: Trainer | null
-  onEdit: (trainer: Trainer) => void
-  onDelete: (trainer: Trainer) => void
+  trainer: TrainerDisplayData | null
+  onEdit: (trainer: TrainerDisplayData) => void
+  onDelete: (trainer: TrainerDisplayData) => void
 }
 
 export function TrainerDetailModal({ isOpen, onClose, trainer, onEdit, onDelete }: TrainerDetailModalProps) {

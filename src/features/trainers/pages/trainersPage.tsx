@@ -1,40 +1,46 @@
-"use client"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
-import { Badge } from "@/shared/components/ui/badge"
-import { Plus, Search, MoreHorizontal, RefreshCw, Edit, Eye, Trash2, RotateCcw, Power, Dumbbell } from "lucide-react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
-import { trainerService } from "../services/trainerService"
-import type { Trainer } from "@/shared/types/trainer"
-import Swal from "sweetalert2"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/shared/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table"
+import { Badge } from "@/shared/components/ui/badge"
+import { 
+  Plus, 
+  Search, 
+  RefreshCw,
+  Dumbbell,
+  ChevronLeft,
+  ChevronRight,
+  Edit,
+  Trash2,
+  Power,
+  PowerOff
+} from "lucide-react"
+import { trainerService } from "../services/trainerService"
+import type { TrainerDisplayData } from "@/shared/types/trainer"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
 import { TrainerModal } from "../components/trainerModal"
-import { TrainerDetailModal } from "../components/trainerDetailModal"
+import { useToast } from "@/shared/components/ui/use-toast"
+import { usePermissions } from "@/shared/hooks/usePermissions"
+import Swal from "sweetalert2"
 
 export function TrainersPage() {
-  const [trainers, setTrainers] = useState<Trainer[]>([])
-  const [filteredTrainers, setFilteredTrainers] = useState<Trainer[]>([])
+  const [trainers, setTrainers] = useState<TrainerDisplayData[]>([])
+  const [filteredTrainers, setFilteredTrainers] = useState<TrainerDisplayData[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [selectedTrainer, setSelectedTrainer] = useState<Trainer | null>(null)
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
-  const [editingTrainer, setEditingTrainer] = useState<Trainer | null>(null)
+  const [editingTrainer, setEditingTrainer] = useState<TrainerDisplayData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+  const { toast } = useToast()
+  const { hasPrivilege } = usePermissions()
+
+  const canCreate = hasPrivilege('ENTRENADORES', 'TRAINER_CREATE')
+  const canUpdate = hasPrivilege('ENTRENADORES', 'TRAINER_UPDATE')
+  const canDelete = hasPrivilege('ENTRENADORES', 'TRAINER_DELETE')
 
   useEffect(() => {
     loadTrainers()
@@ -49,15 +55,10 @@ export function TrainersPage() {
       setIsLoading(true)
       setError(null)
 
-      // Usar el método mejorado que obtiene información completa del usuario
       const response = await trainerService.getTrainersWithCompleteUserInfo()
-
-      // Verificar si la respuesta es un array
+      
       if (Array.isArray(response)) {
         setTrainers(response)
-      } else if (response && Array.isArray(response.data)) {
-        // Si la respuesta viene envuelta en un objeto con propiedad data
-        setTrainers(response.data)
       } else {
         console.error("Unexpected response format:", response)
         setTrainers([])
@@ -65,20 +66,14 @@ export function TrainersPage() {
       }
     } catch (error) {
       console.error("Error loading trainers:", error)
-      setTrainers([]) // Asegurar que trainers sea siempre un array
-      setError(error.message || "Error al cargar los entrenadores")
+      setTrainers([])
+      setError((error as Error)?.message || "Error al cargar los entrenadores")
     } finally {
       setIsLoading(false)
     }
   }
 
   const filterTrainers = () => {
-    // Verificar que trainers sea un array antes de filtrar
-    if (!Array.isArray(trainers)) {
-      setFilteredTrainers([])
-      return
-    }
-
     let filtered = [...trainers]
 
     if (searchTerm) {
@@ -106,158 +101,181 @@ export function TrainersPage() {
     })
 
     setFilteredTrainers(filtered)
+    setCurrentPage(1) // Reset page when filters change
   }
 
-  const handleViewDetails = (trainer: Trainer) => {
-    setSelectedTrainer(trainer)
-    setIsDetailsOpen(true)
-  }
-
-  const handleEditTrainer = (trainer: Trainer) => {
-    setEditingTrainer(trainer)
-    setIsModalOpen(true)
-  }
-
-  const handleSaveTrainer = async (trainerData: Omit<Trainer, "id">) => {
+  const handleSaveTrainer = async (trainerData: Omit<TrainerDisplayData, "id">) => {
     try {
       if (editingTrainer) {
-        const updatedTrainer: Trainer = {
+        if (!canUpdate) {
+          toast({
+            title: "Error",
+            description: "No tienes permisos para actualizar entrenadores",
+            type: "error",
+          })
+          return
+        }
+        const updatedTrainer: TrainerDisplayData = {
           ...editingTrainer,
           ...trainerData,
         }
         await trainerService.updateTrainer(updatedTrainer)
+        toast({
+          title: "¡Éxito!",
+          description: "Entrenador actualizado correctamente",
+          type: "success",
+        })
       } else {
+        if (!canCreate) {
+          toast({
+            title: "Error",
+            description: "No tienes permisos para crear entrenadores",
+            type: "error",
+          })
+          return
+        }
         await trainerService.createTrainer(trainerData)
+        toast({
+          title: "¡Éxito!",
+          description: "Entrenador creado correctamente",
+          type: "success",
+        })
       }
 
-      // Recargar la lista de entrenadores
       await loadTrainers()
-
-      // Cerrar el modal
       setIsModalOpen(false)
       setEditingTrainer(null)
     } catch (error) {
       console.error("Error saving trainer:", error)
-      // El error se maneja en el modal, así que solo lo propagamos
+      toast({
+        title: "Error",
+        description: error.message || "Error al guardar el entrenador",
+        type: "error",
+      })
       throw error
     }
   }
 
-  const handleDeleteTrainer = async (trainer: Trainer) => {
+  const handleEditTrainer = (trainer: TrainerDisplayData) => {
+    if (!canUpdate) {
+      toast({
+        title: "Error",
+        description: "No tienes permisos para actualizar entrenadores",
+        type: "error",
+      })
+      return
+    }
+    setEditingTrainer(trainer)
+    setIsModalOpen(true)
+  }
+
+  const handleDeleteTrainer = async (trainer: TrainerDisplayData) => {
+    if (!canDelete) {
+      toast({
+        title: "Error",
+        description: "No tienes permisos para eliminar entrenadores",
+        type: "error",
+      })
+      return
+    }
+    
     const result = await Swal.fire({
       title: "¿Eliminar entrenador?",
-      text: `¿Está seguro que desea eliminar a ${trainer.name} ${trainer.lastName}?`,
+      text: `¿Estás seguro de que deseas eliminar a ${trainer.name} ${trainer.lastName}? Esta acción no se puede deshacer.`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#000000",
-      cancelButtonColor: "#6B7280",
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
       confirmButtonText: "Sí, eliminar",
       cancelButtonText: "Cancelar",
-      allowOutsideClick: false,
-      allowEscapeKey: false,
     })
 
     if (result.isConfirmed) {
       try {
-        await trainerService.deleteTrainer(trainer.id)
+        await trainerService.deleteTrainer(trainer.id?.toString() || "")
         await loadTrainers()
-
-        Swal.fire({
-          title: "¡Eliminado!",
-          text: "El entrenador ha sido eliminado correctamente",
-          icon: "success",
-          confirmButtonColor: "#000",
-          confirmButtonText: "Cerrar",
-          timer: 5000,
-          timerProgressBar: true,
-          allowOutsideClick: true,
-          allowEscapeKey: true,
+        toast({
+          title: "¡Éxito!",
+          description: "Entrenador eliminado correctamente",
+          type: "success",
         })
       } catch (error) {
         console.error("Error deleting trainer:", error)
-        Swal.fire({
+        toast({
           title: "Error",
-          text: "No se pudo eliminar el entrenador",
-          icon: "error",
-          confirmButtonColor: "#000",
-          confirmButtonText: "Cerrar",
-          timer: 5000,
-          timerProgressBar: true,
-          allowOutsideClick: true,
-          allowEscapeKey: true,
+          description: "No se pudo eliminar el entrenador",
+          type: "error",
         })
       }
     }
   }
 
-  const handleToggleStatus = async (trainer: Trainer) => {
-    const result = await Swal.fire({
-      title: trainer.isActive ? "¿Desactivar entrenador?" : "¿Activar entrenador?",
-      text: trainer.isActive
-        ? `¿Está seguro que desea desactivar a ${trainer.name} ${trainer.lastName}?`
-        : `¿Está seguro que desea activar a ${trainer.name} ${trainer.lastName}?`,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#000000",
-      cancelButtonColor: "#6B7280",
-      confirmButtonText: trainer.isActive ? "Sí, desactivar" : "Sí, activar",
-      cancelButtonText: "Cancelar",
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-    })
-
-    if (result.isConfirmed) {
-      try {
-        const updatedTrainer = { ...trainer, isActive: !trainer.isActive }
-        await trainerService.updateTrainer(updatedTrainer)
-        await loadTrainers()
-
-        Swal.fire({
-          title: trainer.isActive ? "¡Desactivado!" : "¡Activado!",
-          text: `El entrenador ha sido ${trainer.isActive ? "desactivado" : "activado"} correctamente`,
-          icon: "success",
-          confirmButtonColor: "#000",
-          confirmButtonText: "Cerrar",
-          timer: 5000,
-          timerProgressBar: true,
-          allowOutsideClick: true,
-          allowEscapeKey: true,
-        })
-      } catch (error) {
-        console.error("Error toggling trainer status:", error)
-        Swal.fire({
-          title: "Error",
-          text: "No se pudo cambiar el estado del entrenador",
-          icon: "error",
-          confirmButtonColor: "#000",
-          confirmButtonText: "Cerrar",
-          timer: 5000,
-          timerProgressBar: true,
-          allowOutsideClick: true,
-          allowEscapeKey: true,
-        })
-      }
+  const handleToggleStatus = async (trainer: TrainerDisplayData) => {
+    if (!canUpdate) {
+      toast({
+        title: "Error",
+        description: "No tienes permisos para actualizar entrenadores",
+        type: "error",
+      })
+      return
+    }
+    
+    try {
+      const updatedTrainer = { ...trainer, isActive: !trainer.isActive }
+      await trainerService.updateTrainer(updatedTrainer)
+      await loadTrainers()
+      toast({
+        title: "¡Éxito!",
+        description: `Entrenador ${trainer.isActive ? "desactivado" : "activado"} correctamente`,
+        type: "success",
+      })
+    } catch (error) {
+      console.error("Error toggling trainer status:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo cambiar el estado del entrenador",
+        type: "error",
+      })
     }
   }
 
-  const paginatedTrainers = filteredTrainers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  const handleNewTrainer = () => {
+    if (!canCreate) {
+      toast({
+        title: "Error",
+        description: "No tienes permisos para crear entrenadores",
+        type: "error",
+      })
+      return
+    }
+    setEditingTrainer(null)
+    setIsModalOpen(true)
+  }
 
+  // Calculate pagination
   const totalPages = Math.ceil(filteredTrainers.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedTrainers = filteredTrainers.slice(startIndex, endIndex)
 
   if (trainers.length === 0 && !isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <Card className="w-full max-w-md">
-          <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-            <Dumbbell className="h-16 w-16 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No hay entrenadores registrados</h3>
-            <p className="text-gray-500 mb-4">Comience agregando el primer entrenador al sistema</p>
-            <Button onClick={() => setIsModalOpen(true)} className="bg-black hover:bg-gray-800">
-              <Plus className="h-4 w-4 mr-2" />
-              Agregar Entrenador
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <Card className="w-full max-w-md">
+            <CardContent className="flex flex-col items-center justify-center p-8 text-center">
+              <Dumbbell className="h-16 w-16 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No hay entrenadores registrados</h3>
+              <p className="text-gray-500 mb-4">Comience agregando el primer entrenador al sistema</p>
+              {canCreate && (
+                <Button onClick={handleNewTrainer} className="bg-black hover:bg-gray-800">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar Entrenador
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
@@ -279,29 +297,31 @@ export function TrainersPage() {
           </Button>
         </div>
       )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold">Entrenadores</h1>
-          <p className="text-gray-600">Gestión de entrenadores del gimnasio</p>
+          <p className="text-gray-600">Gestión de entrenadores del sistema</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={loadTrainers} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          <Button
+            variant="outline"
+            onClick={loadTrainers}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
-          <Button
-            onClick={() => {
-              setEditingTrainer(null)
-              setIsModalOpen(true)
-            }}
-            className="bg-black hover:bg-gray-800"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Entrenador
-          </Button>
+          {canCreate && (
+            <Button onClick={handleNewTrainer} className="bg-black hover:bg-gray-800">
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Entrenador
+            </Button>
+          )}
         </div>
       </div>
+
       {/* Filters */}
       <Card className="mb-6">
         <CardContent className="pt-6">
@@ -331,151 +351,147 @@ export function TrainersPage() {
         </CardContent>
       </Card>
 
-      {/* Trainers Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Dumbbell className="h-5 w-5" />
-            Lista de Entrenadores ({filteredTrainers.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
+      {/* Table */}
+      <div className="bg-white rounded-lg border">
+        <div className="px-6 py-4 border-b">
+          <h3 className="font-semibold text-lg">Lista de Entrenadores ({filteredTrainers.length})</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Código</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Teléfono</TableHead>
+                <TableHead>Especialidad</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
                 <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Especialidad</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Documento</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Fecha de Registro</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <div className="flex items-center justify-center">
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Cargando entrenadores...
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTrainers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
-                      <div className="flex flex-col items-center gap-2">
-                        <Dumbbell className="h-8 w-8 text-gray-400" />
-                        <p className="text-gray-500">No se encontraron entrenadores</p>
+              ) : paginatedTrainers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <div className="flex flex-col items-center justify-center text-gray-500">
+                      <Dumbbell className="h-8 w-8 mb-2" />
+                      <p>No se encontraron entrenadores</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedTrainers.map((trainer) => (
+                  <TableRow key={trainer.id}>
+                    <TableCell className="font-medium">{trainer.codigo || 'N/A'}</TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{trainer.name} {trainer.lastName}</div>
+                        <div className="text-sm text-gray-500">{trainer.documentNumber}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{trainer.email}</TableCell>
+                    <TableCell>{trainer.phone || 'N/A'}</TableCell>
+                    <TableCell>{trainer.specialty}</TableCell>
+                    <TableCell>
+                      <Badge variant={trainer.isActive ? "default" : "secondary"}>
+                        {trainer.isActive ? "Activo" : "Inactivo"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {canUpdate && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditTrainer(trainer)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleStatus(trainer)}
+                            >
+                              {trainer.isActive ? (
+                                <PowerOff className="h-4 w-4" />
+                              ) : (
+                                <Power className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteTrainer(trainer)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  paginatedTrainers.map((trainer) => (
-                    <TableRow key={trainer.id}>
-                      <TableCell className="font-medium">{trainer.codigo || "N/A"}</TableCell>
-                      <TableCell className="font-medium">
-                        {trainer.name} {trainer.lastName}
-                      </TableCell>
-                      <TableCell>{trainer.specialty || "N/A"}</TableCell>
-                      <TableCell>{trainer.email || "N/A"}</TableCell>
-                      <TableCell>{trainer.phone || "N/A"}</TableCell>
-                      <TableCell className="font-medium">
-                        {trainer.documentNumber && trainer.documentNumber !== "No disponible" ? (
-                          trainer.documentNumber
-                        ) : (
-                          <span className="text-orange-600">Información incompleta</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {trainer.isActive ? (
-                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Activo</Badge>
-                        ) : (
-                          <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Inactivo</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {trainer.hireDate ? format(new Date(trainer.hireDate), "dd/MM/yyyy", { locale: es }) : "N/A"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleViewDetails(trainer)}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              Ver detalles
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEditTrainer(trainer)}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleStatus(trainer)}>
-                              {trainer.isActive ? (
-                                <Power className="w-4 h-4 mr-2" />
-                              ) : (
-                                <RotateCcw className="w-4 h-4 mr-2" />
-                              )}
-                              {trainer.isActive ? "Desactivar" : "Activar"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteTrainer(trainer)}
-                              className="text-red-600 focus:text-red-600"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
 
-      {/* Paginación */}
+      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-center gap-2 mt-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(currentPage - 1)}
-            disabled={currentPage === 1 || isLoading}
-          >
-            Anterior
-          </Button>
-          <span className="py-2 px-3 text-sm">
-            Página {currentPage} de {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(currentPage + 1)}
-            disabled={currentPage === totalPages || isLoading}
-          >
-            Siguiente
-          </Button>
+        <div className="flex items-center justify-between mt-6">
+          <p className="text-sm text-gray-700">
+            Mostrando {startIndex + 1} a {Math.min(endIndex, filteredTrainers.length)} de{" "}
+            {filteredTrainers.length} entrenadores
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Anterior
+            </Button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <Button
+                  key={page}
+                  variant={currentPage === page ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(page)}
+                  className="w-10"
+                >
+                  {page}
+                </Button>
+              ))}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              Siguiente
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Trainer Details Modal */}
-      {selectedTrainer && (
-        <TrainerDetailModal
-          isOpen={isDetailsOpen}
-          onClose={() => setIsDetailsOpen(false)}
-          trainer={selectedTrainer}
-          onEdit={handleEditTrainer}
-          onDelete={handleDeleteTrainer}
-        />
-      )}
-
-      {/* New/Edit Trainer Modal */}
       <TrainerModal
         isOpen={isModalOpen}
         onClose={() => {

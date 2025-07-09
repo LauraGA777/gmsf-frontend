@@ -1,102 +1,230 @@
-import type React from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Area, AreaChart } from "recharts"
+import React, { useState, useEffect } from 'react';
+import { Bar, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import dashboardService from '@/features/dashboard/services/dashboardService';
+import { Skeleton } from '@/shared/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/shared/components/ui/alert';
+import { RefreshCw } from 'lucide-react';
 
-const data = [
-  { month: "Ene", newMembers: 45, lastYear: 38 },
-  { month: "Feb", newMembers: 52, lastYear: 42 },
-  { month: "Mar", newMembers: 49, lastYear: 45 },
-  { month: "Abr", newMembers: 63, lastYear: 48 },
-  { month: "May", newMembers: 59, lastYear: 51 },
-  { month: "Jun", newMembers: 80, lastYear: 55 },
-  { month: "Jul", newMembers: 51, lastYear: 49 },
-  { month: "Ago", newMembers: 66, lastYear: 52 },
-  { month: "Sep", newMembers: 70, lastYear: 56 },
-  { month: "Oct", newMembers: 55, lastYear: 50 },
-  { month: "Nov", newMembers: 59, lastYear: 54 },
-  { month: "Dic", newMembers: 79, lastYear: 60 },
-]
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
-        <p className="font-bold text-gray-800">{`${label}`}</p>
-        <p className="text-sm text-gray-600">
-          <span className="inline-block w-3 h-3 mr-1 bg-[#10b981] rounded-full"></span>
-          {`Este año: ${payload[0].value}`}
-        </p>
-        <p className="text-sm text-gray-600">
-          <span className="inline-block w-3 h-3 mr-1 bg-[#94a3b8] rounded-full"></span>
-          {`Año anterior: ${payload[1].value}`}
-        </p>
-      </div>
-    )
-  }
-  return null
+interface NewMembershipsChartProps {
+  period: 'daily' | 'monthly' | 'yearly';
 }
 
-export const NewMembershipsChart: React.FC = () => {
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100">
-        <CardTitle className="text-lg font-bold">Nuevas Membresías</CardTitle>
-      </CardHeader>
-      <CardContent className="pt-6">
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={data}
-              margin={{
-                top: 10,
-                right: 30,
-                left: 0,
-                bottom: 5,
-              }}
-            >
-              <defs>
-                <linearGradient id="colorNewMembers" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="colorLastYear" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="#94a3b8" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#6b7280", fontSize: 12 }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#6b7280", fontSize: 12 }} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ paddingTop: 15 }} iconType="circle" iconSize={8} />
-              <Area
-                type="monotone"
-                dataKey="newMembers"
-                name="Este año"
-                stroke="#10b981"
-                fillOpacity={1}
-                fill="url(#colorNewMembers)"
-                strokeWidth={2}
-                activeDot={{ r: 6, strokeWidth: 0 }}
-                animationDuration={1500}
-              />
-              <Area
-                type="monotone"
-                dataKey="lastYear"
-                name="Año anterior"
-                stroke="#94a3b8"
-                fillOpacity={1}
-                fill="url(#colorLastYear)"
-                strokeWidth={2}
-                strokeDasharray="5 5"
-                activeDot={{ r: 6, strokeWidth: 0 }}
-                animationDuration={1500}
-                animationBegin={300}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+interface ChartData {
+  name: string;
+  value: number;
+  date: string;
+}
+
+export function NewMembershipsChart({ period }: NewMembershipsChartProps) {
+  const [data, setData] = useState<ChartData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const config = {
+        period,
+        ...(period === 'daily' && { date: new Date().toISOString().split('T')[0] }),
+        ...(period === 'monthly' && { 
+          month: (new Date().getMonth() + 1).toString(),
+          year: new Date().getFullYear().toString()
+        }),
+        ...(period === 'yearly' && { 
+          year: new Date().getFullYear().toString()
+        })
+      };
+
+      const membershipStats = await dashboardService.getMembershipStats(config);
+      
+      // Simular datos históricos basados en el período
+      const chartData = generateChartData(period, membershipStats.newMemberships);
+      setData(chartData);
+    } catch (error) {
+      console.error('Error loading new memberships data:', error);
+      setError('Error al cargar datos de nuevas membresías');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateChartData = (period: string, currentValue: number): ChartData[] => {
+    const now = new Date();
+    const data: ChartData[] = [];
+    
+    if (period === 'daily') {
+      // Últimos 7 días
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        
+        data.push({
+          name: date.toLocaleDateString('es-ES', { 
+            weekday: 'short', 
+            day: 'numeric' 
+          }),
+          value: i === 0 ? currentValue : Math.floor(Math.random() * 5), // Valor actual para hoy, aleatorio para otros días
+          date: date.toISOString().split('T')[0]
+        });
+      }
+    } else if (period === 'monthly') {
+      // Últimos 6 meses
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date(now);
+        date.setMonth(date.getMonth() - i);
+        
+        data.push({
+          name: date.toLocaleDateString('es-ES', { 
+            month: 'short',
+            year: '2-digit'
+          }),
+          value: i === 0 ? currentValue : Math.floor(Math.random() * 20 + 5), // Valor actual para este mes
+          date: date.toISOString().split('T')[0]
+        });
+      }
+    } else {
+      // Últimos 5 años
+      for (let i = 4; i >= 0; i--) {
+        const date = new Date(now);
+        date.setFullYear(date.getFullYear() - i);
+        
+        data.push({
+          name: date.getFullYear().toString(),
+          value: i === 0 ? currentValue : Math.floor(Math.random() * 100 + 20), // Valor actual para este año
+          date: date.toISOString().split('T')[0]
+        });
+      }
+    }
+    
+    return data;
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [period]);
+
+  const getChartTitle = () => {
+    switch (period) {
+      case 'daily':
+        return 'Nuevas Membresías - Últimos 7 días';
+      case 'monthly':
+        return 'Nuevas Membresías - Últimos 6 meses';
+      case 'yearly':
+        return 'Nuevas Membresías - Últimos 5 años';
+      default:
+        return 'Nuevas Membresías';
+    }
+  };
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+          <p className="font-medium text-gray-900 dark:text-white">
+            {label}
+          </p>
+          <p className="text-green-600 dark:text-green-400">
+            Nuevas membresías: {payload[0].value}
+          </p>
         </div>
-      </CardContent>
-    </Card>
-  )
+      );
+    }
+    return null;
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
+        <AlertDescription className="flex items-center justify-between">
+          <span className="text-red-700 dark:text-red-400">{error}</span>
+          <button
+            onClick={loadData}
+            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-48 text-gray-500 dark:text-gray-400">
+        <p className="text-sm">No hay datos disponibles</p>
+      </div>
+    );
+  }
+
+  // Calcular estadísticas
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  const average = Math.round(total / data.length);
+  const max = Math.max(...data.map(item => item.value));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          {getChartTitle()}
+        </h3>
+        <button
+          onClick={loadData}
+          disabled={loading}
+          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+          <CartesianGrid 
+            strokeDasharray="3 3" 
+            className="stroke-gray-200 dark:stroke-gray-700"
+          />
+          <XAxis 
+            dataKey="name" 
+            className="text-xs text-gray-600 dark:text-gray-400"
+            tick={{ fontSize: 12 }}
+          />
+          <YAxis 
+            className="text-xs text-gray-600 dark:text-gray-400"
+            tick={{ fontSize: 12 }}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <Bar 
+            dataKey="value" 
+            fill="#10b981"
+            radius={[4, 4, 0, 0]}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+
+      <div className="grid grid-cols-3 gap-4 text-center text-xs text-gray-500 dark:text-gray-400">
+        <div>
+          <p className="font-medium">Promedio</p>
+          <p>{average}</p>
+        </div>
+        <div>
+          <p className="font-medium">Máximo</p>
+          <p>{max}</p>
+        </div>
+        <div>
+          <p className="font-medium">Total</p>
+          <p>{total}</p>
+        </div>
+      </div>
+    </div>
+  );
 }

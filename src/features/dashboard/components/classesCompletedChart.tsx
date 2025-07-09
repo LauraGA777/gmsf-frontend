@@ -1,256 +1,226 @@
-"use client"
+import React, { useState, useEffect } from 'react';
+import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Skeleton } from '@/shared/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/shared/components/ui/alert';
+import { RefreshCw } from 'lucide-react';
 
-import { useState } from "react"
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
-import { MOCK_CONTRACTS } from "@/features/data/mockData"
-
-// Function to generate membership popularity data
-const generateMembershipData = (timeRange: string) => {
-    const today = new Date()
-    const membershipMap = new Map()
-
-    // Filter contracts based on time range
-    const contracts = MOCK_CONTRACTS.filter(contract => {
-        const startDate = new Date(contract.fecha_inicio)
-        const monthsAgo = (today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
-        
-        switch(timeRange) {
-            case "1mes":
-                return monthsAgo <= 1
-            case "3meses":
-                return monthsAgo <= 3
-            case "6meses":
-                return monthsAgo <= 6
-            case "año":
-                return monthsAgo <= 12
-            default:
-                return true
-        }
-    })
-
-    // Count memberships and sort by value
-    contracts.forEach((contract) => {
-        const count = membershipMap.get(contract.membresia_nombre) || 0
-        membershipMap.set(contract.membresia_nombre, count + 1)
-    })
-
-    // Convert to array and sort by value descending
-    return Array.from(membershipMap.entries())
-        .map(([name, value]) => ({
-            name,
-            value,
-        }))
-        .sort((a, b) => b.value - a.value)
+interface ClassesCompletedChartProps {
+  period: 'daily' | 'monthly' | 'yearly';
 }
 
-// Colors for the pie chart - Utilizando colores más intuitivos y vibrantes
-const COLORS = {
-    "Mensualidad": "#4f46e5",    // Azul intenso para el plan más común
-    "Tiquetera": "#059669",      // Verde esmeralda para opciones económicas
-    "Easy": "#0ea5e9",          // Azul cielo para plan básico
-    "Día": "#f97316",           // Naranja para plan diario
-    "Trimestral": "#8b5cf6",    // Púrpura para planes intermedios
-    "Semestral": "#6366f1",     // Índigo para planes premium
-    "Anual": "#7c3aed"          // Violeta para el plan más premium
+interface ChartData {
+  name: string;
+  clases: number;
+  date: string;
 }
 
-// Función para obtener el color basado en el nombre de la membresía
-const getColor = (name: string) => {
-    return COLORS[name as keyof typeof COLORS] || "#9ca3af" // Color gris por defecto
-}
+export function ClassesCompletedChart({ period }: ClassesCompletedChartProps) {
+  const [data, setData] = useState<ChartData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-interface PopularMembershipsChartProps {
-    title?: string
-    description?: string
-}
-
-// Función para renderizar las etiquetas del gráfico
-const RADIAN = Math.PI / 180
-const renderCustomizedLabel = ({
-    cx,
-    cy,
-    midAngle,
-    innerRadius,
-    outerRadius,
-    percent,
-    name,
-    index,
-    payload,
-    value,
-}: any) => {
-    // Aumentar el radio para las etiquetas externas
-    const radius = innerRadius + (outerRadius - innerRadius) * 1.7
-    const x = cx + radius * Math.cos(-midAngle * RADIAN)
-    const y = cy + radius * Math.sin(-midAngle * RADIAN)
+  const generateMockData = (period: string): ChartData[] => {
+    const now = new Date();
+    const data: ChartData[] = [];
     
-    // Calcular la posición de la línea conectora
-    const pos = value >= totalValue / 15 ? 'end' : 'start'
-    const lineX1 = cx + (outerRadius + 10) * Math.cos(-midAngle * RADIAN)
-    const lineY1 = cy + (outerRadius + 10) * Math.sin(-midAngle * RADIAN)
-    const lineX2 = x
-    const lineY2 = y
+    if (period === 'daily') {
+      // Últimos 7 días
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        
+        data.push({
+          name: date.toLocaleDateString('es-ES', { 
+            weekday: 'short', 
+            day: 'numeric' 
+          }),
+          clases: Math.floor(Math.random() * 15) + 5, // 5-20 clases por día
+          date: date.toISOString().split('T')[0]
+        });
+      }
+    } else if (period === 'monthly') {
+      // Últimos 6 meses
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date(now);
+        date.setMonth(date.getMonth() - i);
+        
+        data.push({
+          name: date.toLocaleDateString('es-ES', { 
+            month: 'short',
+            year: '2-digit'
+          }),
+          clases: Math.floor(Math.random() * 200) + 100, // 100-300 clases por mes
+          date: date.toISOString().split('T')[0]
+        });
+      }
+    } else {
+      // Últimos 5 años
+      for (let i = 4; i >= 0; i--) {
+        const date = new Date(now);
+        date.setFullYear(date.getFullYear() - i);
+        
+        data.push({
+          name: date.getFullYear().toString(),
+          clases: Math.floor(Math.random() * 1000) + 500, // 500-1500 clases por año
+          date: date.toISOString().split('T')[0]
+        });
+      }
+    }
+    
+    return data;
+  };
 
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Simular carga de datos
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const mockData = generateMockData(period);
+      setData(mockData);
+    } catch (error) {
+      console.error('Error loading classes data:', error);
+      setError('Error al cargar datos de clases');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [period]);
+
+  const getChartTitle = () => {
+    switch (period) {
+      case 'daily':
+        return 'Clases Completadas - Últimos 7 días';
+      case 'monthly':
+        return 'Clases Completadas - Últimos 6 meses';
+      case 'yearly':
+        return 'Clases Completadas - Últimos 5 años';
+      default:
+        return 'Clases Completadas';
+    }
+  };
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+          <p className="font-medium text-gray-900 dark:text-white">
+            {label}
+          </p>
+          <p className="text-purple-600 dark:text-purple-400">
+            Clases completadas: {payload[0].value}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  if (loading) {
     return (
-        <g>
-            {/* Línea conectora */}
-            <line
-                x1={lineX1}
-                y1={lineY1}
-                x2={lineX2}
-                y2={lineY2}
-                stroke={getColor(name)}
-                strokeWidth={1}
-            />
-            {/* Punto en el inicio de la línea */}
-            <circle
-                cx={lineX1}
-                cy={lineY1}
-                r={2}
-                fill={getColor(name)}
-            />
-            {/* Texto de la etiqueta con fondo */}
-            <g>
-                <text
-                    x={x}
-                    y={y}
-                    fill="#000000"
-                    textAnchor={x > cx ? 'start' : 'end'}
-                    dominantBaseline="central"
-                    fontSize="12"
-                    fontWeight="500"
-                >
-                    {`${name} (${(percent * 100).toFixed(0)}%)`}
-                </text>
-            </g>
-        </g>
-    )
-}
+      <div className="space-y-4">
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  }
 
-let totalValue = 0 // Variable global para el total de valores
-
-export function PopularMembershipsChart({
-    title = "Membresías Populares",
-    description = "Distribución de membresías activas por tipo",
-}: PopularMembershipsChartProps) {
-    const [timeRange, setTimeRange] = useState<string>("1mes")
-    const [membershipData, setMembershipData] = useState(generateMembershipData("1mes"))
-
-    // Function to change time range
-    const handleTimeRangeChange = (value: string) => {
-        setTimeRange(value)
-        const newData = generateMembershipData(value)
-        totalValue = newData.reduce((sum, item) => sum + item.value, 0)
-        setMembershipData(newData)
-    }
-
-    // Calculate total memberships
-    totalValue = membershipData.reduce((sum, item) => sum + item.value, 0)
-
-    // Format tooltip
-    const CustomTooltip = ({ active, payload }: any) => {
-        if (active && payload && payload.length) {
-            const percentage = ((payload[0].payload.value / totalValue) * 100).toFixed(1)
-            return (
-                <div className="bg-white p-3 border rounded-lg shadow-lg">
-                    <p className="font-semibold text-sm mb-1">{payload[0].payload.name}</p>
-                    <p className="text-sm text-gray-600">
-                        {`${payload[0].payload.value} contratos`}
-                    </p>
-                    <p className="text-sm font-medium text-indigo-600">
-                        {`${percentage}% del total`}
-                    </p>
-                </div>
-            )
-        }
-        return null
-    }
-
-    // Custom legend renderer
-    const CustomLegend = ({ payload }: any) => {
-        if (payload && payload.length) {
-            return (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm mt-6">
-                    {payload.map((entry: any, index: number) => (
-                        <div key={`legend-${index}`} className="flex items-center space-x-2">
-                            <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: entry.color }}
-                            />
-                            <span className="text-gray-700">{entry.value}</span>
-                        </div>
-                    ))}
-                </div>
-            )
-        }
-        return null
-    }
-
+  if (error) {
     return (
-        <Card className="hover:shadow-lg transition-shadow duration-200">
-            <CardHeader className="pb-2">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <CardTitle className="text-xl font-bold text-gray-800">{title}</CardTitle>
-                        <CardDescription className="text-gray-500">{description}</CardDescription>
-                    </div>
-                    <Select defaultValue={timeRange} onValueChange={handleTimeRangeChange}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Seleccionar período" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="1mes">Último mes</SelectItem>
-                            <SelectItem value="3meses">Últimos 3 meses</SelectItem>
-                            <SelectItem value="6meses">Últimos 6 meses</SelectItem>
-                            <SelectItem value="año">Último año</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="mb-4">
-                    <p className="text-3xl font-bold text-gray-900">{totalValue} contratos</p>
-                    <p className="text-sm text-gray-500">
-                        {timeRange === "1mes"
-                            ? "en el último mes"
-                            : timeRange === "3meses"
-                                ? "en los últimos 3 meses"
-                                : timeRange === "6meses"
-                                    ? "en los últimos 6 meses"
-                                    : "en el último año"}
-                    </p>
-                </div>
-                <div className="w-full h-[450px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={membershipData}
-                                dataKey="value"
-                                nameKey="name"
-                                cx="50%"
-                                cy="45%"
-                                innerRadius={80}
-                                outerRadius={120}
-                                labelLine={false}
-                                label={renderCustomizedLabel}
-                                paddingAngle={2}
-                            >
-                                {membershipData.map((entry, index) => (
-                                    <Cell 
-                                        key={`cell-${index}`} 
-                                        fill={getColor(entry.name)}
-                                        strokeWidth={1}
-                                        stroke="#fff"
-                                    />
-                                ))}
-                            </Pie>
-                            <Tooltip content={<CustomTooltip />} />
-                            <Legend content={<CustomLegend />} verticalAlign="bottom" />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-            </CardContent>
-        </Card>
-    )
+      <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
+        <AlertDescription className="flex items-center justify-between">
+          <span className="text-red-700 dark:text-red-400">{error}</span>
+          <button
+            onClick={loadData}
+            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-48 text-gray-500 dark:text-gray-400">
+        <p className="text-sm">No hay datos disponibles</p>
+      </div>
+    );
+  }
+
+  // Calcular estadísticas
+  const total = data.reduce((sum, item) => sum + item.clases, 0);
+  const average = Math.round(total / data.length);
+  const max = Math.max(...data.map(item => item.clases));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          {getChartTitle()}
+        </h3>
+        <button
+          onClick={loadData}
+          disabled={loading}
+          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+
+      <ResponsiveContainer width="100%" height={200}>
+        <AreaChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+          <defs>
+            <linearGradient id="colorClases" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
+              <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid 
+            strokeDasharray="3 3" 
+            className="stroke-gray-200 dark:stroke-gray-700"
+          />
+          <XAxis 
+            dataKey="name" 
+            className="text-xs text-gray-600 dark:text-gray-400"
+            tick={{ fontSize: 12 }}
+          />
+          <YAxis 
+            className="text-xs text-gray-600 dark:text-gray-400"
+            tick={{ fontSize: 12 }}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <Area
+            type="monotone"
+            dataKey="clases"
+            stroke="#8b5cf6"
+            fillOpacity={1}
+            fill="url(#colorClases)"
+            strokeWidth={2}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+
+      <div className="grid grid-cols-3 gap-4 text-center text-xs text-gray-500 dark:text-gray-400">
+        <div>
+          <p className="font-medium">Promedio</p>
+          <p>{average}</p>
+        </div>
+        <div>
+          <p className="font-medium">Máximo</p>
+          <p>{max}</p>
+        </div>
+        <div>
+          <p className="font-medium">Total</p>
+          <p>{total}</p>
+        </div>
+      </div>
+    </div>
+  );
 }

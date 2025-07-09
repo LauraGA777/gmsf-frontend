@@ -1,251 +1,492 @@
-import React, { useState } from "react"
-import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute"
-import { SatisfactionChart } from "@/features/dashboard/components/satisfactionChart"
-import { AttendanceChart } from "@/features/dashboard/components/attendanceChart"
-import { PopularMembershipsChart } from "@/features/dashboard/components/popularMembershipsChart"
-import { ServiceSatisfactionChart } from "@/features/dashboard/components/servicesSatisfactionChart"
-import { MembershipRenewalChart } from "@/features/dashboard/components/membershipRenewalChart"
-import { NewMembershipsChart } from "@/features/dashboard/components/newMembershipsChart"
-import { RenewalVsExpiredChart } from "@/features/dashboard/components/renewalVsExpiredChart"
-import { MembershipStats } from "@/features/dashboard/components/membershipStats"
-import { Badge } from "@/shared/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
-import { AlertTriangle, ArrowUp, PieChart, Users } from "lucide-react"
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Alert, AlertDescription } from '@/shared/components/ui/alert';
+import { Skeleton } from '@/shared/components/ui/skeleton';
+import { 
+  Users, 
+  FileText, 
+  DollarSign, 
+  CreditCard, 
+  AlertCircle,
+  RefreshCw,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Crown,
+  Target,
+  BarChart3,
+  PieChart
+} from 'lucide-react';
 
-// Datos de satisfacción del servicio por categoría
-const satisfactionData = [
-  { categoria: "Clases Grupales", calificacion: 4.5, color: "#8884d8" },
-  { categoria: "Equipamientos", calificacion: 4.7, color: "#82ca9d" },
-  { categoria: "Atención al Cliente", calificacion: 4.8, color: "#ff8042" },
-]
+// Nuevos componentes
+import { DateRangeFilter, DateRange } from '@/features/dashboard/components/DateRangeFilter';
+import { AttendanceChart } from '@/features/dashboard/components/attendanceChart';
+import { RevenueChart } from '@/features/dashboard/components/RevenueChart';
+import { MembershipDistributionChart } from '@/features/dashboard/components/MembershipDistributionChart';
 
-// Datos simulados para ServiceSatisfactionChart
-const serviceSatisfactionData = [
-  { categoria: "Musculación", calificacion: 4.5, color: "#4f46e5" },
-  { categoria: "Cardio", calificacion: 4.2, color: "#059669" },
-  { categoria: "Yoga", calificacion: 4.8, color: "#0ea5e9" },
-  { categoria: "Spinning", calificacion: 3.9, color: "#f97316" },
-  { categoria: "Pilates", calificacion: 4.6, color: "#8b5cf6" },
-]
+// Servicios
+import dashboardService, { DashboardStats, AttendanceChartData, RevenueChartData, MembershipDistributionData } from '@/features/dashboard/services/dashboardService';
+import { formatCOP } from '@/shared/lib/formatCop';
+import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 
-export function DashboardPage() {
-  const [period, setPeriod] = useState("monthly")
-  const data = [
-    { name: "Premium", value: 45, color: '#0088FE' },
-    { name: "Estándar", value: 30, color: '#00C49F' },
-    { name: "Básica", value: 25, color: '#FFBB28' },
-    ]
-  return (
-    <ProtectedRoute allowedRoles={[1, 2]}>
+interface DashboardPageProps {
+  className?: string;
+}
 
-      <div className="space-y-6 sm:space-y-8 container mx-auto p-4 sm:p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
-        
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Panel de Control</h1>
-          <div className="bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-sm text-xs sm:text-sm text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 whitespace-nowrap">
-            Última actualización:{" "}
-            {new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" })}
-          </div>
-        </div>
-        {/* Gráficos de Membresías canceladas, ingreso x ventas, Membresías activas */}
-        <div >
-          <div className="flex items-center justify-between">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-200 mb-3 sm:mb-4">
-            Análisis de asistencia y membresías
-          </h2>
-            <Tabs defaultValue="monthly" onValueChange={setPeriod}>
-              <TabsList className="h-9">
-                <TabsTrigger value="weekly" className="px-3 text-xs">Semanal</TabsTrigger>
-                <TabsTrigger value="monthly" className="px-3 text-xs">Mensual</TabsTrigger>
-                <TabsTrigger value="yearly" className="px-3 text-xs">Anual</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
+interface DashboardState {
+  stats: DashboardStats | null;
+  attendanceData: AttendanceChartData[];
+  revenueData: RevenueChartData[];
+  membershipData: MembershipDistributionData[];
+  loading: boolean;
+  error: string | null;
+  chartsLoading: boolean;
+}
 
-          {/* Sección superior - Estadísticas rápidas */}
-          <div className="grid gap-4 md:grid-cols-3 mt-4">
-            <Card className="border-red-500 border-2">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Membresías Canceladas</CardTitle>
-                <AlertTriangle className="h-5 w-5 text-red-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="destructive" className="text-xl py-1.5 px-3">
-                    24
-                  </Badge>
-                  <div className="text-sm text-muted-foreground">
-                    <span className="flex items-center text-red-500">
-                      <ArrowUp className="mr-1 h-4 w-4" />
-                      12%
-                    </span>
-                    <span>desde el mes pasado</span>
+export default function DashboardPage({ className }: DashboardPageProps) {
+  // Estado del dashboard
+  const [state, setState] = useState<DashboardState>({
+    stats: null,
+    attendanceData: [],
+    revenueData: [],
+    membershipData: [],
+    loading: true,
+    error: null,
+    chartsLoading: true
+  });
+
+  // Rango de fechas inicial (este mes)
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRange>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
+    label: 'Este mes',
+    period: 'monthly'
+  });
+
+  // Cargar estadísticas básicas
+  const loadDashboardStats = async (dateRange: DateRange) => {
+    try {
+      setState(prev => ({ ...prev, loading: true, error: null }));
+      
+      const config = {
+        period: dateRange.period,
+        dateFrom: format(dateRange.from, 'yyyy-MM-dd'),
+        dateTo: format(dateRange.to, 'yyyy-MM-dd')
+      };
+
+      const stats = await dashboardService.getDashboardStats(config);
+      setState(prev => ({ ...prev, stats, loading: false }));
+    } catch (error) {
+      console.error('Error loading dashboard stats:', error);
+      setState(prev => ({ 
+        ...prev, 
+        loading: false, 
+        error: 'Error al cargar las estadísticas del dashboard',
+        stats: {
+          attendance: { total: 0, activos: 0, eliminados: 0, date: new Date().toISOString() },
+          contracts: { 
+            totalContracts: 0, activeContracts: 0, expiredContracts: 0, 
+            cancelledContracts: 0, newContracts: 0, totalRevenue: 0, 
+            periodRevenue: 0, recentContracts: [] 
+          },
+          memberships: { 
+            totalMemberships: 0, activeMemberships: 0, inactiveMemberships: 0, 
+            newMemberships: 0, popularMemberships: [] 
+          }
+        }
+      }));
+    }
+  };
+
+  // Cargar datos de gráficos
+  const loadChartsData = async (dateRange: DateRange) => {
+    try {
+      setState(prev => ({ ...prev, chartsLoading: true }));
+      
+      const [attendanceData, revenueData, membershipData] = await Promise.all([
+        dashboardService.getAttendanceChartData(dateRange),
+        dashboardService.getRevenueChartData(dateRange),
+        dashboardService.getMembershipDistributionData(dateRange)
+      ]);
+
+      setState(prev => ({ 
+        ...prev, 
+        attendanceData, 
+        revenueData, 
+        membershipData, 
+        chartsLoading: false 
+      }));
+    } catch (error) {
+      console.error('Error loading charts data:', error);
+      setState(prev => ({ ...prev, chartsLoading: false }));
+    }
+  };
+
+  // Manejar cambio de rango de fechas
+  const handleDateRangeChange = (newDateRange: DateRange) => {
+    setSelectedDateRange(newDateRange);
+    loadDashboardStats(newDateRange);
+    loadChartsData(newDateRange);
+  };
+
+  // Refrescar todo
+  const refreshAll = () => {
+    loadDashboardStats(selectedDateRange);
+    loadChartsData(selectedDateRange);
+  };
+
+  // Efectos
+  useEffect(() => {
+    loadDashboardStats(selectedDateRange);
+    loadChartsData(selectedDateRange);
+  }, []);
+
+  // Renderizar KPI cards
+  const renderKPICards = () => {
+    if (state.loading) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i} className="relative overflow-hidden">
+              <CardContent className="p-6">
+                <div className="animate-pulse">
+                  <div className="flex items-center space-x-4">
+                    <Skeleton className="h-12 w-12 rounded-xl" />
+                    <div className="space-y-2 flex-1">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-8 w-16" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Ingresos por Ventas de Membresías(Mensuales)</CardTitle>
-                <ArrowUp className="h-5 w-5 text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">$3'000.000</div>
-                <p className="text-xs text-muted-foreground">+8% desde el periodo anterior</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Membresías Activas</CardTitle>
-                <Users className="h-5 w-5 text-blue-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">2,345</div>
-                <p className="text-xs text-muted-foreground">+5.2% desde el periodo anterior</p>
-              </CardContent>
-            </Card>
-          </div>
-
+          ))}
         </div>
-        {/* Gráficos principales */}
-        <section className="mb-6 sm:mb-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            {/* Gráfico de Asistencia Diaria */}
-            <Card className="hover:shadow-lg transition-shadow duration-200 border border-gray-200 dark:border-gray-800 dark:bg-gray-800/50">
-              <CardHeader className="pb-2 border-b border-gray-100 dark:border-gray-700">
-                <CardTitle className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100">
-                  Asistencia diaria
-                </CardTitle>
-                <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
-                  Registro de ingresos de clientes al gimnasio
-                </p>
-              </CardHeader>
-              <CardContent className="pt-3 sm:pt-4">
-                <AttendanceChart />
-              </CardContent>
-            </Card>
+      );
+    }
 
-            {/* Gráfico de Membresías Populares */}
-            <Card className="hover:shadow-lg transition-shadow duration-200 border border-gray-200 dark:border-gray-800 dark:bg-gray-800/50">
-              <CardHeader className="pb-2 border-b border-gray-100 dark:border-gray-700">
-                <CardTitle className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100">
-                  Membresías populares
-                </CardTitle>
-                <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
-                  Distribución de membresías activas por tipo
-                </p>
-              </CardHeader>
-              <CardContent className="h-auto pt-3 sm:pt-4">
-                <PopularMembershipsChart />
-              </CardContent>
-            </Card>
-          </div>
-        </section>
+    if (!state.stats) return null;
 
-        {/* Gráficos de satisfacción */}
-        <section className="mb-6 sm:mb-8">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-200 mb-3 sm:mb-4">
-            Nivel de satisfacción
-          </h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            {/* Gráfico de Satisfacción General */}
-            <Card className="hover:shadow-lg transition-shadow duration-200 border border-gray-200 dark:border-gray-800 dark:bg-gray-800/50">
-              <CardHeader className="pb-2 border-b border-gray-100 dark:border-gray-700">
-                <CardTitle className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100">
-                  Satisfacción general
-                </CardTitle>
-                <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
-                  Calificación promedio mensual por categoría
-                </p>
-              </CardHeader>
-              <CardContent className="pt-3 sm:pt-4">
-                <SatisfactionChart data={satisfactionData} />
-              </CardContent>
-            </Card>
+    const cards = [
+      {
+        title: 'Asistencias',
+        value: state.stats.attendance.total,
+        icon: <Activity className="h-8 w-8" />,
+        color: 'text-blue-600',
+        bgColor: 'bg-gradient-to-br from-blue-500 to-blue-600',
+        iconBg: 'bg-blue-500/20',
+        change: state.stats.attendance.activos > 0 ? '+' : '',
+        changeValue: state.stats.attendance.activos,
+        subtitle: `${state.stats.attendance.activos} activas hoy`
+      },
+      {
+        title: 'Contratos',
+        value: state.stats.contracts.totalContracts,
+        icon: <FileText className="h-8 w-8" />,
+        color: 'text-emerald-600',
+        bgColor: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
+        iconBg: 'bg-emerald-500/20',
+        change: state.stats.contracts.newContracts > 0 ? '+' : '',
+        changeValue: state.stats.contracts.newContracts,
+        subtitle: `${state.stats.contracts.activeContracts} activos`
+      },
+      {
+        title: 'Ingresos',
+        value: formatCOP(state.stats.contracts.totalRevenue),
+        icon: <DollarSign className="h-8 w-8" />,
+        color: 'text-purple-600',
+        bgColor: 'bg-gradient-to-br from-purple-500 to-purple-600',
+        iconBg: 'bg-purple-500/20',
+        change: state.stats.contracts.periodRevenue > 0 ? '+' : '',
+        changeValue: formatCOP(state.stats.contracts.periodRevenue),
+        subtitle: 'del período actual'
+      },
+      {
+        title: 'Membresías',
+        value: state.stats.memberships.totalMemberships,
+        icon: <CreditCard className="h-8 w-8" />,
+        color: 'text-orange-600',
+        bgColor: 'bg-gradient-to-br from-orange-500 to-orange-600',
+        iconBg: 'bg-orange-500/20',
+        change: state.stats.memberships.newMemberships > 0 ? '+' : '',
+        changeValue: state.stats.memberships.newMemberships,
+        subtitle: `${state.stats.memberships.activeMemberships} activas`
+      }
+    ];
 
-            {/* Gráfico de Satisfacción por Servicio */}
-            <Card className="hover:shadow-lg transition-shadow duration-200 border border-gray-200 dark:border-gray-800 dark:bg-gray-800/50">
-              <CardHeader className="pb-2 border-b border-gray-100 dark:border-gray-700">
-                <CardTitle className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100">
-                  Satisfacción por servicio
-                </CardTitle>
-                <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
-                  Calificación de los usuarios por tipo de servicio
-                </p>
-              </CardHeader>
-              <CardContent className="pt-3 sm:pt-4">
-                <ServiceSatisfactionChart data={serviceSatisfactionData} />
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-
-        {/* Estadísticas de Membresías */}
-        <section className="mb-6 sm:mb-8">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-200 mb-3 sm:mb-4">
-            Estadísticas de Membresías
-          </h2>
-
-          {/* Tarjetas de estadísticas de membresías */}
-          <div className="mb-4 sm:mb-6">
-            <MembershipStats className={undefined} />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            {/* Gráfico de Renovaciones de Membresías */}
-            <Card className="hover:shadow-lg transition-shadow duration-200 border border-gray-200 dark:border-gray-800 dark:bg-gray-800/50">
-              <CardHeader className="pb-2 border-b border-gray-100 dark:border-gray-700">
-                <CardTitle className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100">
-                  Renovaciones
-                </CardTitle>
-                <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
-                  Tendencia de renovaciones mensuales
-                </p>
-              </CardHeader>
-              <CardContent className="pt-3 sm:pt-4">
-                <MembershipRenewalChart />
-              </CardContent>
-            </Card>
-
-            {/* Gráfico de Nuevas Membresías */}
-            <Card className="hover:shadow-lg transition-shadow duration-200 border border-gray-200 dark:border-gray-800 dark:bg-gray-800/50">
-              <CardHeader className="pb-2 border-b border-gray-100 dark:border-gray-700">
-                <CardTitle className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100">
-                  Nuevas Membresías
-                </CardTitle>
-                <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
-                  Adquisición de nuevos miembros por mes
-                </p>
-              </CardHeader>
-              <CardContent className="pt-3 sm:pt-4">
-                <NewMembershipsChart />
-              </CardContent>
-            </Card>
-
-            
-          </div>
-          
-        </section>
-        <section>
-          <div>
-            {/* Gráfico de Renovaciones vs Expiradas */}
-            <Card className="hover:shadow-lg transition-shadow duration-200 border border-gray-200 dark:border-gray-800 dark:bg-gray-800/50">
-              <CardHeader className="pb-2 border-b border-gray-100 dark:border-gray-700">
-                <CardTitle className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100">
-                  Renovaciones vs Expiradas
-                </CardTitle>
-                <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
-                  Comparativa de membresías renovadas y expiradas
-                </p>
-              </CardHeader>
-              <CardContent className="pt-3 sm:pt-4">
-                <RenewalVsExpiredChart />
-              </CardContent>
-            </Card>
-          </div>
-          </section>
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {cards.map((card, index) => (
+          <Card key={index} className="relative overflow-hidden hover:shadow-xl transition-all duration-300 border-0 bg-white shadow-lg">
+            <div className={`absolute top-0 right-0 w-32 h-32 ${card.bgColor} rounded-full -translate-y-16 translate-x-16 opacity-10`}></div>
+            <CardContent className="p-6 relative">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl ${card.iconBg} ${card.color}`}>
+                    {card.icon}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">{card.title}</p>
+                    <p className={`text-3xl font-bold ${card.color} leading-none`}>
+                      {typeof card.value === 'string' ? (
+                        <span className="text-2xl">{card.value}</span>
+                      ) : (
+                        card.value
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">{card.subtitle}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <Badge 
+                    className={`${
+                      card.change === '+' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
+                    } border-0 font-medium`}
+                  >
+                    {card.change === '+' ? (
+                      <TrendingUp className="h-3 w-3 mr-1" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3 mr-1" />
+                    )}
+                    {card.change}{card.changeValue}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
-    </ProtectedRoute>
-  )
+    );
+  };
+
+  return (
+    <div className={`min-h-screen bg-gray-50 ${className}`}>
+      <div className="space-y-8 p-6">
+        {/* Header mejorado */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
+              <p className="text-gray-600 text-lg">Panel de control del gimnasio</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-xl">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium text-blue-700">{selectedDateRange.label}</span>
+              </div>
+              <Button
+                onClick={refreshAll}
+                disabled={state.loading || state.chartsLoading}
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${(state.loading || state.chartsLoading) ? 'animate-spin' : ''}`} />
+                Actualizar
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Error Alert mejorado */}
+        {state.error && (
+          <Alert className="border-red-200 bg-red-50 rounded-xl shadow-sm">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-red-700 font-medium">
+              {state.error}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Layout principal */}
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
+          {/* Sidebar de filtros */}
+          <div className="xl:col-span-1">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <DateRangeFilter
+                selectedRange={selectedDateRange}
+                onRangeChange={handleDateRangeChange}
+                loading={state.loading || state.chartsLoading}
+              />
+            </div>
+          </div>
+
+          {/* Área principal de contenido */}
+          <div className="xl:col-span-4 space-y-8">
+            {/* KPI Cards */}
+            {renderKPICards()}
+
+            {/* Gráficos principales */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <AttendanceChart
+                  data={state.attendanceData}
+                  title="Tendencia de Asistencias"
+                  period={selectedDateRange.period}
+                  loading={state.chartsLoading}
+                />
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <RevenueChart
+                  data={state.revenueData}
+                  title="Ingresos por Período"
+                  period={selectedDateRange.period}
+                  loading={state.chartsLoading}
+                />
+              </div>
+            </div>
+
+            {/* Sección inferior */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* Gráfico de membresías */}
+              <div className="xl:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <MembershipDistributionChart
+                  data={state.membershipData}
+                  title="Distribución de Membresías"
+                  loading={state.chartsLoading}
+                />
+              </div>
+              
+              {/* Panel lateral de información */}
+              <div className="space-y-6">
+                {/* Contratos recientes */}
+                <Card className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2 text-blue-900">
+                      <Target className="h-5 w-5 text-blue-600" />
+                      Contratos Recientes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {state.loading ? (
+                      <div className="p-4 space-y-3">
+                        {[1, 2, 3].map(i => (
+                          <div key={i} className="flex items-center space-x-3">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <div className="space-y-2 flex-1">
+                              <Skeleton className="h-4 w-full" />
+                              <Skeleton className="h-3 w-2/3" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-100">
+                        {state.stats?.contracts.recentContracts.slice(0, 3).map((contract, index) => (
+                          <div key={index} className="p-4 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                  <Users className="h-5 w-5 text-blue-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900">
+                                    {contract.persona.usuario.nombre} {contract.persona.usuario.apellido}
+                                  </p>
+                                  <p className="text-sm text-gray-500">{contract.membresia.nombre}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-gray-900">{formatCOP(contract.membresia_precio)}</p>
+                                <Badge 
+                                  className={`text-xs ${
+                                    contract.estado === 'activo' ? 'bg-emerald-100 text-emerald-700' : 
+                                    contract.estado === 'vencido' ? 'bg-red-100 text-red-700' : 
+                                    'bg-yellow-100 text-yellow-700'
+                                  } border-0`}
+                                >
+                                  {contract.estado}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Membresías populares */}
+                <Card className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-100">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2 text-purple-900">
+                      <Crown className="h-5 w-5 text-purple-600" />
+                      Top Membresías
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {state.loading ? (
+                      <div className="p-4 space-y-3">
+                        {[1, 2, 3].map(i => (
+                          <div key={i} className="flex items-center space-x-3">
+                            <Skeleton className="h-8 w-8 rounded" />
+                            <div className="space-y-2 flex-1">
+                              <Skeleton className="h-4 w-full" />
+                              <Skeleton className="h-3 w-1/2" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-100">
+                        {state.stats?.memberships.popularMemberships.slice(0, 3).map((membership, index) => (
+                          <div key={index} className="p-4 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                  index === 0 ? 'bg-yellow-100' : index === 1 ? 'bg-gray-100' : 'bg-orange-100'
+                                }`}>
+                                  <span className={`text-sm font-bold ${
+                                    index === 0 ? 'text-yellow-600' : index === 1 ? 'text-gray-600' : 'text-orange-600'
+                                  }`}>
+                                    {index + 1}
+                                  </span>
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900">{membership.nombre}</p>
+                                  <p className="text-sm text-gray-500">{membership.activeContracts} contratos</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-gray-900">{formatCOP(membership.precio)}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer informativo mejorado */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-600">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-blue-500" />
+                <span className="font-medium">
+                  Período: {selectedDateRange.label}
+                </span>
+                <span className="text-gray-400">•</span>
+                <span>
+                  {format(selectedDateRange.from, 'dd/MM/yyyy')} - {format(selectedDateRange.to, 'dd/MM/yyyy')}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <PieChart className="h-4 w-4 text-green-500" />
+              <span>
+                Última actualización: {format(new Date(), 'dd/MM/yyyy HH:mm')}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

@@ -109,24 +109,29 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Calculate stats
   const stats = React.useMemo(() => {
-    const totalClients = clients.length;
-    const activeClients = clients.filter(c => c.estado === true).length;
-    const totalContracts = contractsPagination.total;
-    const activeContracts = contracts.filter(c => c.estado === 'Activo').length;
+    // Safe guards to ensure arrays are defined
+    const safeClients = clients || [];
+    const safeContracts = contracts || [];
+    
+    const totalClients = safeClients.length;
+    const activeClients = safeClients.filter(c => c.estado === true).length;
+    const totalContracts = contractsPagination.total || 0;
+    const activeContracts = safeContracts.filter(c => c.estado === 'Activo').length;
     
     // Calculate expiring contracts (next 30 days)
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-    const expiringContracts = contracts.filter(c => 
+    const expiringContracts = safeContracts.filter(c => 
       c.estado === 'Activo' && 
+      c.fecha_fin &&
       new Date(c.fecha_fin) <= thirtyDaysFromNow &&
       new Date(c.fecha_fin) >= new Date()
     ).length;
     
     // Calculate revenue from active contracts
-    const revenue = contracts
+    const revenue = safeContracts
       .filter(c => c.estado === 'Activo')
-      .reduce((total, contract) => total + contract.membresia_precio, 0);
+      .reduce((total, contract) => total + (contract.membresia_precio || 0), 0);
     
     return {
       totalClients,
@@ -232,7 +237,8 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteClient = useCallback(async (id: number): Promise<void> => {
     try {
       // Check if client has active contracts
-      const clientContracts = contracts.filter(c => 
+      const safeContracts = contracts || [];
+      const clientContracts = safeContracts.filter(c => 
         c.id_persona === id && c.estado === 'Activo'
       );
       
@@ -307,13 +313,16 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Cross-reference functions
   const getClientContracts = useCallback((clientId: number): Contract[] => {
-    return contracts.filter(c => c.id_persona === clientId);
+    const safeContracts = contracts || [];
+    return safeContracts.filter(c => c.id_persona === clientId);
   }, [contracts]);
 
   const getContractClient = useCallback((contractId: number): Client | undefined => {
-    const contract = contracts.find(c => c.id === contractId);
+    const safeContracts = contracts || [];
+    const safeClients = clients || [];
+    const contract = safeContracts.find(c => c.id === contractId);
     if (!contract) return undefined;
-    return clients.find(c => c.id_persona === contract.id_persona);
+    return safeClients.find(c => c.id_persona === contract.id_persona);
   }, [contracts, clients]);
 
   const createContractForClient = useCallback(async (
@@ -322,7 +331,8 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     startDate: string
   ): Promise<Contract> => {
     try {
-      const membership = memberships.find(m => Number(m.id) === membershipId);
+      const safeMemberships = memberships || [];
+      const membership = safeMemberships.find(m => Number(m.id) === membershipId);
       if (!membership) {
         throw new Error('Membresía no encontrada');
       }
@@ -362,7 +372,8 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const navigateToContractClient = useCallback((contractId: number) => {
     if (navigationCallbacks.toClients) {
-      const contract = contracts.find(c => c.id === contractId);
+      const safeContracts = contracts || [];
+      const contract = safeContracts.find(c => c.id === contractId);
       if (contract) {
         navigationCallbacks.toClients();
         // Set a client highlight in clients view

@@ -319,7 +319,7 @@ export function RolesPage() {
                       <TableCell className="font-medium">{role.name}</TableCell>
                       <TableCell className="max-w-xs truncate">{role.description}</TableCell>
                       <TableCell>
-                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">{role.permisos?.length || 0} módulos</Badge>
+                        <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">{role.permisos?.length || 0} módulos</Badge>
                       </TableCell>
                       <TableCell>
                         {role.status === "Activo" ? (

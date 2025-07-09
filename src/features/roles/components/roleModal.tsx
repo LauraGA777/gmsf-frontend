@@ -268,7 +268,7 @@ export function RoleModal({ open, onOpenChange, role, onSuccess }: RoleModalProp
 
           <div className="mt-4 overflow-y-auto max-h-[60vh]">
             <TabsContent value="info" className="space-y-4">
-              <div className="grid gap-4">
+              <div className="grid gap-4 p-3">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nombre del Rol *</Label>
                   <Input

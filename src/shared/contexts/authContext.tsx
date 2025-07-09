@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from "react-router-dom"
 import type { User } from "../types/index" // Asegúrate de importar el tipo User correct
 import type { Role } from "../types/role" // Importar el tipo Role
 import { authService } from "@/features/auth/services/authService"
-import { roleService } from "@/features/roles/services/roleService"
 import { permissionService } from "@/shared/services/permissionService"
 import { installRoleDebugger } from "@/shared/utils/roleDebugger"
 
@@ -59,41 +58,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Cargar roles desde la API con mejor manejo de errores
+  // Cargar roles desde la API con mejor manejo de errores y cache
   const loadRoles = async (): Promise<Role[]> => {
     try {
       setError(null)
-      console.log("🔄 Cargando roles desde la base de datos...")
       
-      const rolesData = await roleService.getRoles()
+      // Verificar si ya tenemos roles cargados en memoria
+      if (roles.length > 0) {
+        console.log("� Usando roles desde caché:", roles.length, "roles")
+        return roles
+      }
+      
+      console.log("�🔄 Cargando roles desde la base de datos...")
+      
+      const rolesData = await authService.getRoles() // Usar authService que es más rápido
       
       if (!rolesData || !Array.isArray(rolesData)) {
         throw new Error("Formato de datos de roles inválido")
       }
       
-      // Marcar roles como provenientes de BD
-      const rolesWithSource = rolesData.map(role => ({
-        ...role,
-        source: 'database' // Agregar flag para identificar origen
-      }))
+      // Transformar roles con menos procesamiento
+      const processedRoles = rolesData.map(role => ({
+        id: role.id,
+        codigo: role.codigo || "",
+        nombre: role.nombre,
+        name: role.nombre, // Alias para frontend
+        descripcion: role.descripcion || "",
+        description: role.descripcion || "", // Alias para frontend
+        estado: role.estado,
+        isActive: role.estado,
+        status: role.estado ? "Activo" : "Inactivo", // Para UI
+        source: 'database'
+      })) as Role[]
       
-      setRoles(rolesWithSource)
-      console.log("✅ Roles cargados desde BD:", rolesWithSource.length, "roles")
-      console.log("📋 Roles de BD:", rolesWithSource.map(r => `${r.nombre} (ID: ${r.id})`))
-      return rolesWithSource
+      setRoles(processedRoles)
+      console.log("✅ Roles cargados desde BD:", processedRoles.length, "roles")
+      return processedRoles
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error desconocido"
-      console.error("❌ Error cargando roles desde BD:", errorMessage)
+      console.error("❌ Error cargando roles:", errorMessage)
       setError(`Error cargando roles: ${errorMessage}`)
       
-      // Solo usar fallback en casos críticos y con advertencia clara
-      console.warn("⚠️ ADVERTENCIA: Usando roles fallback - esto NO es ideal")
+      // Fallback más simple
       const fallbackRoles = Object.values(DEFAULT_ROLES).map(role => ({
         ...role,
-        source: 'fallback' // Marcar como fallback
+        source: 'fallback'
       })) as any[]
       setRoles(fallbackRoles)
-      console.warn("🔄 Roles fallback:", fallbackRoles.map(r => `${r.nombre} (ID: ${r.id})`))
       return fallbackRoles as Role[]
     }
   }
@@ -125,86 +136,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(true)
         setError(null)
         
-        // 1. Cargar roles desde la base de datos primero
-        console.log("🚀 Iniciando carga de roles...")
-        await loadRoles()
-
-        // 2. Instalar debugger de roles (solo en desarrollo)
-        if (process.env.NODE_ENV === 'development') {
-          // Crear un contexto temporal para el debugger
-          const debugContext = {
-            roles,
-            user,
-            loadRoles,
-            diagnoseRoleStatus
-          }
-          installRoleDebugger(debugContext)
-        }
-
-        // 2. Verificar sesión guardada
+        // Verificar sesión guardada primero (más rápido)
         const storedUser = localStorage.getItem("user")
         const storedAccessToken = localStorage.getItem("accessToken")
         const storedRefreshToken = localStorage.getItem("refreshToken")
 
+        // Si hay sesión guardada, procesarla inmediatamente
         if (storedUser && storedAccessToken && storedRefreshToken) {
           try {
             const parsedUser = JSON.parse(storedUser) as User
             
-            // Validar integridad de datos del usuario
-            if (!parsedUser.id || !parsedUser.id_rol) {
-              throw new Error("Datos de usuario incompletos en sesión guardada")
+            if (parsedUser.id && parsedUser.id_rol) {
+              // Configurar usuario inmediatamente para UI rápida
+              setUser(parsedUser)
+              setAccessToken(storedAccessToken)
+              setRefreshToken(storedRefreshToken)
+              
+              // Cargar roles y permisos en paralelo (en background)
+              Promise.all([
+                loadRoles(),
+                permissionService.initializeWithUserId(parsedUser.id_rol)
+              ]).then(() => {
+                console.log("✅ Inicialización completa en background")
+                setIsInitialized(true)
+              }).catch(error => {
+                console.error("❌ Error en inicialización background:", error)
+                setError("Error cargando configuración")
+                setIsInitialized(true)
+              })
+              
+              // Instalar debugger solo en desarrollo
+              if (process.env.NODE_ENV === 'development') {
+                const debugContext = { roles, user: parsedUser, loadRoles, diagnoseRoleStatus }
+                installRoleDebugger(debugContext)
+              }
+              
+              // Finalizar carga inicial rápidamente
+              setIsLoading(false)
+              return
             }
-
-            // Enriquecer datos del usuario con información fresca del rol
-            const userRole = roles.find((r) => r.id === parsedUser.id_rol)
-            const roleSource = userRole ? ((userRole as any).source || 'database') : 'not-found'
-            
-            console.log(`🔍 Rol del usuario en sesión: ${parsedUser.id_rol}`)
-            console.log(`🔍 Rol encontrado: ${userRole ? userRole.nombre : 'NO ENCONTRADO'}`)
-            console.log(`🔍 Origen del rol: ${roleSource}`)
-            
-            if (roleSource === 'fallback') {
-              console.warn("⚠️ ADVERTENCIA: Usuario en sesión tiene rol fallback")
-              setError("Configuración temporal activa. Reinicie sesión para actualizar.")
-            }
-            
-            const enrichedUser: User = {
-              ...parsedUser,
-              role: userRole, // Objeto completo del rol actualizado
-              roleName: userRole ? userRole.nombre : parsedUser.roleName || "Usuario", // Nombre del rol actualizado
-              roleCode: userRole ? userRole.nombre?.toLowerCase() : parsedUser.roleCode || "usuario",
-              roleSource: roleSource // Agregar origen del rol
-            }
-
-            console.log("🔄 Usuario enriquecido con rol actualizado:", enrichedUser)
-
-            setUser(enrichedUser)
-            setAccessToken(storedAccessToken)
-            setRefreshToken(storedRefreshToken)
-
-            // 3. Inicializar permisos desde la base de datos
-            console.log("🔄 Inicializando permisos desde BD para usuario:", parsedUser.nombre)
-            await permissionService.initializeWithUserId(parsedUser.id_rol)
-            console.log("✅ Permisos inicializados desde BD exitosamente")
-            
-            setIsInitialized(true)
           } catch (sessionError) {
             console.error("❌ Error en sesión guardada:", sessionError)
             // Limpiar sesión corrupta
             localStorage.removeItem("user")
             localStorage.removeItem("accessToken")
             localStorage.removeItem("refreshToken")
-            setError("Sesión corrupta. Por favor, inicie sesión nuevamente.")
           }
-        } else {
-          console.log("📝 No hay sesión guardada")
-          setIsInitialized(true)
         }
+
+        // Si no hay sesión, solo cargar roles básicos
+        console.log("📝 No hay sesión guardada, cargando configuración básica")
+        await loadRoles()
+        
+        setIsInitialized(true)
+        
       } catch (initError) {
         const errorMessage = initError instanceof Error ? initError.message : "Error de inicialización"
         console.error("❌ Error durante inicialización:", errorMessage)
         setError(`Error de inicialización: ${errorMessage}`)
-        setIsInitialized(true) // Marcar como inicializado incluso con errores
+        setIsInitialized(true)
       } finally {
         setIsLoading(false)
       }
@@ -221,51 +211,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const redirectBasedOnRole = (roleId: number) => {
     try {
-      // Buscar el rol en los roles cargados dinámicamente desde la BD
+      // Mapeo rápido basado en IDs conocidos
+      const quickRouteMap: { [key: number]: string } = {
+        1: "/dashboard", // Administrador
+        2: "/dashboard", // Entrenador
+        3: "/client",    // Cliente
+        4: "/client",    // Beneficiario
+      }
+
+      // Redirección rápida si el ID es conocido
+      if (quickRouteMap[roleId]) {
+        console.log(`🚀 Redirección rápida a ${quickRouteMap[roleId]} para rol ID ${roleId}`)
+        navigate(quickRouteMap[roleId])
+        return
+      }
+
+      // Buscar en roles cargados como fallback
       const role = roles.find((r) => r.id === roleId)
-
       if (role) {
-        // Verificar el origen del rol
-        const roleSource = (role as any).source || 'unknown'
-        console.log(`🔍 Rol encontrado: ${role.nombre} (ID: ${roleId}) - Origen: ${roleSource}`)
-        
-        if (roleSource === 'fallback') {
-          console.warn("⚠️ ADVERTENCIA: Usando rol fallback para redirección - debería ser de BD")
-          setError("Usando configuración temporal. Algunos permisos pueden estar limitados.")
-        }
-
-        // Mapeo dinámico de rutas basado en datos de la BD
-        const routeMap: { [key: string]: string } = {
-          administrador: "/dashboard",
-          entrenador: "/dashboard",
-          trainer: "/dashboard",
-          cliente: "/client",
-          beneficiario: "/client",
-          user: "/client",
-        }
-
-        // Usar ruta específica del rol de la BD o mapeo por nombre
-        const targetRoute = role.ruta || routeMap[role.nombre?.toLowerCase() || ""] || "/dashboard"
-        
-        console.log(`🚀 Redirigiendo a ${targetRoute} para rol ${role.nombre} (ID: ${roleId}) - Origen: ${roleSource}`)
+        const targetRoute = (role as any).ruta || "/dashboard"
+        console.log(`🚀 Redirección desde BD a ${targetRoute} para rol ${role.nombre}`)
         navigate(targetRoute)
         return
       }
 
-      // Si no se encuentra el rol, esto es un error crítico
-      console.error("❌ ROL NO ENCONTRADO - esto es un error crítico")
-      console.error("📊 Datos de debug:", {
-        roleId,
-        availableRoles: roles.map(r => ({ id: r.id, nombre: r.nombre, source: (r as any).source })),
-        rolesCount: roles.length
-      })
-      
-      setError(`Rol ${roleId} no encontrado en el sistema`)
+      // Fallback final
+      console.warn(`⚠️ Rol ${roleId} no encontrado, usando dashboard por defecto`)
       navigate("/dashboard")
       
     } catch (error) {
       console.error("❌ Error en redirección:", error)
-      setError("Error en redirección de usuario")
       navigate("/dashboard")
     }
   }
@@ -386,7 +361,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("🎯 Procesando login exitoso para rol:", authData.user.id_rol)
       setError(null)
 
-      // Guardar el token ANTES de hacer cualquier petición a la API
+      // Guardar tokens inmediatamente
       setAccessToken(authData.accessToken)
       setRefreshToken(authData.refreshToken)
       localStorage.setItem("accessToken", authData.accessToken)
@@ -394,78 +369,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("refreshToken", authData.refreshToken)
       }
 
-      // Buscar el rol en los datos dinámicos de la BD
-      let userRole = roles.find((r) => r.id === authData.user.id_rol)
-      let roleSource = 'unknown'
-
-      if (userRole) {
-        roleSource = (userRole as any).source || 'database'
-        console.log(`✅ Rol encontrado en memoria: ${userRole.nombre} (ID: ${userRole.id}) - Origen: ${roleSource}`)
-      } else {
-        console.warn("⚠️ Rol no encontrado en roles cargados, intentando recargar desde BD...")
-        
-        // Intentar recargar roles si no se encuentra (ahora con token disponible)
-        try {
-          const freshRoles = await loadRoles()
-          userRole = freshRoles.find((r) => r.id === authData.user.id_rol)
-          
-          if (userRole) {
-            roleSource = (userRole as any).source || 'database'
-            console.log(`✅ Rol encontrado tras recarga: ${userRole.nombre} (ID: ${userRole.id}) - Origen: ${roleSource}`)
-          } else {
-            console.error("❌ Rol NO encontrado incluso después de recargar desde BD")
-            throw new Error(`Rol ${authData.user.id_rol} no existe en la base de datos`)
-          }
-        } catch (reloadError) {
-          console.error("❌ Error recargando roles:", reloadError)
-          throw new Error(`No se pudo cargar el rol ${authData.user.id_rol} desde la base de datos`)
-        }
-      }
-
-      // Verificar que el rol NO venga del fallback
-      if (roleSource === 'fallback') {
-        console.error("❌ PROBLEMA CRÍTICO: El rol viene del fallback en lugar de la BD")
-        setError("Error: Rol no encontrado en la base de datos. Contacte al administrador.")
-        throw new Error("Rol no encontrado en la base de datos")
-      }
-
-      const roleKey = userRole ? userRole.nombre?.toLowerCase() || "usuario" : "usuario"
-      console.log(`🔍 Rol identificado desde BD: ${roleKey} (ID: ${authData.user.id_rol}) - Origen: ${roleSource}`)
-
-      // Crear usuario con información completa
-      const userWithRole: User = {
+      // Crear usuario básico primero para UI rápida
+      const basicUser: User = {
         id: authData.user.id.toString(),
         nombre: authData.user.nombre,
         correo: correo,
         id_rol: authData.user.id_rol,
-        role: userRole, // Objeto completo del rol
-        roleCode: roleKey, // Código del rol para compatibilidad
-        roleName: userRole ? userRole.nombre : "Usuario", // Nombre del rol para UI
-        roleSource: roleSource, // Agregar origen del rol para debugging
+        roleCode: "usuario", // Temporal
+        roleName: "Usuario", // Temporal
         clientId: [3, 4].includes(authData.user.id_rol) ? authData.user.id.toString() : undefined,
       }
 
-      console.log("✅ Usuario final creado con rol desde BD:", userWithRole)
-
-      // Guardar estado del usuario
-      setUser(userWithRole)
-
-      // Persistir en localStorage (tokens ya guardados anteriormente)
-      localStorage.setItem("user", JSON.stringify(userWithRole))
-
-      // Inicializar permisos desde la BD
-      console.log("🔄 Inicializando permisos desde BD para rol:", authData.user.id_rol)
-      try {
-        await permissionService.initializeWithUserId(authData.user.id_rol)
-        console.log("✅ Permisos inicializados desde BD exitosamente")
-      } catch (permError) {
-        console.error("❌ Error inicializando permisos desde BD:", permError)
-        setError("Error cargando permisos. Algunas funciones pueden estar limitadas.")
-        // No lanzar error aquí para no interrumpir el login
-      }
-
+      // Configurar usuario inmediatamente
+      setUser(basicUser)
+      localStorage.setItem("user", JSON.stringify(basicUser))
       setIsInitialized(true)
+
+      // Redirigir inmediatamente con rol básico
       redirectBasedOnRole(authData.user.id_rol)
+
+      // Cargar roles y permisos en background
+      loadRoles().then(async () => {
+        const userRole = roles.find((r) => r.id === authData.user.id_rol)
+        
+        if (userRole) {
+          // Actualizar usuario con información completa
+          const enrichedUser: User = {
+            ...basicUser,
+            role: userRole,
+            roleCode: userRole.nombre?.toLowerCase() || "usuario",
+            roleName: userRole.nombre || "Usuario",
+          }
+          
+          setUser(enrichedUser)
+          localStorage.setItem("user", JSON.stringify(enrichedUser))
+          
+          // Inicializar permisos
+          try {
+            await permissionService.initializeWithUserId(authData.user.id_rol)
+            console.log("✅ Usuario y permisos actualizados en background")
+          } catch (permError) {
+            console.error("❌ Error cargando permisos:", permError)
+          }
+        }
+      }).catch(error => {
+        console.error("❌ Error cargando roles en background:", error)
+      })
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error procesando login exitoso"
@@ -499,47 +448,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const hasPermission = (requiredRoles: number[]): boolean => {
-    try {
-      if (!user || !user.id_rol) {
-        console.log("🔒 Sin usuario o rol para verificar permisos")
-        return false
-      }
+    if (!user || !user.id_rol) return false
 
-      // Buscar el rol en los roles cargados
-      const userRole = roles.find((r) => r.id === user.id_rol)
-      
-      if (userRole) {
-        const roleSource = (userRole as any).source || 'unknown'
-        const hasAccess = requiredRoles.includes(userRole.id)
-        
-        console.log(`🔍 Verificación de permisos:`)
-        console.log(`   - Usuario: ${user.nombre} (Rol: ${userRole.nombre}, ID: ${userRole.id})`)
-        console.log(`   - Origen del rol: ${roleSource}`)
-        console.log(`   - Roles requeridos: [${requiredRoles.join(", ")}]`)
-        console.log(`   - Acceso: ${hasAccess}`)
-        
-        if (roleSource === 'fallback') {
-          console.warn("⚠️ ADVERTENCIA: Verificando permisos con rol fallback - esto NO es ideal")
-        }
-        
-        return hasAccess
-      }
+    // Verificación rápida con mapeo directo
+    if (requiredRoles.includes(user.id_rol)) return true
 
-      // Si no se encuentra el rol, es un error crítico
-      console.error("❌ ROL NO ENCONTRADO para verificación de permisos")
-      console.error("📊 Debug info:", {
-        userId: user.id,
-        userRoleId: user.id_rol,
-        userName: user.nombre,
-        availableRoles: roles.map(r => ({ id: r.id, nombre: r.nombre, source: (r as any).source }))
-      })
-      
-      return false
-      
-    } catch (error) {
-      console.error("❌ Error verificando permisos:", error)
-      return false
-    }
+    // Buscar en roles cargados como fallback
+    const userRole = roles.find((r) => r.id === user.id_rol)
+    return userRole ? requiredRoles.includes(userRole.id) : false
   }
 
   // Función para diagnosticar el estado de los roles (útil para debugging)

@@ -18,8 +18,49 @@ interface PaginatedResponse<T> {
 export const userService = {
   // Obtener todos los usuarios
   getUsers: async (page = 1, limit = 10): Promise<PaginatedResponse<User>> => {
-    const response = await apiClient.get<PaginatedResponse<User>>(`/users?page=${page}&limit=${limit}`);
-    return response.data;
+    try {
+      console.log(`🔍 Fetching users: page=${page}, limit=${limit}`);
+      const response = await apiClient.get<PaginatedResponse<User>>(`/users?page=${page}&limit=${limit}`);
+      
+      console.log('📡 Raw API response:', response);
+      console.log('📦 Response data:', response.data);
+      console.log('📊 Response status:', response.status);
+      
+      // Verificar si la respuesta tiene la estructura esperada
+      if (!response.data) {
+        console.error('❌ Response data is null/undefined');
+        throw new Error('No se recibieron datos del servidor');
+      }
+      
+      // Si la respuesta es directamente un array (sin paginación)
+      if (Array.isArray(response.data)) {
+        console.log('📋 Response is direct array, creating pagination wrapper');
+        return {
+          total: response.data.length,
+          page: page,
+          limit: limit,
+          totalPages: Math.ceil(response.data.length / limit),
+          data: response.data
+        };
+      }
+      
+      // Si la respuesta tiene la estructura esperada
+      if (response.data && typeof response.data === 'object') {
+        return response.data;
+      }
+      
+      console.error('❌ Unexpected response structure:', response.data);
+      throw new Error('Estructura de respuesta inesperada del servidor');
+      
+    } catch (error) {
+      console.error('❌ Error in userService.getUsers:', error);
+      
+      // Re-throw con más información
+      if (error instanceof Error) {
+        throw new Error(`Error al obtener usuarios: ${error.message}`);
+      }
+      throw new Error('Error desconocido al obtener usuarios');
+    }
   },
 
   // Obtener usuario por ID

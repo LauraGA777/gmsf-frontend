@@ -21,6 +21,7 @@ import { Button } from "@/shared/components/ui/button"
 import { cn } from "@/shared/lib/formatCop"
 import { useAuth } from "@/shared/contexts/authContext"
 import { usePermissions } from "@/shared/hooks/usePermissions"
+import { PERMISSIONS } from "@/shared/services/permissionService"
 
 interface SidebarProps {
   isOpen: boolean
@@ -168,9 +169,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   )
 
   // Verificar acceso a diferentes grupos de módulos
-  const hasVentasAccess = hasModuleAccess("Gestión de contratos") || hasModuleAccess("Gestión de clientes")
+  const hasVentasAccess = hasModuleAccess(PERMISSIONS.CONTRATOS) || hasModuleAccess(PERMISSIONS.CLIENTES)
   
-  const hasMembresíasAccess = hasModuleAccess("Gestión de membresías") || hasModuleAccess("Control de asistencia")
+  const hasMembresíasAccess = hasModuleAccess(PERMISSIONS.MEMBRESIAS) || hasModuleAccess(PERMISSIONS.ASISTENCIAS)
 
   if (!shouldRender || isLoading) return null
 
@@ -231,7 +232,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto py-4 px-2">
           <ul className="space-y-1">
             {/* 1. Panel de control */}
-            {hasModuleAccess("Panel de control") && (
+            {hasModuleAccess(PERMISSIONS.SISTEMA) && (
               <NavItem
                 icon={<LayoutDashboard className="h-5 w-5" aria-hidden="true" />}
                 label="Panel de control"
@@ -244,7 +245,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             )}
 
             {/* 2. Gestión de roles */}
-            {hasModuleAccess("Gestión de roles") && (
+            {hasModuleAccess(PERMISSIONS.SISTEMA) && (
               <NavItem
                 icon={<BadgeCheck className="h-5 w-5" aria-hidden="true" />}
                 label="Roles"
@@ -257,7 +258,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             )}
 
             {/* 3. Gestión de usuarios */}
-            {hasModuleAccess("Gestión de usuarios") && (
+            {hasModuleAccess(PERMISSIONS.USUARIOS) && (
               <NavItem
                 icon={<Users className="h-5 w-5" aria-hidden="true" />}
                 label="Usuarios"
@@ -270,7 +271,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             )}
 
             {/* 4. Gestión de entrenadores */}
-            {hasModuleAccess("Gestión de entrenadores") && (
+            {hasModuleAccess(PERMISSIONS.ENTRENADORES) && (
               <NavItem
                 icon={<UserCog className="h-5 w-5" aria-hidden="true" />}
                 label="Entrenadores"
@@ -282,19 +283,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               />
             )}
 
-            {/* 5. Agenda - Siempre visible para usuarios autenticados */}
-            <NavItem
-              icon={<Calendar className="h-5 w-5" aria-hidden="true" />}
-              label="Agenda"
-              active={activeItem === "calendar"}
-              onClick={() => {
-                handleItemClick("calendar")
-                if (window.innerWidth < 768) onClose()
-              }}
-              to="/calendar"
-              onClose={onClose}
-              id="nav-calendar"
-            />
+            {/* 5. Agenda - Visible para usuarios con acceso a horarios */}
+            {hasModuleAccess(PERMISSIONS.HORARIOS) && (
+              <NavItem
+                icon={<Calendar className="h-5 w-5" aria-hidden="true" />}
+                label="Agenda"
+                active={activeItem === "calendar"}
+                onClick={() => {
+                  handleItemClick("calendar")
+                  if (window.innerWidth < 768) onClose()
+                }}
+                to="/calendar"
+                onClose={onClose}
+                id="nav-calendar"
+              />
+            )}
 
             {/* 6. Ventas - Solo mostrar si tiene acceso a al menos un submódulo */}
             {hasVentasAccess && (
@@ -311,7 +314,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 {activeGroup === "clients" && (
                   <ul className="py-2 mx-3 space-y-1">
                     {/* Contratos - Solo mostrar si tiene acceso */}
-                    {hasModuleAccess("Gestión de contratos") && (
+                    {hasModuleAccess(PERMISSIONS.CONTRATOS) && (
                       <li>
                         <Link
                           to="/contracts"
@@ -335,7 +338,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     )}
 
                     {/* Personas - Solo mostrar si tiene acceso */}
-                    {hasModuleAccess("Gestión de clientes") && (
+                    {hasModuleAccess(PERMISSIONS.CLIENTES) && (
                       <li>
                         <Link
                           to="/clients"
@@ -377,7 +380,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 {activeGroup === "memberships" && (
                   <ul className="py-2 mx-3 space-y-1">
                     {/* Membresías - Solo mostrar si tiene acceso */}
-                    {hasModuleAccess("Gestión de membresías") && (
+                    {hasModuleAccess(PERMISSIONS.MEMBRESIAS) && (
                       <li>
                         <Link
                           to="/memberships"
@@ -401,7 +404,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     )}
 
                     {/* Asistencia - Solo mostrar si tiene acceso */}
-                    {hasModuleAccess("Control de asistencia") && (
+                    {hasModuleAccess(PERMISSIONS.ASISTENCIAS) && (
                       <li>
                         <Link
                           to="/attendance"

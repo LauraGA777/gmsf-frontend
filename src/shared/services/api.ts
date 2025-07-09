@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an Axios instance with default config
 const apiClient = axios.create({
-    baseURL: 'http://localhost:3001',
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -12,13 +12,22 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('accessToken');
-        if (!token) {
-            // Si no hay token, redirigir al login
-            window.location.href = '/login';
+        const currentPath = window.location.pathname;
+        
+        // Permitir requests sin token solo para rutas públicas
+        const publicRoutes = ['/login', '/forgot-password', '/reset-password'];
+        const isPublicRoute = publicRoutes.some(route => currentPath.startsWith(route));
+        
+        if (!token && !isPublicRoute) {
+            console.warn('🚫 No hay token de autenticación, redirigiendo a login');
+            // Solo redirigir si no estamos ya en una ruta pública
+            if (!window.location.pathname.startsWith('/login')) {
+                window.location.href = '/login';
+            }
             throw new Error('No hay token de autenticación');
         }
         
-        if (config.headers) {
+        if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -83,6 +92,20 @@ apiClient.interceptors.response.use(
     }
 );
 
-export const api = apiClient;
+// Crear un cliente sin interceptores para requests públicos
+export const publicApiClient = axios.create({
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
+
+// Cliente autenticado (exportación con nombre)
+export const authenticatedApiClient = apiClient;
+
+// Exportación por defecto para compatibilidad hacia atrás
 export default apiClient;
+
+// También exportar el cliente principal con el nombre "api" para el permissionService
+export const api = apiClient;
 

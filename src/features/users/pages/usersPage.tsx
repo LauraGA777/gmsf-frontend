@@ -87,17 +87,60 @@ export default function UsersPage() {
     try {
       setIsLoading(true);
       const response = await userService.getUsers(currentPage, itemsPerPage);
+      
       console.log('=== DEBUGGING USER DATA ===');
       console.log('Response from backend:', response);
-      console.log('Users data:', response.data);
-      console.log('Sample user:', response.data[0]);
-      console.log('Sample user rol_id:', response.data[0]?.id_rol);
+      console.log('Type of response:', typeof response);
+      console.log('Keys in response:', response ? Object.keys(response) : 'response is null/undefined');
+      
+      // Verificar si la respuesta tiene la estructura esperada
+      let userData = [];
+      let totalPagesCount = 1;
+      
+      if (response && typeof response === 'object') {
+        // Caso 1: Response directa con data array
+        if (Array.isArray(response.data)) {
+          userData = response.data;
+          totalPagesCount = response.totalPages || 1;
+          console.log('Found data array:', userData.length, 'users');
+        }
+        // Caso 2: Response es un array directamente
+        else if (Array.isArray(response)) {
+          userData = response;
+          console.log('Response is direct array:', userData.length, 'users');
+        }
+        // Caso 3: Response anidada
+        else if (response.data && Array.isArray(response.data.data)) {
+          userData = response.data.data;
+          totalPagesCount = response.data.totalPages || 1;
+          console.log('Found nested data array:', userData.length, 'users');
+        }
+        // Caso 4: Response con diferentes estructuras
+        else {
+          console.warn('Unexpected response structure:', response);
+          userData = [];
+        }
+      }
+      
+      console.log('Final users data:', userData);
+      console.log('Sample user:', userData.length > 0 ? userData[0] : 'No users found');
+      if (userData.length > 0 && userData[0]) {
+        console.log('Sample user rol_id:', userData[0].id_rol);
+      }
       console.log('=== END DEBUG ===');
-      setUsers(response.data);
-      setTotalPages(response.totalPages);
+      
+      setUsers(userData);
+      setTotalPages(totalPagesCount);
     } catch (error) {
       console.error('Error loading users:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       setError('Error al cargar los usuarios');
+      // En caso de error, establecer arrays vacíos para evitar crashes
+      setUsers([]);
+      setTotalPages(1);
     } finally {
       setIsLoading(false);
     }

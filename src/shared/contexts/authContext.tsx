@@ -147,17 +147,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const parsedUser = JSON.parse(storedUser) as User
             
             if (parsedUser.id && parsedUser.id_rol) {
+              console.log("🔐 Restaurando sesión de usuario:", parsedUser.nombre, "con rol:", parsedUser.id_rol)
+              
               // Configurar usuario inmediatamente para UI rápida
               setUser(parsedUser)
               setAccessToken(storedAccessToken)
               setRefreshToken(storedRefreshToken)
+              
+              // ✅ IMPORTANTE: Solo cargar permisos para usuarios AUTENTICADOS
+              console.log("📋 Cargando permisos para usuario autenticado...")
               
               // Cargar roles y permisos en paralelo (en background)
               Promise.all([
                 loadRoles(),
                 permissionService.initializeWithUserId(parsedUser.id_rol)
               ]).then(() => {
-                console.log("✅ Inicialización completa en background")
+                console.log("✅ Inicialización completa para usuario autenticado")
                 setIsInitialized(true)
               }).catch(error => {
                 console.error("❌ Error en inicialización background:", error)
@@ -184,9 +189,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // Si no hay sesión, solo cargar roles básicos
-        console.log("📝 No hay sesión guardada, cargando configuración básica")
+        // Si no hay sesión, solo cargar roles básicos (NO permisos)
+        console.log("🌍 No hay sesión guardada, iniciando modo público...")
+        console.log("❌ NO se cargarán permisos hasta que el usuario se autentique")
+        
+        // Solo cargar roles para el sistema (no permisos de usuario)
         await loadRoles()
+        
+        // Limpiar cualquier permiso residual en el servicio
+        permissionService.clearPermissions()
         
         setIsInitialized(true)
         

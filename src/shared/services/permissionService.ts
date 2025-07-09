@@ -1,63 +1,179 @@
 import { api } from "./api"
 
-export type PermissionName =
-  | "ASISTENCIAS"
-  | "CLIENTES"
-  | "MEMBRESIAS"
-  | "HORARIOS"
-  | "ENTRENADORES"
+// ✅ SINCRONIZADO CON EL BACKEND - permissions.ts
+export const PERMISSIONS = {
+    // Módulos principales
+    ASISTENCIAS: 'ASISTENCIAS',
+    CLIENTES: 'CLIENTES',
+    CONTRATOS: 'CONTRATOS',
+    MEMBRESIAS: 'MEMBRESIAS',
+    HORARIOS: 'HORARIOS',
+    ENTRENADORES: 'ENTRENADORES',
+    USUARIOS: 'USUARIOS',
+    SISTEMA: 'SISTEMA',  
 
-export type PrivilegeName = 
-  // Privilegios de Asistencias
-  | "ASIST_READ"
-  | "ASIST_SEARCH"
-  | "ASIST_CREATE"
-  | "ASIST_DETAILS"
-  | "ASIST_UPDATE"
-  | "ASIST_DELETE"
-  | "ASIST_STATS"
-  // Privilegios de Clientes
-  | "CLIENT_READ"
-  | "CLIENT_DETAILS"
-  | "CLIENT_SEARCH_DOC"
-  | "CLIENT_CREATE"
-  | "CLIENT_UPDATE"
-  | "CLIENT_DELETE"
-  | "CLIENT_BENEFICIARIES"
-  // Privilegios de Membresías
-  | "MEMBERSHIP_READ"
-  | "MEMBERSHIP_SEARCH"
-  | "MEMBERSHIP_CREATE"
-  | "MEMBERSHIP_UPDATE"
-  | "MEMBERSHIP_DEACTIVATE"
-  | "MEMBERSHIP_DETAILS"
-  | "MEMBERSHIP_REACTIVATE"
-  // Privilegios de Horarios
-  | "SCHEDULE_READ"
-  | "SCHEDULE_DETAILS"
-  | "SCHEDULE_CREATE"
-  | "SCHEDULE_UPDATE"
-  | "SCHEDULE_DELETE"
-  | "SCHEDULE_AVAILABILITY"
-  | "SCHEDULE_CLIENT_VIEW"
-  | "SCHEDULE_TRAINER_VIEW"
-  | "SCHEDULE_DAILY_VIEW"
-  | "SCHEDULE_WEEKLY_VIEW"
-  | "SCHEDULE_MONTHLY_VIEW"
-  | "SCHEDULE_TRAINERS_ACTIVE"
-  | "SCHEDULE_CLIENTS_ACTIVE"
-  // Privilegios de Entrenadores
-  | "TRAINER_READ"
-  | "TRAINER_CREATE"
-  | "TRAINER_UPDATE"
-  | "TRAINER_DEACTIVATE"
-  | "TRAINER_DELETE"
-  | "TRAINER_SEARCH"
-  | "TRAINER_DETAILS"
+    // Permisos granulares para las rutas (mapean a módulos)
+    // Asistencias
+    REGISTER_ATTENDANCE: 'ASISTENCIAS',
+    VIEW_ATTENDANCE: 'ASISTENCIAS',
+    MANAGE_ATTENDANCE: 'ASISTENCIAS',
 
+    // CONTRATOS 
+    VIEW_CONTRACTS: 'CONTRATOS',
+    CREATE_CONTRACTS: 'CONTRATOS',
+    UPDATE_CONTRACTS: 'CONTRATOS',
+    CANCEL_CONTRACTS: 'CONTRATOS',
+    RENEW_CONTRACTS: 'CONTRATOS',
+    MANAGE_CONTRACTS: 'CONTRATOS',
+
+    // Clientes
+    VIEW_CLIENTS: 'CLIENTES',
+    CREATE_CLIENTS: 'CLIENTES',
+    UPDATE_CLIENTS: 'CLIENTES',
+    MANAGE_CLIENTS: 'CLIENTES',
+
+    // Membresías
+    VIEW_MEMBERSHIPS: 'MEMBRESIAS',
+    CREATE_MEMBERSHIPS: 'MEMBRESIAS',
+    UPDATE_MEMBERSHIPS: 'MEMBRESIAS',
+    MANAGE_MEMBERSHIPS: 'MEMBRESIAS',
+
+    // Horarios
+    VIEW_SCHEDULES: 'HORARIOS',
+    CREATE_SCHEDULES: 'HORARIOS',
+    UPDATE_SCHEDULES: 'HORARIOS',
+    MANAGE_SCHEDULES: 'HORARIOS',
+
+    // Entrenadores
+    VIEW_TRAINERS: 'ENTRENADORES',
+    CREATE_TRAINERS: 'ENTRENADORES',
+    UPDATE_TRAINERS: 'ENTRENADORES',
+    MANAGE_TRAINERS: 'ENTRENADORES',
+
+    // Usuarios
+    VIEW_USERS: 'USUARIOS',
+    CREATE_USERS: 'USUARIOS',
+    UPDATE_USERS: 'USUARIOS',
+    ACTIVATE_USERS: 'USUARIOS',
+    DEACTIVATE_USERS: 'USUARIOS',
+    DELETE_USERS: 'USUARIOS',
+    MANAGE_USERS: 'USUARIOS',
+
+    // Sistema (para roles y permisos)
+    VIEW_ROLES: 'SISTEMA',
+    MANAGE_ROLES: 'SISTEMA',
+    ASSIGN_PERMISSIONS: 'SISTEMA',
+    VIEW_PERMISSIONS: 'SISTEMA',
+    MANAGE_PERMISSIONS: 'SISTEMA',
+} as const;
+
+// ✅ SINCRONIZADO CON EL BACKEND - permissions.ts
+export const PRIVILEGES = {
+    // Privilegios de Asistencias
+    ASIST_READ: 'ASIST_READ',
+    ASIST_SEARCH: 'ASIST_SEARCH',
+    ASIST_CREATE: 'ASIST_CREATE',
+    ASIST_DETAILS: 'ASIST_DETAILS',
+    ASIST_UPDATE: 'ASIST_UPDATE',
+    ASIST_DELETE: 'ASIST_DELETE',
+    ASIST_STATS: 'ASIST_STATS',
+    
+    // Privilegios de Clientes
+    CLIENT_READ: 'CLIENT_READ',
+    CLIENT_DETAILS: 'CLIENT_DETAILS',
+    CLIENT_SEARCH_DOC: 'CLIENT_SEARCH_DOC',
+    CLIENT_CREATE: 'CLIENT_CREATE',
+    CLIENT_UPDATE: 'CLIENT_UPDATE',
+    CLIENT_DELETE: 'CLIENT_DELETE',
+    CLIENT_BENEFICIARIES: 'CLIENT_BENEFICIARIES',
+
+    // Privilegios de Contratos
+    CONTRACT_READ: 'CONTRACT_READ',
+    CONTRACT_SEARCH: 'CONTRACT_SEARCH',
+    CONTRACT_CREATE: 'CONTRACT_CREATE',
+    CONTRACT_DETAILS: 'CONTRACT_DETAILS',
+    CONTRACT_UPDATE: 'CONTRACT_UPDATE',
+    CONTRACT_DELETE: 'CONTRACT_DELETE',
+    CONTRACT_CANCEL: 'CONTRACT_CANCEL',
+    CONTRACT_RENEW: 'CONTRACT_RENEW',
+    CONTRACT_HISTORY: 'CONTRACT_HISTORY',
+    CONTRACT_ACTIVATE: 'CONTRACT_ACTIVATE',
+    CONTRACT_DEACTIVATE: 'CONTRACT_DEACTIVATE',
+    CONTRACT_EXPORT: 'CONTRACT_EXPORT',
+    CONTRACT_STATS: 'CONTRACT_STATS',
+    
+    // Privilegios de Membresías
+    MEMBERSHIP_READ: 'MEMBERSHIP_READ',
+    MEMBERSHIP_SEARCH: 'MEMBERSHIP_SEARCH',
+    MEMBERSHIP_CREATE: 'MEMBERSHIP_CREATE',
+    MEMBERSHIP_UPDATE: 'MEMBERSHIP_UPDATE',
+    MEMBERSHIP_DEACTIVATE: 'MEMBERSHIP_DEACTIVATE',
+    MEMBERSHIP_DETAILS: 'MEMBERSHIP_DETAILS',
+    MEMBERSHIP_REACTIVATE: 'MEMBERSHIP_REACTIVATE',
+    
+    // Privilegios de Horarios
+    SCHEDULE_READ: 'SCHEDULE_READ',
+    SCHEDULE_DETAILS: 'SCHEDULE_DETAILS',
+    SCHEDULE_CREATE: 'SCHEDULE_CREATE',
+    SCHEDULE_UPDATE: 'SCHEDULE_UPDATE',
+    SCHEDULE_DELETE: 'SCHEDULE_DELETE',
+    SCHEDULE_AVAILABILITY: 'SCHEDULE_AVAILABILITY',
+    SCHEDULE_CLIENT_VIEW: 'SCHEDULE_CLIENT_VIEW',
+    SCHEDULE_TRAINER_VIEW: 'SCHEDULE_TRAINER_VIEW',
+    SCHEDULE_DAILY_VIEW: 'SCHEDULE_DAILY_VIEW',
+    SCHEDULE_WEEKLY_VIEW: 'SCHEDULE_WEEKLY_VIEW',
+    SCHEDULE_MONTHLY_VIEW: 'SCHEDULE_MONTHLY_VIEW',
+    SCHEDULE_TRAINERS_ACTIVE: 'SCHEDULE_TRAINERS_ACTIVE',
+    SCHEDULE_CLIENTS_ACTIVE: 'SCHEDULE_CLIENTS_ACTIVE',
+    
+    // Privilegios de Entrenadores
+    TRAINER_READ: 'TRAINER_READ',
+    TRAINER_CREATE: 'TRAINER_CREATE',
+    TRAINER_UPDATE: 'TRAINER_UPDATE',
+    TRAINER_DEACTIVATE: 'TRAINER_DEACTIVATE',
+    TRAINER_DELETE: 'TRAINER_DELETE',
+    TRAINER_SEARCH: 'TRAINER_SEARCH',
+    TRAINER_DETAILS: 'TRAINER_DETAILS',
+
+    // Privilegios de Usuarios
+    USER_READ: 'USER_READ',
+    USER_SEARCH: 'USER_SEARCH', 
+    USER_DETAILS: 'USER_DETAILS',
+    USER_CREATE: 'USER_CREATE',
+    USER_UPDATE: 'USER_UPDATE',
+    USER_ACTIVATE: 'USER_ACTIVATE',
+    USER_DEACTIVATE: 'USER_DEACTIVATE',
+    USER_DELETE: 'USER_DELETE',
+    USER_CHECK_DOCUMENT: 'USER_CHECK_DOCUMENT',
+    USER_CHECK_EMAIL: 'USER_CHECK_EMAIL',
+    USER_VIEW_ROLES: 'USER_VIEW_ROLES',
+    USER_ASSIGN_ROLES: 'USER_ASSIGN_ROLES',
+    USER_HISTORY: 'USER_HISTORY',
+
+    // Privilegios del Sistema
+    SYSTEM_VIEW_ROLES: 'SYSTEM_VIEW_ROLES',
+    SYSTEM_CREATE_ROLES: 'SYSTEM_CREATE_ROLES',
+    SYSTEM_UPDATE_ROLES: 'SYSTEM_UPDATE_ROLES',
+    SYSTEM_DELETE_ROLES: 'SYSTEM_DELETE_ROLES',
+    SYSTEM_ASSIGN_ROLES: 'SYSTEM_ASSIGN_ROLES',
+    SYSTEM_VIEW_PERMISSIONS: 'SYSTEM_VIEW_PERMISSIONS',
+    SYSTEM_CREATE_PERMISSIONS: 'SYSTEM_CREATE_PERMISSIONS',
+    SYSTEM_UPDATE_PERMISSIONS: 'SYSTEM_UPDATE_PERMISSIONS',
+    SYSTEM_DELETE_PERMISSIONS: 'SYSTEM_DELETE_PERMISSIONS',
+    SYSTEM_ASSIGN_PERMISSIONS: 'SYSTEM_ASSIGN_PERMISSIONS',
+    SYSTEM_VIEW_LOGS: 'SYSTEM_VIEW_LOGS',
+    SYSTEM_BACKUP: 'SYSTEM_BACKUP',
+    SYSTEM_RESTORE: 'SYSTEM_RESTORE',
+    SYSTEM_MAINTENANCE: 'SYSTEM_MAINTENANCE',
+} as const;
+
+export type PermissionName = typeof PERMISSIONS[keyof typeof PERMISSIONS];
+export type PrivilegeName = typeof PRIVILEGES[keyof typeof PRIVILEGES];
+
+// ✅ INTERFACES SINCRONIZADAS CON EL BACKEND
 interface Permission {
   id: number
-  nombre: PermissionName
+  nombre: string
   descripcion?: string
   codigo: string
   estado: boolean
@@ -69,7 +185,7 @@ interface Permission {
 
 interface Privilege {
   id: number
-  nombre: PrivilegeName
+  nombre: string
   descripcion?: string
   codigo: string
   id_permiso: number
@@ -111,303 +227,141 @@ class PermissionService {
   private isInitialized = false
   private currentUserId: number | null = null
 
-  // Mapeo de permisos a módulos del frontend
+  // ✅ MAPEO SIMPLIFICADO - ELIMINAMOS FALLBACKS COMPLEJOS
   public readonly PERMISSION_MODULE_MAP = {
     "ASISTENCIAS": {
       route: "/attendance",
-      component: "Attendance",
-      privileges: ["ASIST_READ", "ASIST_SEARCH", "ASIST_CREATE", "ASIST_DETAILS", "ASIST_UPDATE", "ASIST_DELETE", "ASIST_STATS"] as PrivilegeName[],
+      component: "Attendance"
     },
     "CLIENTES": {
       route: "/clients",
-      component: "Clients",
-      privileges: ["CLIENT_READ", "CLIENT_DETAILS", "CLIENT_SEARCH_DOC", "CLIENT_CREATE", "CLIENT_UPDATE", "CLIENT_DELETE", "CLIENT_BENEFICIARIES"] as PrivilegeName[],
+      component: "Clients"
+    },
+    "CONTRATOS": {
+      route: "/contracts",
+      component: "Contracts"
     },
     "MEMBRESIAS": {
       route: "/memberships",
-      component: "Memberships",
-      privileges: ["MEMBERSHIP_READ", "MEMBERSHIP_SEARCH", "MEMBERSHIP_CREATE", "MEMBERSHIP_UPDATE", "MEMBERSHIP_DEACTIVATE", "MEMBERSHIP_DETAILS", "MEMBERSHIP_REACTIVATE"] as PrivilegeName[],
+      component: "Memberships"
     },
     "HORARIOS": {
       route: "/schedule",
-      component: "Schedule",
-      privileges: ["SCHEDULE_READ", "SCHEDULE_DETAILS", "SCHEDULE_CREATE", "SCHEDULE_UPDATE", "SCHEDULE_DELETE", "SCHEDULE_AVAILABILITY", "SCHEDULE_CLIENT_VIEW", "SCHEDULE_TRAINER_VIEW", "SCHEDULE_DAILY_VIEW", "SCHEDULE_WEEKLY_VIEW", "SCHEDULE_MONTHLY_VIEW", "SCHEDULE_TRAINERS_ACTIVE", "SCHEDULE_CLIENTS_ACTIVE"] as PrivilegeName[],
+      component: "Schedule"
     },
     "ENTRENADORES": {
       route: "/trainers",
-      component: "Trainers",
-      privileges: ["TRAINER_READ", "TRAINER_CREATE", "TRAINER_UPDATE", "TRAINER_DEACTIVATE", "TRAINER_DELETE", "TRAINER_SEARCH", "TRAINER_DETAILS"] as PrivilegeName[],
+      component: "Trainers"
+    },
+    "USUARIOS": {
+      route: "/users",
+      component: "Users"
+    },
+    "SISTEMA": {
+      route: "/roles",
+      component: "System"
     },
   }
 
   async getUserPermissions(userId?: number): Promise<void> {
     try {
-      console.log("🔄 Obteniendo permisos del usuario...", userId)
+      console.log("🔄 Obteniendo permisos del usuario desde backend...", userId)
 
-      // Si tenemos un userId específico, usarlo para el fallback
       if (userId) {
         this.currentUserId = userId
       }
 
+      // ✅ USAR EL ENDPOINT CORRECTO DEL BACKEND
       const response = await api.get<UserPermissionsResponse>("/auth/profile")
 
       console.log("📡 Respuesta del servidor:", response.status)
       console.log("📦 Datos recibidos:", response.data)
 
+      // ✅ VERIFICAR FORMATO JSON (NO HTML)
+      if (typeof response.data === 'string' && response.data.includes('<!doctype html>')) {
+        console.error("❌ API devolvió HTML en lugar de JSON - problema de configuración")
+        throw new Error("Error de configuración: API devuelve HTML en lugar de JSON")
+      }
+
       if (response.data.status !== "success") {
+        console.warn("⚠️ Respuesta del servidor no exitosa")
         throw new Error("Error al obtener permisos del usuario")
       }
 
       const user = response.data.data.usuario
-      console.log("👤 Usuario:", user)
+      console.log("👤 Usuario recibido del backend:", user)
       console.log("🎭 Rol del usuario:", user.rol)
 
-      if (!user.rol || !user.rol.permisos || user.rol.permisos.length === 0) {
-        console.warn("⚠️ Usuario sin rol asignado o sin permisos, aplicando fallback")
-
-        // FALLBACK: Asignar permisos básicos según id_rol
-        const roleId = user.id_rol || this.currentUserId
-        if (roleId) {
-          console.log("🔧 Aplicando fallback de permisos para id_rol:", roleId)
-          this.applyFallbackPermissions(roleId)
-        } else {
-          this.userPermissions = []
-          this.userPrivileges = []
-        }
-
+      if (!user.rol) {
+        console.warn("⚠️ Usuario sin rol asignado")
+        this.userPermissions = []
+        this.userPrivileges = []
         this.isInitialized = true
         return
       }
 
-      // Extraer permisos del rol
+      // ✅ USAR DATOS REALES DEL BACKEND (SIN FALLBACKS)
       this.userPermissions = user.rol.permisos || []
       this.userPrivileges = user.rol.privilegios || []
 
-      console.log("✅ Permisos extraídos:", this.userPermissions)
-      console.log("🔑 Privilegios extraídos:", this.userPrivileges)
+      console.log("✅ Permisos extraídos del backend:", this.userPermissions)
+      console.log("🔑 Privilegios extraídos del backend:", this.userPrivileges)
 
       this.isInitialized = true
     } catch (error) {
-      console.error("❌ Error al obtener permisos:", error)
+      console.error("❌ Error al obtener permisos del backend:", error)
 
-      // FALLBACK CRÍTICO: Si falla la API, usar permisos por defecto
-      console.log("🔧 Aplicando fallback crítico de permisos")
-      const roleId = this.currentUserId || 3 // Default a cliente si no hay información
-      this.applyFallbackPermissions(roleId)
-
-      this.isInitialized = true
-      // No lanzar error para que la aplicación siga funcionando
-    }
-  }
-
-  // FALLBACK TEMPORAL mientras se arregla el backend
-  private applyFallbackPermissions(roleId: number): void {
-    console.log("🔧 Aplicando permisos fallback para rol:", roleId)
-
-    const fallbackPermissions: Record<number, {name: PermissionName, code: string}[]> = {
-      1: [
-        // Administrador - Todos los módulos
-        { name: "ASISTENCIAS", code: "ASISTENCIAS" },
-        { name: "CLIENTES", code: "CLIENTES" },
-        { name: "MEMBRESIAS", code: "MEMBRESIAS" },
-        { name: "HORARIOS", code: "HORARIOS" },
-        { name: "ENTRENADORES", code: "ENTRENADORES" },
-      ],
-      2: [
-        // Entrenador - Módulos limitados
-        { name: "ASISTENCIAS", code: "ASISTENCIAS" },
-        { name: "CLIENTES", code: "CLIENTES" },
-        { name: "HORARIOS", code: "HORARIOS" },
-      ],
-      3: [
-        // Cliente - Solo lectura
-        { name: "ASISTENCIAS", code: "ASISTENCIAS" },
-        { name: "MEMBRESIAS", code: "MEMBRESIAS" },
-        { name: "HORARIOS", code: "HORARIOS" },
-      ],
-      4: [
-        // Beneficiario - Similar a cliente
-        { name: "ASISTENCIAS", code: "ASISTENCIAS" },
-        { name: "MEMBRESIAS", code: "MEMBRESIAS" },
-        { name: "HORARIOS", code: "HORARIOS" },
-      ],
-    }
-
-    const permissions = fallbackPermissions[roleId] || fallbackPermissions[3] // Default a cliente
-
-    this.userPermissions = permissions.map((permission, index) => ({
-      id: index + 1,
-      nombre: permission.name,
-      codigo: permission.code,
-      estado: true,
-      descripcion: `Acceso al módulo ${permission.name}`,
-      fecha_creacion: new Date(),
-      fecha_actualizacion: new Date(),
-    }))
-
-    // Generar privilegios específicos según el rol y módulo
-    this.userPrivileges = []
-    permissions.forEach((permission, permIndex) => {
-      let privileges: {name: PrivilegeName, code: string}[] = []
-
-      // Definir privilegios según el módulo y rol
-      switch (permission.name) {
-        case "ASISTENCIAS":
-          if (roleId === 1) { // Administrador
-            privileges = [
-              { name: "ASIST_READ", code: "ASIST_READ" },
-              { name: "ASIST_SEARCH", code: "ASIST_SEARCH" },
-              { name: "ASIST_CREATE", code: "ASIST_CREATE" },
-              { name: "ASIST_DETAILS", code: "ASIST_DETAILS" },
-              { name: "ASIST_UPDATE", code: "ASIST_UPDATE" },
-              { name: "ASIST_DELETE", code: "ASIST_DELETE" },
-              { name: "ASIST_STATS", code: "ASIST_STATS" }
-            ]
-          } else if (roleId === 2) { // Entrenador
-            privileges = [
-              { name: "ASIST_READ", code: "ASIST_READ" },
-              { name: "ASIST_SEARCH", code: "ASIST_SEARCH" },
-              { name: "ASIST_CREATE", code: "ASIST_CREATE" },
-              { name: "ASIST_DETAILS", code: "ASIST_DETAILS" },
-              { name: "ASIST_UPDATE", code: "ASIST_UPDATE" }
-            ]
-          } else { // Cliente/Beneficiario
-            privileges = [
-              { name: "ASIST_READ", code: "ASIST_READ" },
-              { name: "ASIST_DETAILS", code: "ASIST_DETAILS" }
-            ]
-          }
-          break
-
-        case "CLIENTES":
-          if (roleId === 1) { // Administrador
-            privileges = [
-              { name: "CLIENT_READ", code: "CLIENT_READ" },
-              { name: "CLIENT_DETAILS", code: "CLIENT_DETAILS" },
-              { name: "CLIENT_SEARCH_DOC", code: "CLIENT_SEARCH_DOC" },
-              { name: "CLIENT_CREATE", code: "CLIENT_CREATE" },
-              { name: "CLIENT_UPDATE", code: "CLIENT_UPDATE" },
-              { name: "CLIENT_DELETE", code: "CLIENT_DELETE" },
-              { name: "CLIENT_BENEFICIARIES", code: "CLIENT_BENEFICIARIES" }
-            ]
-          } else if (roleId === 2) { // Entrenador
-            privileges = [
-              { name: "CLIENT_READ", code: "CLIENT_READ" },
-              { name: "CLIENT_DETAILS", code: "CLIENT_DETAILS" },
-              { name: "CLIENT_SEARCH_DOC", code: "CLIENT_SEARCH_DOC" }
-            ]
-          }
-          break
-
-        case "MEMBRESIAS":
-          if (roleId === 1) { // Administrador
-            privileges = [
-              { name: "MEMBERSHIP_READ", code: "MEMBERSHIP_READ" },
-              { name: "MEMBERSHIP_SEARCH", code: "MEMBERSHIP_SEARCH" },
-              { name: "MEMBERSHIP_CREATE", code: "MEMBERSHIP_CREATE" },
-              { name: "MEMBERSHIP_UPDATE", code: "MEMBERSHIP_UPDATE" },
-              { name: "MEMBERSHIP_DEACTIVATE", code: "MEMBERSHIP_DEACTIVATE" },
-              { name: "MEMBERSHIP_DETAILS", code: "MEMBERSHIP_DETAILS" },
-              { name: "MEMBERSHIP_REACTIVATE", code: "MEMBERSHIP_REACTIVATE" }
-            ]
-          } else { // Cliente/Beneficiario
-            privileges = [
-              { name: "MEMBERSHIP_READ", code: "MEMBERSHIP_READ" },
-              { name: "MEMBERSHIP_DETAILS", code: "MEMBERSHIP_DETAILS" }
-            ]
-          }
-          break
-
-        case "HORARIOS":
-          if (roleId === 1) { // Administrador
-            privileges = [
-              { name: "SCHEDULE_READ", code: "SCHEDULE_READ" },
-              { name: "SCHEDULE_DETAILS", code: "SCHEDULE_DETAILS" },
-              { name: "SCHEDULE_CREATE", code: "SCHEDULE_CREATE" },
-              { name: "SCHEDULE_UPDATE", code: "SCHEDULE_UPDATE" },
-              { name: "SCHEDULE_DELETE", code: "SCHEDULE_DELETE" },
-              { name: "SCHEDULE_AVAILABILITY", code: "SCHEDULE_AVAILABILITY" },
-              { name: "SCHEDULE_CLIENT_VIEW", code: "SCHEDULE_CLIENT_VIEW" },
-              { name: "SCHEDULE_TRAINER_VIEW", code: "SCHEDULE_TRAINER_VIEW" },
-              { name: "SCHEDULE_DAILY_VIEW", code: "SCHEDULE_DAILY_VIEW" },
-              { name: "SCHEDULE_WEEKLY_VIEW", code: "SCHEDULE_WEEKLY_VIEW" },
-              { name: "SCHEDULE_MONTHLY_VIEW", code: "SCHEDULE_MONTHLY_VIEW" },
-              { name: "SCHEDULE_TRAINERS_ACTIVE", code: "SCHEDULE_TRAINERS_ACTIVE" },
-              { name: "SCHEDULE_CLIENTS_ACTIVE", code: "SCHEDULE_CLIENTS_ACTIVE" }
-            ]
-          } else if (roleId === 2) { // Entrenador
-            privileges = [
-              { name: "SCHEDULE_READ", code: "SCHEDULE_READ" },
-              { name: "SCHEDULE_DETAILS", code: "SCHEDULE_DETAILS" },
-              { name: "SCHEDULE_TRAINER_VIEW", code: "SCHEDULE_TRAINER_VIEW" },
-              { name: "SCHEDULE_DAILY_VIEW", code: "SCHEDULE_DAILY_VIEW" },
-              { name: "SCHEDULE_WEEKLY_VIEW", code: "SCHEDULE_WEEKLY_VIEW" }
-            ]
-          } else { // Cliente/Beneficiario
-            privileges = [
-              { name: "SCHEDULE_READ", code: "SCHEDULE_READ" },
-              { name: "SCHEDULE_CLIENT_VIEW", code: "SCHEDULE_CLIENT_VIEW" },
-              { name: "SCHEDULE_DAILY_VIEW", code: "SCHEDULE_DAILY_VIEW" }
-            ]
-          }
-          break
-
-        case "ENTRENADORES":
-          if (roleId === 1) { // Solo administrador
-            privileges = [
-              { name: "TRAINER_READ", code: "TRAINER_READ" },
-              { name: "TRAINER_CREATE", code: "TRAINER_CREATE" },
-              { name: "TRAINER_UPDATE", code: "TRAINER_UPDATE" },
-              { name: "TRAINER_DEACTIVATE", code: "TRAINER_DEACTIVATE" },
-              { name: "TRAINER_DELETE", code: "TRAINER_DELETE" },
-              { name: "TRAINER_SEARCH", code: "TRAINER_SEARCH" },
-              { name: "TRAINER_DETAILS", code: "TRAINER_DETAILS" }
-            ]
-          }
-          break
+      // 🔒 SEGURIDAD: Solo aplicar fallback si tenemos un usuario válido
+      if (!this.currentUserId) {
+        console.error("❌ No se puede aplicar fallback sin usuario autenticado")
+        this.userPermissions = []
+        this.userPrivileges = []
+        this.isInitialized = false
+        throw new Error("No se pueden cargar permisos sin usuario autenticado")
       }
 
-      // Agregar privilegios a la lista
-      privileges.forEach((privilegio, privIndex) => {
-        this.userPrivileges.push({
-          id: permIndex * 20 + privIndex + 1, // Más espacio para privilegios
-          nombre: privilegio.name,
-          codigo: privilegio.code,
-          descripcion: `${privilegio.name} en ${permission.name}`,
-          id_permiso: permIndex + 1,
-          fecha_creacion: new Date(),
-          fecha_actualizacion: new Date(),
-        })
-      })
-    })
-
-    console.log("🔧 Permisos fallback aplicados:", this.userPermissions)
-    console.log("🔧 Privilegios fallback aplicados:", this.userPrivileges)
+      // ✅ SIN FALLBACKS COMPLEJOS - USAR DATOS VACÍOS
+      console.log("🔧 Error en backend, usando permisos vacíos")
+      this.userPermissions = []
+      this.userPrivileges = []
+      this.isInitialized = true
+      
+      throw error // Re-lanzar para que el AuthContext maneje el error
+    }
   }
 
   hasModuleAccess(moduleName: PermissionName): boolean {
+    // 🔒 SEGURIDAD: Verificar inicialización
     if (!this.isInitialized) {
       console.log(`⏳ Permisos no inicializados para ${moduleName}`)
       return false
     }
 
-    const hasPermission = this.userPermissions.some(
-      (permission) => permission.nombre === moduleName && permission.estado,
-    )
-
-    console.log(`🔍 Verificando acceso a "${moduleName}":`, hasPermission)
-    if (!hasPermission) {
-      console.log(
-        `📋 Permisos disponibles:`,
-        this.userPermissions.map((p) => p.nombre),
-      )
+    // 🔒 SEGURIDAD: Verificar que hay usuario autenticado
+    if (!this.currentUserId) {
+      console.log(`🚫 Sin usuario autenticado para verificar acceso a ${moduleName}`)
+      return false
     }
 
+    // ✅ VERIFICAR EN LOS PERMISOS REALES DEL BACKEND
+    const hasPermission = this.userPermissions.some(
+      (permission) => permission.codigo === moduleName && permission.estado,
+    )
+
+    console.log(`🔍 Usuario ${this.currentUserId} verificando acceso a "${moduleName}":`, hasPermission)
+    
     return hasPermission
   }
 
   hasPrivilege(moduleName: PermissionName, privilegeName: PrivilegeName): boolean {
+    // 🔒 SEGURIDAD: Verificaciones básicas
     if (!this.isInitialized) {
+      console.log(`⏳ Permisos no inicializados para ${privilegeName} en ${moduleName}`)
+      return false
+    }
+
+    if (!this.currentUserId) {
+      console.log(`🚫 Sin usuario autenticado para verificar privilegio ${privilegeName} en ${moduleName}`)
       return false
     }
 
@@ -416,19 +370,12 @@ class PermissionService {
       return false
     }
 
-    // Buscar el permiso correspondiente
-    const permission = this.userPermissions.find((p) => p.nombre === moduleName && p.estado)
-
-    if (!permission) {
-      return false
-    }
-
-    // Verificar si tiene el privilegio específico para este permiso
+    // ✅ VERIFICAR EN LOS PRIVILEGIOS REALES DEL BACKEND
     const hasPrivilege = this.userPrivileges.some(
-      (privilege) => privilege.id_permiso === permission.id && privilege.nombre === privilegeName,
+      (privilege) => privilege.codigo === privilegeName,
     )
 
-    console.log(`🔑 Verificando privilegio "${privilegeName}" para "${moduleName}":`, hasPrivilege)
+    console.log(`🔑 Usuario ${this.currentUserId} verificando privilegio "${privilegeName}" para "${moduleName}":`, hasPrivilege)
 
     return hasPrivilege
   }
@@ -445,9 +392,15 @@ class PermissionService {
     name: PermissionName
     route: string
     component: string
-    privileges: PrivilegeName[]
   }> {
+    // 🔒 SEGURIDAD: Verificaciones básicas
     if (!this.isInitialized) {
+      console.log("⏳ getAccessibleModules: Permisos no inicializados")
+      return []
+    }
+
+    if (!this.currentUserId) {
+      console.log("🚫 getAccessibleModules: Sin usuario autenticado")
       return []
     }
 
@@ -456,13 +409,12 @@ class PermissionService {
       .map(([moduleName, config]) => ({
         name: moduleName as PermissionName,
         route: config.route,
-        component: config.component,
-        privileges: config.privileges,
+        component: config.component
       }))
   }
 
-  getUserPermissionsList(): PermissionName[] {
-    return this.userPermissions.filter((permission) => permission.estado).map((permission) => permission.nombre)
+  getUserPermissionsList(): string[] {
+    return this.userPermissions.filter((permission) => permission.estado).map((permission) => permission.codigo)
   }
 
   clearPermissions(): void {
@@ -475,8 +427,23 @@ class PermissionService {
 
   // Método para forzar inicialización con ID de usuario
   async initializeWithUserId(userId: number): Promise<void> {
+    if (!userId || userId <= 0) {
+      throw new Error("ID de usuario válido requerido para inicializar permisos")
+    }
+    
+    console.log("🚀 Inicializando permisos para usuario autenticado:", userId)
     this.currentUserId = userId
     await this.getUserPermissions(userId)
+  }
+
+  // Método de debugging para inspeccionar permisos
+  debugPermissions(): void {
+    console.log("🔍 DEBUG: Estado actual de permisos")
+    console.log("- Inicializado:", this.isInitialized)
+    console.log("- Usuario actual:", this.currentUserId)
+    console.log("- Permisos:", this.userPermissions)
+    console.log("- Privilegios:", this.userPrivileges)
+    console.log("- Módulos accesibles:", this.getAccessibleModules())
   }
 }
 

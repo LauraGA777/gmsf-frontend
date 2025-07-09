@@ -112,10 +112,11 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Safe guards to ensure arrays are defined
     const safeClients = clients || [];
     const safeContracts = contracts || [];
+    const safePagination = contractsPagination || { total: 0 };
     
     const totalClients = safeClients.length;
     const activeClients = safeClients.filter(c => c.estado === true).length;
-    const totalContracts = contractsPagination.total || 0;
+    const totalContracts = safePagination.total || 0;
     const activeContracts = safeContracts.filter(c => c.estado === 'Activo').length;
     
     // Calculate expiring contracts (next 30 days)
@@ -141,7 +142,7 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       expiringContracts,
       revenue
     };
-  }, [clients, contracts, contractsPagination.total]);
+  }, [clients, contracts, contractsPagination?.total]);
 
   // Load data functions
   const refreshClients = useCallback(async () => {

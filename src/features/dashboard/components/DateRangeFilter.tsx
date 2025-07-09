@@ -123,197 +123,173 @@ export function DateRangeFilter({ selectedRange, onRangeChange, loading }: DateR
 
   return (
     <div className="space-y-4">
-      {/* Header del filtro */}
+      {/* Header del filtro con período seleccionado */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-blue-600" />
-          <span className="text-sm font-medium text-gray-700">Filtros de Fecha</span>
-        </div>
-      </div>
-
-      {/* Período seleccionado */}
-      <Card className="border-blue-200 bg-blue-50">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-900">Período activo</span>
-            </div>
-            <Badge className="bg-blue-600 text-white hover:bg-blue-700">
-              {selectedRange.label}
-            </Badge>
+        <div className="flex items-center gap-3">
+          <Filter className="h-5 w-5 text-blue-600" />
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">Filtros de Fecha</h3>
+            <p className="text-sm text-gray-600">
+              {format(selectedRange.from, 'dd/MM/yyyy')} - {format(selectedRange.to, 'dd/MM/yyyy')}
+            </p>
           </div>
-          <div className="mt-2 text-xs text-blue-700">
-            {format(selectedRange.from, 'dd/MM/yyyy')} - {format(selectedRange.to, 'dd/MM/yyyy')}
+        </div>
+        <Badge className="bg-blue-600 text-white hover:bg-blue-700 font-medium px-3 py-1">
+          {selectedRange.label}
+        </Badge>
+      </div>
+
+      {/* Layout horizontal compacto de filtros */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Rangos rápidos */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="h-4 w-4 text-emerald-600" />
+            <span className="text-sm font-medium text-emerald-800">Rápido</span>
           </div>
-        </CardContent>
-      </Card>
+          <div className="grid grid-cols-2 gap-1">
+            {quickRanges.map((range, index) => (
+              <Button
+                key={index}
+                variant={selectedRange.label === range.label ? "default" : "outline"}
+                size="sm"
+                onClick={() => handlePredefinedRange(range)}
+                disabled={loading}
+                className="justify-center text-xs h-8 px-2"
+              >
+                {range.label}
+              </Button>
+            ))}
+          </div>
+        </div>
 
-      {/* Rangos rápidos */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Clock className="h-4 w-4 text-gray-500" />
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Acceso Rápido
-          </span>
+        {/* Rangos mensuales */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <CalendarDays className="h-4 w-4 text-purple-600" />
+            <span className="text-sm font-medium text-purple-800">Mensual</span>
+          </div>
+          <div className="grid grid-cols-1 gap-1">
+            {monthlyRanges.map((range, index) => (
+              <Button
+                key={index}
+                variant={selectedRange.label === range.label ? "default" : "outline"}
+                size="sm"
+                onClick={() => handlePredefinedRange(range)}
+                disabled={loading}
+                className="justify-center text-xs h-8 px-2"
+              >
+                {range.label}
+              </Button>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          {quickRanges.map((range, index) => (
-            <Button
-              key={index}
-              variant={selectedRange.label === range.label ? "default" : "outline"}
-              size="sm"
-              onClick={() => handlePredefinedRange(range)}
-              disabled={loading}
-              className="justify-start text-xs h-9 transition-all duration-200"
-            >
-              {range.label}
-            </Button>
-          ))}
-        </div>
-      </div>
 
-      {/* Rangos mensuales */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <CalendarDays className="h-4 w-4 text-gray-500" />
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Períodos Mensuales
-          </span>
+        {/* Rangos anuales */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <History className="h-4 w-4 text-orange-600" />
+            <span className="text-sm font-medium text-orange-800">Anual</span>
+          </div>
+          <div className="grid grid-cols-1 gap-1">
+            {yearlyRanges.map((range, index) => (
+              <Button
+                key={index}
+                variant={selectedRange.label === range.label ? "default" : "outline"}
+                size="sm"
+                onClick={() => handlePredefinedRange(range)}
+                disabled={loading}
+                className="justify-center text-xs h-8 px-2"
+              >
+                {range.label}
+              </Button>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-1 gap-2">
-          {monthlyRanges.map((range, index) => (
-            <Button
-              key={index}
-              variant={selectedRange.label === range.label ? "default" : "outline"}
-              size="sm"
-              onClick={() => handlePredefinedRange(range)}
-              disabled={loading}
-              className="justify-start text-xs h-9 transition-all duration-200"
-            >
-              {range.label}
-            </Button>
-          ))}
-        </div>
-      </div>
 
-      {/* Rangos anuales */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <History className="h-4 w-4 text-gray-500" />
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Períodos Anuales
-          </span>
-        </div>
-        <div className="grid grid-cols-1 gap-2">
-          {yearlyRanges.map((range, index) => (
+        {/* Rango personalizado */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <CalendarIcon className="h-4 w-4 text-gray-600" />
+            <span className="text-sm font-medium text-gray-800">Personalizado</span>
+          </div>
+          <div className="space-y-1">
             <Button
-              key={index}
-              variant={selectedRange.label === range.label ? "default" : "outline"}
-              size="sm"
-              onClick={() => handlePredefinedRange(range)}
-              disabled={loading}
-              className="justify-start text-xs h-9 transition-all duration-200"
-            >
-              {range.label}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      {/* Rango personalizado */}
-      <Card className="border-gray-200">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4" />
-              Rango Personalizado
-            </span>
-            <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={() => setShowCustom(!showCustom)}
-              className="h-6 w-6 p-0"
+              className="w-full justify-center text-xs h-8 px-2"
             >
-              <ChevronDown className={`h-3 w-3 transition-transform ${showCustom ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-3 w-3 mr-1 transition-transform ${showCustom ? 'rotate-180' : ''}`} />
+              Rango Custom
             </Button>
-          </CardTitle>
-        </CardHeader>
-        
-        {showCustom && (
-          <CardContent className="pt-0">
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-gray-600 mb-1 block">Desde</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="w-full justify-start text-xs h-9"
-                      >
-                        <CalendarIcon className="h-3 w-3 mr-2" />
-                        {customFrom ? format(customFrom, 'dd/MM/yyyy') : 'Seleccionar'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={customFrom}
-                        onSelect={setCustomFrom}
-                        initialFocus
-                        locale={es}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
+            
+            {showCustom && (
+              <div className="space-y-1">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-center text-xs h-8 px-2"
+                    >
+                      <CalendarIcon className="h-3 w-3 mr-1" />
+                      {customFrom ? format(customFrom, 'dd/MM') : 'Desde'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customFrom}
+                      onSelect={setCustomFrom}
+                      initialFocus
+                      locale={es}
+                    />
+                  </PopoverContent>
+                </Popover>
                 
-                <div>
-                  <label className="text-xs text-gray-600 mb-1 block">Hasta</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="w-full justify-start text-xs h-9"
-                      >
-                        <CalendarIcon className="h-3 w-3 mr-2" />
-                        {customTo ? format(customTo, 'dd/MM/yyyy') : 'Seleccionar'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={customTo}
-                        onSelect={setCustomTo}
-                        initialFocus
-                        locale={es}
-                        disabled={(date) => customFrom ? date < customFrom : false}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-center text-xs h-8 px-2"
+                    >
+                      <CalendarIcon className="h-3 w-3 mr-1" />
+                      {customTo ? format(customTo, 'dd/MM') : 'Hasta'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customTo}
+                      onSelect={setCustomTo}
+                      initialFocus
+                      locale={es}
+                      disabled={(date) => customFrom ? date < customFrom : false}
+                    />
+                  </PopoverContent>
+                </Popover>
+                
+                <Button
+                  size="sm"
+                  onClick={handleCustomRange}
+                  disabled={!customFrom || !customTo || loading}
+                  className="w-full h-8 text-xs"
+                >
+                  Aplicar
+                </Button>
               </div>
-              
-              <Button
-                size="sm"
-                onClick={handleCustomRange}
-                disabled={!customFrom || !customTo || loading}
-                className="w-full h-9"
-              >
-                Aplicar Rango Personalizado
-              </Button>
-            </div>
-          </CardContent>
-        )}
-      </Card>
+            )}
+          </div>
+        </div>
+      </div>
 
-      {/* Footer informativo */}
-      <div className="text-xs text-gray-500 p-3 bg-gray-50 rounded-lg">
+      {/* Footer informativo compacto */}
+      <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
         <div className="flex items-center justify-between">
-          <span>📊 Días en el período: {Math.ceil((selectedRange.to.getTime() - selectedRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1}</span>
-          <span>🔄 {format(new Date(), 'HH:mm')}</span>
+          <span>📊 {Math.ceil((selectedRange.to.getTime() - selectedRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1} días</span>
+          <span>🔄 {format(new Date(), 'HH:mm:ss')}</span>
         </div>
       </div>
     </div>

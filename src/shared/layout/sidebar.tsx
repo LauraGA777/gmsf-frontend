@@ -173,7 +173,37 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   
   const hasMembresíasAccess = hasModuleAccess(PERMISSIONS.MEMBRESIAS) || hasModuleAccess(PERMISSIONS.ASISTENCIAS)
 
-  if (!shouldRender || isLoading) return null
+  // Para administrador, mostrar sidebar siempre
+  if (!shouldRender) return null
+  
+  // Si está cargando permisos, mostrar un sidebar básico para administrador
+  if (isLoading && user?.id_rol === 1) {
+    return (
+      <aside className={sidebarClasses} aria-label="Sidebar">
+        <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-800">
+          <div className="h-16 px-4 border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 flex items-center">
+            <div className="flex gap-3 items-center w-full">
+              <img src="/favicon.ico" alt="Logo GMSF" className="h-10 w-10" />
+              <Link to="/dashboard" className="text-2xl font-bold text-black-800 font-gmsf">
+                GMSF
+              </Link>
+              <Button variant="ghost" size="icon" onClick={onClose} className="md:hidden h-8 w-8">
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+          <nav className="flex-1 overflow-y-auto py-4 px-2">
+            <div className="text-center text-gray-500 py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-sm">Cargando permisos...</p>
+            </div>
+          </nav>
+        </div>
+      </aside>
+    )
+  }
+  
+  if (isLoading) return null
 
   return (
     <aside className={sidebarClasses} aria-label="Sidebar">

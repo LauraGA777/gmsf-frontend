@@ -166,7 +166,7 @@ class DashboardService {
       return chartData;
     } catch (error) {
       console.error('Error fetching attendance chart data:', error);
-      return this.generateMockAttendanceData(dateRange);
+      throw error; // Propagar el error en lugar de usar mock data
     }
   }
 
@@ -192,7 +192,7 @@ class DashboardService {
           chartData.push({
             date: format(day, 'yyyy-MM-dd'),
             ingresos: data.contracts?.periodRevenue || 0,
-            meta: 300000, // Meta fija por ahora
+            meta: data.contracts?.totalRevenue || 0, // Usar ingresos totales como meta
             label: format(day, 'dd/MM')
           });
         } catch (error) {
@@ -200,7 +200,7 @@ class DashboardService {
           chartData.push({
             date: format(day, 'yyyy-MM-dd'),
             ingresos: 0,
-            meta: 300000,
+            meta: 0,
             label: format(day, 'dd/MM')
           });
         }
@@ -209,7 +209,7 @@ class DashboardService {
       return chartData;
     } catch (error) {
       console.error('Error fetching revenue chart data:', error);
-      return this.generateMockRevenueData(dateRange);
+      throw error; // Propagar el error en lugar de usar mock data
     }
   }
 
@@ -218,25 +218,37 @@ class DashboardService {
     try {
       const config = this.dateRangeToConfig(dateRange);
       const params = this.buildParams(config);
+      console.log('📊 Fetching membership distribution with params:', params);
+      
       const response = await api.get('/memberships/stats', { params });
+      console.log('📊 Membership stats response:', response.data);
+      
       const data = (response.data as any).data || (response.data as any);
       
       if (data.popularMemberships && data.popularMemberships.length > 0) {
         const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16'];
-        const total = data.popularMemberships.reduce((sum: number, m: any) => sum + m.activeContracts, 0);
+        const total = data.popularMemberships.reduce((sum: number, m: any) => sum + (m.activeContracts || 0), 0);
         
-        return data.popularMemberships.map((membership: any, index: number) => ({
+        const validMemberships = data.popularMemberships.filter((m: any) => m.nombre && (m.activeContracts || 0) >= 0);
+        
+        if (validMemberships.length === 0) {
+          console.log('⚠️ No memberships found in database');
+          return [];
+        }
+        
+        return validMemberships.map((membership: any, index: number) => ({
           name: membership.nombre,
-          value: membership.activeContracts,
-          percentage: total > 0 ? (membership.activeContracts / total) * 100 : 0,
+          value: membership.activeContracts || 0,
+          percentage: total > 0 ? ((membership.activeContracts || 0) / total) * 100 : 0,
           color: colors[index % colors.length]
         }));
       }
       
-      return this.generateMockMembershipDistribution();
+      console.log('⚠️ No popular memberships found in database');
+      return [];
     } catch (error) {
-      console.error('Error fetching membership distribution data:', error);
-      return this.generateMockMembershipDistribution();
+      console.error('❌ Error fetching membership distribution data:', error);
+      throw error; // Propagar el error en lugar de usar mock data
     }
   }
 
@@ -261,62 +273,7 @@ class DashboardService {
     return config;
   }
 
-  // Generar datos mock para fallback
-  private generateMockAttendanceData(dateRange: DateRange): AttendanceChartData[] {
-    const data: AttendanceChartData[] = [];
-    const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
-    const points = Math.min(daysDiff + 1, 30);
-    
-    for (let i = 0; i < points; i++) {
-      const date = new Date(dateRange.from);
-      date.setDate(date.getDate() + i);
-      
-      data.push({
-        date: format(date, 'yyyy-MM-dd'),
-        asistencias: Math.floor(Math.random() * 50) + 20,
-        label: format(date, 'dd/MM')
-      });
-    }
-    
-    return data;
-  }
 
-  private generateMockRevenueData(dateRange: DateRange): RevenueChartData[] {
-    const data: RevenueChartData[] = [];
-    const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
-    const points = Math.min(daysDiff + 1, 30);
-    
-    for (let i = 0; i < points; i++) {
-      const date = new Date(dateRange.from);
-      date.setDate(date.getDate() + i);
-      
-      data.push({
-        date: format(date, 'yyyy-MM-dd'),
-        ingresos: Math.floor(Math.random() * 500000) + 100000,
-        meta: 300000,
-        label: format(date, 'dd/MM')
-      });
-    }
-    
-    return data;
-  }
-
-  private generateMockMembershipDistribution(): MembershipDistributionData[] {
-    const memberships = [
-      { name: 'Básica', value: 45, color: '#3b82f6' },
-      { name: 'Premium', value: 25, color: '#10b981' },
-      { name: 'VIP', value: 15, color: '#f59e0b' },
-      { name: 'Estudiante', value: 10, color: '#8b5cf6' },
-      { name: 'Familiar', value: 5, color: '#ef4444' }
-    ];
-
-    const total = memberships.reduce((sum, m) => sum + m.value, 0);
-    
-    return memberships.map(membership => ({
-      ...membership,
-      percentage: (membership.value / total) * 100
-    }));
-  }
 
   // Construir parámetros para la consulta
   private buildParams(config: PeriodConfig): Record<string, string> {

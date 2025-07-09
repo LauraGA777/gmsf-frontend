@@ -9,6 +9,18 @@ import { NotAuthorizedPage } from "../pages/NotAuthorizedPage";
 export default function AppRoutes() {
     const { isAuthenticated, user, isLoading, isInitialized, error } = useAuth();
 
+    if (isLoading || !isInitialized) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+                <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+                    <p className="text-lg font-semibold text-gray-700">Cargando sistema...</p>
+                    <p className="text-sm text-gray-500">Por favor, espere un momento.</p>
+                </div>
+            </div>
+        );
+    }
+    
     // Función de redirección dinámica basada en authContext mejorado
     const getRedirectPath = () => {
         if (!user) return "/login";
@@ -39,14 +51,7 @@ export default function AppRoutes() {
     // Configura la ruta principal con redirección mejorada
     const indexRoute = {
         path: "/",
-        element: isLoading ? (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-                <p className="ml-3 text-gray-600">Cargando sistema...</p>
-            </div>
-        ) : (
-            <Navigate to={getRedirectPath()} replace />
-        )
+        element: <Navigate to={getRedirectPath()} replace />
     };
 
     // Configura la wrapper para rutas privadas

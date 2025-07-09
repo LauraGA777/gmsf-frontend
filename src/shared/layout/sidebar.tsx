@@ -53,10 +53,10 @@ const NavItem: React.FC<NavItemProps> = ({
   className,
 }) => {
   const baseClassName = cn(
-    "flex items-center w-full py-3 px-4 text-base font-normal transition duration-75 cursor-pointer",
+    "flex items-center w-full py-2.5 px-3 mx-1 text-sm font-medium transition-all duration-200 cursor-pointer rounded-lg",
     active
-      ? "text-gray-700 bg-gray-100 hover:bg-gray-200"
-      : "text-gray-900 hover:bg-gray-50 dark:text-white dark:hover:bg-gray-700",
+      ? "text-gray-900 bg-gray-100"
+      : "text-gray-700 hover:bg-gray-50 hover:text-gray-900 dark:text-white dark:hover:bg-gray-700",
     className,
   )
 
@@ -69,10 +69,10 @@ const NavItem: React.FC<NavItemProps> = ({
 
   const content = (
     <>
-      <span className="flex-shrink-0 text-gray-500 dark:text-gray-400">{icon}</span>
-      <span className="ml-3 flex-1 whitespace-nowrap">{label}</span>
+      <span className="flex-shrink-0 text-gray-500 dark:text-gray-400 mr-3">{icon}</span>
+      <span className="flex-1 whitespace-nowrap">{label}</span>
       {hasSubmenu && (
-        <span className="flex-shrink-0 text-gray-400">
+        <span className="flex-shrink-0 text-gray-400 ml-auto">
           {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </span>
       )}
@@ -81,7 +81,7 @@ const NavItem: React.FC<NavItemProps> = ({
 
   if (to) {
     return (
-      <li id={id} className="my-1">
+      <li id={id}>
         <Link to={to} className={baseClassName} onClick={handleClick}>
           {content}
         </Link>
@@ -90,7 +90,7 @@ const NavItem: React.FC<NavItemProps> = ({
   }
 
   return (
-    <li id={id} className="my-1">
+    <li id={id}>
       <div className={baseClassName} onClick={handleClick}>
         {content}
       </div>
@@ -178,8 +178,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     <aside className={sidebarClasses} aria-label="Sidebar">
       <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-800">
         {/* Encabezado del Sidebar */}
-        <div className="p-4 border-b border-gray-100">
-          <div className="flex gap-2 items-center">
+        <div className="h-16 px-4 border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 flex items-center">
+          <div className="flex gap-3 items-center w-full">
             {/* Logo GMSF */}
             <Link
             to="/dashboard" 
@@ -215,15 +215,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             - font-serif: Fuente serif tradicional
             - font-gmsf: Fuente Fugaz One personalizada para GMSF
             */}
-            <Button variant="ghost" size="sm" onClick={onClose} className="md:hidden p-1" aria-label="Cerrar menú">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={onClose} 
+              className="md:hidden h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100" 
+              aria-label="Cerrar menú"
+            >
               <X className="h-5 w-5" />
             </Button>
           </div>
         </div>
 
         {/* Área de navegación con scroll */}
-        <nav className="flex-1 overflow-y-auto py-4 text-base">
-          <ul className="space-y-0">
+        <nav className="flex-1 overflow-y-auto py-4 px-2">
+          <ul className="space-y-1">
             {/* 1. Panel de control */}
             {hasModuleAccess("Panel de control") && (
               <NavItem
@@ -303,17 +309,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   id="nav-clients"
                 />
                 {activeGroup === "clients" && (
-                  <ul className="py-1 mx-4 border-l border-gray-100">
+                  <ul className="py-2 mx-3 space-y-1">
                     {/* Contratos - Solo mostrar si tiene acceso */}
                     {hasModuleAccess("Gestión de contratos") && (
-                      <li className="my-1">
+                      <li>
                         <Link
                           to="/contracts"
                           className={cn(
-                            "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
+                            "flex items-center w-full py-2 px-3 ml-3 text-sm font-medium transition-all duration-200 cursor-pointer rounded-lg border-l-2",
                             activeItem === "contracts.list"
-                              ? "text-gray-700 hover:bg-gray-100"
-                              : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                              ? "text-gray-900 bg-gray-50 border-gray-300"
+                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-transparent dark:text-gray-300 dark:hover:bg-gray-700",
                           )}
                           onClick={() => {
                             handleItemClick("contracts.list", "clients")
@@ -321,7 +327,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                           }}
                         >
                           <span className="flex-shrink-0 text-gray-500 mr-3">
-                            <FileSignature className="h-5 w-5" aria-hidden="true" />
+                            <FileSignature className="h-4 w-4" aria-hidden="true" />
                           </span>
                           <span className="flex-1 whitespace-nowrap">Contratos</span>
                         </Link>
@@ -330,14 +336,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                     {/* Personas - Solo mostrar si tiene acceso */}
                     {hasModuleAccess("Gestión de clientes") && (
-                      <li className="my-1">
+                      <li>
                         <Link
                           to="/clients"
                           className={cn(
-                            "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
+                            "flex items-center w-full py-2 px-3 ml-3 text-sm font-medium transition-all duration-200 cursor-pointer rounded-lg border-l-2",
                             activeItem === "clients.list"
-                              ? "text-gray-700 hover:bg-gray-100"
-                              : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                              ? "text-gray-900 bg-gray-50 border-gray-300"
+                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-transparent dark:text-gray-300 dark:hover:bg-gray-700",
                           )}
                           onClick={() => {
                             handleItemClick("clients.list", "clients")
@@ -345,7 +351,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                           }}
                         >
                           <span className="flex-shrink-0 text-gray-500 mr-3">
-                            <User className="h-5 w-5" aria-hidden="true" />
+                            <User className="h-4 w-4" aria-hidden="true" />
                           </span>
                           <span className="flex-1 whitespace-nowrap">Personas</span>
                         </Link>
@@ -369,17 +375,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   id="nav-memberships"
                 />
                 {activeGroup === "memberships" && (
-                  <ul className="py-1 mx-4 border-l border-gray-100">
+                  <ul className="py-2 mx-3 space-y-1">
                     {/* Membresías - Solo mostrar si tiene acceso */}
                     {hasModuleAccess("Gestión de membresías") && (
-                      <li className="my-1">
+                      <li>
                         <Link
                           to="/memberships"
                           className={cn(
-                            "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
+                            "flex items-center w-full py-2 px-3 ml-3 text-sm font-medium transition-all duration-200 cursor-pointer rounded-lg border-l-2",
                             activeItem === "memberships.list"
-                              ? "text-gray-700 hover:bg-gray-100"
-                              : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                              ? "text-gray-900 bg-gray-50 border-gray-300"
+                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-transparent dark:text-gray-300 dark:hover:bg-gray-700",
                           )}
                           onClick={() => {
                             handleItemClick("memberships.list", "memberships")
@@ -387,7 +393,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                           }}
                         >
                           <span className="flex-shrink-0 text-gray-500 mr-3">
-                            <ClipboardCheck className="h-5 w-5" aria-hidden="true" />
+                            <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
                           </span>
                           <span className="flex-1 whitespace-nowrap">Membresías</span>
                         </Link>
@@ -396,14 +402,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                     {/* Asistencia - Solo mostrar si tiene acceso */}
                     {hasModuleAccess("Control de asistencia") && (
-                      <li className="my-1">
+                      <li>
                         <Link
                           to="/attendance"
                           className={cn(
-                            "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
+                            "flex items-center w-full py-2 px-3 ml-3 text-sm font-medium transition-all duration-200 cursor-pointer rounded-lg border-l-2",
                             activeItem === "attendance.list"
-                              ? "text-gray-700 hover:bg-gray-100"
-                              : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                              ? "text-gray-900 bg-gray-50 border-gray-300"
+                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-transparent dark:text-gray-300 dark:hover:bg-gray-700",
                           )}
                           onClick={() => {
                             handleItemClick("attendance.list", "memberships")
@@ -411,7 +417,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                           }}
                         >
                           <span className="flex-shrink-0 text-gray-500 mr-3">
-                            <BarChart4 className="h-5 w-5" aria-hidden="true" />
+                            <BarChart4 className="h-4 w-4" aria-hidden="true" />
                           </span>
                           <span className="flex-1 whitespace-nowrap">Asistencia</span>
                         </Link>
@@ -423,8 +429,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             )}
 
             {/* Separador visual */}
-            <li className="my-2">
-              <hr className="border-gray-200 dark:border-gray-700" />
+            <li className="mx-3 my-3">
+              <hr className="border-gray-200 dark:border-gray-600" />
             </li>
 
             {/* Cerrar Sesión - Siempre visible */}

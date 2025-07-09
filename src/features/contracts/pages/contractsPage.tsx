@@ -264,8 +264,8 @@ export function ContractsPage() {
                     <TableRow key={contract.id}>
                       <TableCell className="font-medium">{contract.codigo}</TableCell>
                       <TableCell>
-                        <div className="font-medium">{getClientName(contract.id_cliente)}</div>
-                        <div className="text-xs text-gray-500">{getClientDocument(contract.id_cliente)}</div>
+                        <div className="font-medium">{getClientName(contract.id_persona)}</div>
+                        <div className="text-xs text-gray-500">{getClientDocument(contract.id_persona)}</div>
                       </TableCell>
                       <TableCell>{getMembershipName(contract.id_membresia)}</TableCell>
                       <TableCell>
@@ -279,7 +279,7 @@ export function ContractsPage() {
                           : "N/A"}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatCOP(contract.precio)}
+                        {formatCOP(contract.membresia_precio)}
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(contract.estado)}

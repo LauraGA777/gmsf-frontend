@@ -6,9 +6,9 @@ export const trainersRoutes = [
     path: "trainers",
     element: (
       <PermissionProtectedRoute 
-        requiredModule="Gestión de entrenadores" 
-        requiredPrivilege="Leer"
-        fallbackRoles={[1]}
+        requiredModule="ENTRENADORES" 
+        requiredPrivilege="TRAINER_READ"
+        // ✅ Solo permisos de BD - Sin fallbacks
       >
         <TrainersPage />
       </PermissionProtectedRoute>

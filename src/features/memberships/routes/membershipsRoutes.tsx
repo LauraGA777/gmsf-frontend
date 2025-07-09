@@ -7,9 +7,9 @@ export const membershipsRoutes: RouteObject[] = [
         path: "memberships",
         element: (
             <PermissionProtectedRoute 
-                requiredModule="Gestión de membresías" 
-                requiredPrivilege="Leer"
-                fallbackRoles={[1]} // Solo admin por defecto
+                requiredModule="MEMBRESIAS" 
+                requiredPrivilege="MEMBERSHIP_READ"
+                // ✅ Solo permisos de BD - Sin fallbacks
             >
                 <MembershipsPage />
             </PermissionProtectedRoute>

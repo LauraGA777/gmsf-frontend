@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { useDebounce } from "@/shared/hooks/useDebounce"
+import { usePermissions } from "@/shared/hooks/usePermissions"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
@@ -7,7 +8,7 @@ import { Badge } from "@/shared/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
 import { Plus, Search, RefreshCw, FileSignature, MoreHorizontal, Edit, Eye, Trash2 } from "lucide-react"
 import { useGym } from "@/shared/contexts/gymContext"
-import type { Contract, Client, Membership } from "@/shared/types"
+import type { Contract } from "@/shared/types"
 import { NewContractForm } from "@/features/contracts/components/newContractForm"
 import { useToast } from "@/shared/components/ui/use-toast"
 import { format } from "date-fns"
@@ -42,6 +43,15 @@ export function ContractsPage() {
     deleteContract,
   } = useGym()
 
+  const { hasModuleAccess, hasPrivilege } = usePermissions()
+  
+  // Permisos específicos para contratos
+  const canViewContracts = hasModuleAccess("CONTRATOS")
+  const canCreateContract = hasPrivilege("CONTRATOS", "CONTRACT_CREATE")
+  const canUpdateContract = hasPrivilege("CONTRATOS", "CONTRACT_UPDATE")
+  const canDeleteContract = hasPrivilege("CONTRATOS", "CONTRACT_DELETE")
+  const canViewDetails = hasPrivilege("CONTRATOS", "CONTRACT_DETAILS")
+
   const { toast } = useToast()
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -51,9 +61,11 @@ export function ContractsPage() {
   const limit = 10
 
   useEffect(() => {
-    const estado = statusFilter === "all" ? undefined : statusFilter
-    refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
-  }, [page, debouncedSearchTerm, statusFilter, refreshContracts])
+    if (canViewContracts) {
+      const estado = statusFilter === "all" ? undefined : statusFilter
+      refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
+    }
+  }, [page, debouncedSearchTerm, statusFilter, refreshContracts, canViewContracts])
 
   const handlePageChange = (newPage: number) => {
     if (newPage > 0 && newPage <= contractsPagination.totalPages) {
@@ -62,31 +74,36 @@ export function ContractsPage() {
   }
 
   const handleAddContract = async (newContract: Omit<Contract, "id">) => {
+    if (!canCreateContract) {
+      toast({ 
+        title: "Sin permisos", 
+        description: "No tienes permisos para crear contratos.", 
+        variant: "destructive" 
+      })
+      return
+    }
+
     try {
       await createContract(newContract)
-      toast({ title: "¡Éxito!", description: "Contrato agregado correctamente.", type: "success" })
+      toast({ title: "¡Éxito!", description: "Contrato agregado correctamente." })
       setIsAddModalOpen(false)
-      // Refresh current page
       const estado = statusFilter === "all" ? undefined : statusFilter
       refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
     } catch (error) {
-      toast({ title: "Error", description: "No se pudo agregar el contrato.", type: "error" })
-    }
-  }
-
-  const handleUpdateContract = async (id: number, updates: Partial<Contract>) => {
-    try {
-      await updateContract(id, updates)
-      toast({ title: "¡Éxito!", description: "Contrato actualizado correctamente.", type: "success" })
-      // Refresh current page
-      const estado = statusFilter === "all" ? undefined : statusFilter
-      refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
-    } catch (error) {
-      toast({ title: "Error", description: "No se pudo actualizar el contrato.", type: "error" })
+      toast({ title: "Error", description: "No se pudo agregar el contrato.", variant: "destructive" })
     }
   }
 
   const handleDeleteContract = async (contract: Contract) => {
+    if (!canDeleteContract) {
+      toast({ 
+        title: "Sin permisos", 
+        description: "No tienes permisos para eliminar contratos.", 
+        variant: "destructive" 
+      })
+      return
+    }
+
     const result = await Swal.fire({
       title: "¿Eliminar contrato?",
       text: `¿Está seguro que desea eliminar el contrato ${contract.codigo}?`,
@@ -101,35 +118,39 @@ export function ContractsPage() {
     if (result.isConfirmed) {
       try {
         await deleteContract(contract.id)
-        toast({ title: "¡Éxito!", description: "Contrato eliminado correctamente.", type: "success" })
-        // Refresh current page
+        toast({ title: "¡Éxito!", description: "Contrato eliminado correctamente." })
         const estado = statusFilter === "all" ? undefined : statusFilter
         refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
       } catch (error) {
-        toast({ title: "Error", description: "No se pudo eliminar el contrato.", type: "error" })
+        toast({ title: "Error", description: "No se pudo eliminar el contrato.", variant: "destructive" })
       }
     }
   }
 
-  const getClientName = (clientId: number) => {
-    const client = clients.find(c => c.id_persona === clientId)
+  const getClientName = (personaId: number) => {
+    const client = clients.find(c => c.id_persona === personaId)
     if (!client) return "Cliente no encontrado"
-    return `${client.usuario?.nombre} ${client.usuario?.apellido}`
+    return `${client.usuario?.nombre || ''} ${client.usuario?.apellido || ''}`.trim()
   }
 
-  const getClientDocument = (clientId: number) => {
-    const client = clients.find(c => c.id_persona === clientId)
-    if (!client) return ""
-    return `${client.usuario?.tipo_documento} ${client.usuario?.numero_documento}`
+  const getClientDocument = (personaId: number) => {
+    const client = clients.find(c => c.id_persona === personaId)
+    if (!client || !client.usuario) return ""
+    return `${client.usuario.tipo_documento || ''} ${client.usuario.numero_documento || ''}`.trim()
   }
 
   const getMembershipName = (membershipId: number) => {
-    const membership = memberships.find(m => m.id === membershipId)
-    return membership?.nombre || "Membresía no encontrada"
+    const contractWithMembership = contracts.find(c => c.id_membresia === membershipId && c.membresia)
+    return contractWithMembership?.membresia?.nombre || "Membresía no encontrada"
+  }
+
+  const getMembershipPrice = (membershipId: number): number => {
+    const contractWithPrice = contracts.find(c => c.id_membresia === membershipId && c.membresia_precio)
+    return contractWithPrice ? parseFloat(String(contractWithPrice.membresia_precio)) : 0
   }
 
   const getStatusBadge = (estado: string) => {
-    const statusConfig = {
+    const statusConfig: Record<string, { color: string; label: string }> = {
       'Activo': { color: 'bg-green-100 text-green-800', label: 'Activo' },
       'Por vencer': { color: 'bg-yellow-100 text-yellow-800', label: 'Por vencer' },
       'Vencido': { color: 'bg-red-100 text-red-800', label: 'Vencido' },
@@ -145,6 +166,23 @@ export function ContractsPage() {
     )
   }
 
+  // 🚫 Pantalla de acceso denegado
+  if (!canViewContracts) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center p-8 text-center">
+            <FileSignature className="h-16 w-16 text-red-400 mb-4" />
+            <h3 className="text-lg font-medium text-red-900 mb-2">Acceso Denegado</h3>
+            <p className="text-red-600 mb-4">No tienes permisos para ver los contratos del sistema.</p>
+            <p className="text-sm text-gray-500">Contacta al administrador si necesitas acceso.</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Estado vacío
   if (contracts.length === 0 && !contractsLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
@@ -153,15 +191,25 @@ export function ContractsPage() {
             <FileSignature className="h-16 w-16 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No hay contratos registrados</h3>
             <p className="text-gray-500 mb-4">Comience agregando el primer contrato al sistema</p>
-            <Button onClick={() => setIsAddModalOpen(true)} className="bg-black hover:bg-gray-800">
-              <Plus className="h-4 w-4 mr-2" />
-              Agregar Contrato
-            </Button>
+            {canCreateContract && (
+              <Button onClick={() => setIsAddModalOpen(true)} className="bg-black hover:bg-gray-800">
+                <Plus className="h-4 w-4 mr-2" />
+                Agregar Contrato
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
-    );
+    )
   }
+
+  // DEBUG: Log de datos para identificar problemas
+  console.log('🔍 DEBUG - Contracts Page:')
+  console.log('Contracts:', contracts.length)
+  console.log('Memberships:', memberships.length)
+  console.log('Clients:', clients.length)
+  console.log('Sample contract:', contracts[0])
+  console.log('Sample membership:', memberships[0])
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -183,10 +231,12 @@ export function ContractsPage() {
             <RefreshCw className={`mr-2 h-4 w-4 ${contractsLoading ? "animate-spin" : ""}`} />
             Actualizar
           </Button>
-          <Button onClick={() => setIsAddModalOpen(true)} className="bg-black hover:bg-gray-800">
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Contrato
-          </Button>
+          {canCreateContract && (
+            <Button onClick={() => setIsAddModalOpen(true)} className="bg-black hover:bg-gray-800">
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Contrato
+            </Button>
+          )}
         </div>
       </div>
 
@@ -264,8 +314,8 @@ export function ContractsPage() {
                     <TableRow key={contract.id}>
                       <TableCell className="font-medium">{contract.codigo}</TableCell>
                       <TableCell>
-                        <div className="font-medium">{getClientName(contract.id_cliente)}</div>
-                        <div className="text-xs text-gray-500">{getClientDocument(contract.id_cliente)}</div>
+                        <div className="font-medium">{getClientName(contract.id_persona)}</div>
+                        <div className="text-xs text-gray-500">{getClientDocument(contract.id_persona)}</div>
                       </TableCell>
                       <TableCell>{getMembershipName(contract.id_membresia)}</TableCell>
                       <TableCell>
@@ -279,36 +329,46 @@ export function ContractsPage() {
                           : "N/A"}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatCOP(contract.precio)}
+                        {formatCOP(getMembershipPrice(contract.id_membresia))}
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(contract.estado)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => console.log('Ver detalles', contract)}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              Ver detalles
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => console.log('Editar', contract)}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteContract(contract)}
-                              className="text-red-600 focus:text-red-600"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {(canViewDetails || canUpdateContract || canDeleteContract) ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {canViewDetails && (
+                                <DropdownMenuItem onClick={() => console.log('Ver detalles', contract)}>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  Ver detalles
+                                </DropdownMenuItem>
+                              )}
+                              {canUpdateContract && (
+                                <DropdownMenuItem onClick={() => console.log('Editar', contract)}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Editar
+                                </DropdownMenuItem>
+                              )}
+                              {canDeleteContract && (
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteContract(contract)}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Eliminar
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <span className="text-gray-400 text-sm">Sin acciones</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -345,14 +405,16 @@ export function ContractsPage() {
       )}
 
       {/* New Contract Modal */}
-      <NewContractForm
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSuccess={() => {
-          const estado = statusFilter === "all" ? undefined : statusFilter;
-          refreshContracts({ page, limit, search: debouncedSearchTerm, estado });
-        }}
-      />
+      {canCreateContract && (
+        <NewContractForm
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onSuccess={() => {
+            const estado = statusFilter === "all" ? undefined : statusFilter
+            refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
+          }}
+        />
+      )}
     </div>
   )
 }

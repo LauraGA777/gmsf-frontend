@@ -94,7 +94,7 @@ export default function UsersPage() {
       console.log('Keys in response:', response ? Object.keys(response) : 'response is null/undefined');
       
       // Verificar si la respuesta tiene la estructura esperada
-      let userData = [];
+      let userData: User[] = [];
       let totalPagesCount = 1;
       
       if (response && typeof response === 'object') {
@@ -106,13 +106,13 @@ export default function UsersPage() {
         }
         // Caso 2: Response es un array directamente
         else if (Array.isArray(response)) {
-          userData = response;
+          userData = response as User[];
           console.log('Response is direct array:', userData.length, 'users');
         }
         // Caso 3: Response anidada
-        else if (response.data && Array.isArray(response.data.data)) {
-          userData = response.data.data;
-          totalPagesCount = response.data.totalPages || 1;
+        else if ('data' in response && response.data && Array.isArray(response.data)) {
+          userData = response.data;
+          totalPagesCount = ('totalPages' in response && typeof response.totalPages === 'number') ? response.totalPages : 1;
           console.log('Found nested data array:', userData.length, 'users');
         }
         // Caso 4: Response con diferentes estructuras
@@ -151,10 +151,22 @@ export default function UsersPage() {
       setIsLoading(true);
       // Cargar todos los usuarios (usar un límite alto)
       const response = await userService.getUsers(1, 1000);
-      setAllUsers(response.data);
+      
+      // Extraer datos de manera segura
+      let userData: User[] = [];
+      if (response && typeof response === 'object') {
+        if (Array.isArray(response.data)) {
+          userData = response.data;
+        } else if (Array.isArray(response)) {
+          userData = response as User[];
+        }
+      }
+      
+      setAllUsers(userData);
     } catch (error) {
       console.error('Error loading all users:', error);
       setError('Error al cargar los usuarios');
+      setAllUsers([]);
     } finally {
       setIsLoading(false);
     }
@@ -162,21 +174,27 @@ export default function UsersPage() {
 
   const filterUsers = () => {
     let dataToFilter = hasFilters ? allUsers : users;
-    let filtered = [...dataToFilter];
+    let filtered = [...(dataToFilter || [])];
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(user => 
-        user.nombre.toLowerCase().includes(term) ||
-        user.apellido.toLowerCase().includes(term) ||
-        user.correo.toLowerCase().includes(term) ||
-        user.numero_documento.toLowerCase().includes(term)
-      );
+      filtered = filtered.filter(user => {
+        // Verificar que los campos existen antes de usarlos
+        const nombre = user?.nombre?.toLowerCase() || '';
+        const apellido = user?.apellido?.toLowerCase() || '';
+        const correo = user?.correo?.toLowerCase() || '';
+        const documento = user?.numero_documento?.toLowerCase() || '';
+        
+        return nombre.includes(term) ||
+               apellido.includes(term) ||
+               correo.includes(term) ||
+               documento.includes(term);
+      });
     }
 
     if (statusFilter !== "all") {
       const isActive = statusFilter === "active";
-      filtered = filtered.filter(user => user.estado === isActive);
+      filtered = filtered.filter(user => user?.estado === isActive);
     }
 
     setFilteredUsers(filtered);
@@ -203,22 +221,31 @@ export default function UsersPage() {
     loadRoles();
   }, []);
 
-  const getRoleName = (id_rol: number) => {
+  const getRoleName = (id_rol: number | null | undefined) => {
     console.log('Buscando rol con ID:', id_rol);
     console.log('Roles disponibles:', roles);
-    const rol = roles.find(r => r.id === id_rol);
+    
+    if (!id_rol || !Array.isArray(roles) || roles.length === 0) {
+      console.log('ID de rol inválido o roles no cargados');
+      return "Cargando...";
+    }
+    
+    const rol = roles.find(r => r?.id === id_rol);
     if (!rol) {
       console.log('Rol no encontrado para ID:', id_rol);
       return "Desconocido";
     }
-    return rol.nombre;
+    return rol.nombre || "Sin nombre";
   };
 
-  const getRoleBadge = (id_rol: number) => {
+  const getRoleBadge = (id_rol: number | null | undefined) => {
     console.log('ID del rol recibido:', id_rol); // Para debugging
+    const roleName = getRoleName(id_rol);
+    const isLoading = roleName === "Cargando...";
+    
     return (
-      <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">
-        {getRoleName(id_rol)}
+      <Badge className={`${isLoading ? 'bg-gray-50 text-gray-400' : 'bg-gray-100 text-gray-800'} hover:bg-gray-100`}>
+        {roleName}
       </Badge>
     );
   };
@@ -292,6 +319,11 @@ export default function UsersPage() {
   };
 
   const handleToggleUserStatus = async (id: number, currentStatus: boolean) => {
+    if (!id || id <= 0) {
+      console.error('ID de usuario inválido:', id);
+      return;
+    }
+
     const result = await Swal.fire({
       title: currentStatus ? "¿Desactivar usuario?" : "¿Activar usuario?",
       text: currentStatus ? "¿Está seguro que desea desactivar este usuario?" : "¿Está seguro que desea activar este usuario?",
@@ -337,6 +369,16 @@ export default function UsersPage() {
   };
   
   const handleDeleteUserPermanently = async (id: number, user: User) => {
+    if (!id || id <= 0) {
+      console.error('ID de usuario inválido:', id);
+      return;
+    }
+
+    if (!user) {
+      console.error('Datos de usuario inválidos');
+      return;
+    }
+
     if (user.estado) {
       await Swal.fire({
         title: "¡Operación bloqueada!",
@@ -542,16 +584,16 @@ export default function UsersPage() {
                   </TableRow>
                 ) : (
                   paginatedUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.codigo}</TableCell>
+                    <TableRow key={user?.id || Math.random()}>
+                      <TableCell className="font-medium">{user?.codigo || 'N/A'}</TableCell>
                       <TableCell>
-                        {user.nombre} {user.apellido}
+                        {(user?.nombre || '') + ' ' + (user?.apellido || '')}
                       </TableCell>
-                      <TableCell>{user.correo}</TableCell>
-                      <TableCell>{user.numero_documento}</TableCell>
-                      <TableCell>{getRoleBadge(user.id_rol)}</TableCell>
+                      <TableCell>{user?.correo || 'N/A'}</TableCell>
+                      <TableCell>{user?.numero_documento || 'N/A'}</TableCell>
+                      <TableCell>{getRoleBadge(user?.id_rol)}</TableCell>
                       <TableCell>
-                        {getStatusBadge(user.estado)}
+                        {getStatusBadge(user?.estado ?? false)}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -569,18 +611,18 @@ export default function UsersPage() {
                               <Edit className="w-4 h-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleUserStatus(user.id, user.estado)}>
-                              {user.estado ? (
+                            <DropdownMenuItem onClick={() => handleToggleUserStatus(user?.id || 0, user?.estado ?? false)}>
+                              {user?.estado ? (
                                 <Power className="w-4 h-4 mr-2" />
                               ) : (
                                 <RotateCcw className="w-4 h-4 mr-2" />
                               )}
-                              {user.estado ? "Desactivar" : "Activar"}
+                              {user?.estado ? "Desactivar" : "Activar"}
                             </DropdownMenuItem>
-                            {!user.estado && (
+                            {!user?.estado && (
                               <>
                                 <DropdownMenuItem
-                                  onClick={() => handleDeleteUserPermanently(user.id, user)}
+                                  onClick={() => handleDeleteUserPermanently(user?.id || 0, user)}
                                   className="text-red-600 focus:text-red-600"
                                 >
                                   <Trash2 className="w-4 h-4 mr-2" />

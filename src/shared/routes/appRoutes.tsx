@@ -27,9 +27,9 @@ export default function AppRoutes() {
             case 2: // entrenador
                 return "/dashboard"; // Cambiado para usar dashboard unificado
             case 3: // cliente
-                return "/client";
+                return "/calendar";
             case 4: // beneficiario
-                return "/client";
+                return "/calendar";
             default:
                 console.warn("⚠️ Rol no reconocido en AppRoutes:", user.id_rol);
                 return "/dashboard";

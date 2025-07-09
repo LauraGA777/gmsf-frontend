@@ -7,9 +7,9 @@ export const clientsRoutes = [
         path: "/clients",
         element: (
             <PermissionProtectedRoute 
-                requiredModule="Gestión de clientes" 
-                requiredPrivilege="Leer"
-                fallbackRoles={[1, 2]} // Admin y entrenadores
+                requiredModule="CLIENTES" 
+                requiredPrivilege="CLIENT_READ"
+                // ✅ Solo permisos de BD - Sin fallbacks
             >
                 <ClientsPage />
             </PermissionProtectedRoute>

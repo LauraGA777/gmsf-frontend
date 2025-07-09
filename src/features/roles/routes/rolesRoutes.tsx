@@ -6,9 +6,9 @@ export const rolesRoutes = [
     path: "/roles",
     element: (
       <PermissionProtectedRoute 
-        requiredModule="Gestión de roles" 
-        requiredPrivilege="Leer"
-        fallbackRoles={[1]}
+        requiredModule="SISTEMA" 
+        requiredPrivilege="SYSTEM_VIEW_ROLES"
+        // ✅ Solo usuarios con permisos específicos de gestión de roles en BD
       >
         <RolesPage />
       </PermissionProtectedRoute>

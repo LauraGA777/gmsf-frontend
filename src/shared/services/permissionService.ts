@@ -278,7 +278,7 @@ class PermissionService {
       console.log("📦 Datos recibidos:", response.data)
 
       // ✅ VERIFICAR FORMATO JSON (NO HTML)
-      if (typeof response.data === 'string' && response.data.includes('<!doctype html>')) {
+      if (typeof response.data === 'string' && (response.data as string).includes('<!doctype html>')) {
         console.error("❌ API devolvió HTML en lugar de JSON - problema de configuración")
         throw new Error("Error de configuración: API devuelve HTML en lugar de JSON")
       }

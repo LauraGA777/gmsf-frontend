@@ -7,9 +7,9 @@ export const contractsRoutes = [
     path: "/contracts",
     element: (
       <PermissionProtectedRoute 
-        requiredModule="Gestión de contratos" 
-        requiredPrivilege="Leer"
-        fallbackRoles={[1, 2]} // Admin y entrenadores
+        requiredModule="CONTRATOS" 
+        requiredPrivilege="CONTRACT_READ"
+        // ✅ Solo permisos de BD - Sin fallbacks
       >
         <ContractsPage />
       </PermissionProtectedRoute>

@@ -8,9 +8,9 @@ export const userRoutes: RouteObject[] = [
         path: "/users",
         element: (
             <PermissionProtectedRoute 
-                requiredModule="Gestión de usuarios" 
-                requiredPrivilege="Leer"
-                fallbackRoles={[1]} // Admin siempre tiene acceso
+                requiredModule="USUARIOS" 
+                requiredPrivilege="USER_READ"
+                // ✅ Solo permisos de BD - Sin fallbacks
             >    
                 <UsersPage/>
             </PermissionProtectedRoute>
@@ -20,9 +20,9 @@ export const userRoutes: RouteObject[] = [
         path: "/profile",
         element: (
             <PermissionProtectedRoute 
-                requiredModule="Panel de control" 
-                requiredPrivilege="Leer"
-                fallbackRoles={[1, 2, 3, 4]} // Todos los usuarios pueden ver su perfil
+                requiredModule="USUARIOS" 
+                requiredPrivilege="USER_DETAILS"
+                // ✅ Perfil accesible según permisos de BD - Sin excepciones por rol
             >    
                 <ProfilePage/>
             </PermissionProtectedRoute>

@@ -7,9 +7,9 @@ export const attendanceRoutes: RouteObject[] = [
         path: "/attendance",
         element: (
             <PermissionProtectedRoute 
-                requiredModule="Control de asistencia" 
-                requiredPrivilege="Leer"
-                fallbackRoles={[1, 2]} // Admin y entrenadores
+                requiredModule="ASISTENCIAS" 
+                requiredPrivilege="ASIST_READ"
+                // ✅ Solo permisos de BD - Sin fallbacks
             >
                 <AttendanceRegistry />
             </PermissionProtectedRoute>

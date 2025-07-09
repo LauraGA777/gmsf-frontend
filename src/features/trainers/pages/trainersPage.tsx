@@ -8,13 +8,15 @@ import {
   Plus, 
   Search, 
   RefreshCw,
-  Dumbbell,
+  Users,
   ChevronLeft,
   ChevronRight,
   Edit,
   Trash2,
   Power,
-  PowerOff
+  PowerOff,
+  Eye,
+  MoreHorizontal
 } from "lucide-react"
 import { trainerService } from "../services/trainerService"
 import type { TrainerDisplayData } from "@/shared/types/trainer"
@@ -23,6 +25,12 @@ import { TrainerModal } from "../components/trainerModal"
 import { useToast } from "@/shared/components/ui/use-toast"
 import { usePermissions } from "@/shared/hooks/usePermissions"
 import Swal from "sweetalert2"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu"
 
 export function TrainersPage() {
   const [trainers, setTrainers] = useState<TrainerDisplayData[]>([])
@@ -30,7 +38,7 @@ export function TrainersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [editingTrainer, setEditingTrainer] = useState<TrainerDisplayData | null>(null)
+  const [editingTrainer, setEditingTrainer] = useState<TrainerDisplayData | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
@@ -111,7 +119,7 @@ export function TrainersPage() {
           toast({
             title: "Error",
             description: "No tienes permisos para actualizar entrenadores",
-            type: "error",
+            variant: "destructive",
           })
           return
         }
@@ -123,14 +131,13 @@ export function TrainersPage() {
         toast({
           title: "¡Éxito!",
           description: "Entrenador actualizado correctamente",
-          type: "success",
         })
       } else {
         if (!canCreate) {
           toast({
             title: "Error",
             description: "No tienes permisos para crear entrenadores",
-            type: "error",
+            variant: "destructive",
           })
           return
         }
@@ -138,19 +145,18 @@ export function TrainersPage() {
         toast({
           title: "¡Éxito!",
           description: "Entrenador creado correctamente",
-          type: "success",
         })
       }
 
       await loadTrainers()
       setIsModalOpen(false)
-      setEditingTrainer(null)
+      setEditingTrainer(undefined)
     } catch (error) {
       console.error("Error saving trainer:", error)
       toast({
         title: "Error",
-        description: error.message || "Error al guardar el entrenador",
-        type: "error",
+        description: (error as Error)?.message || "Error al guardar el entrenador",
+        variant: "destructive",
       })
       throw error
     }
@@ -161,7 +167,7 @@ export function TrainersPage() {
       toast({
         title: "Error",
         description: "No tienes permisos para actualizar entrenadores",
-        type: "error",
+        variant: "destructive",
       })
       return
     }
@@ -174,7 +180,7 @@ export function TrainersPage() {
       toast({
         title: "Error",
         description: "No tienes permisos para eliminar entrenadores",
-        type: "error",
+        variant: "destructive",
       })
       return
     }
@@ -197,14 +203,13 @@ export function TrainersPage() {
         toast({
           title: "¡Éxito!",
           description: "Entrenador eliminado correctamente",
-          type: "success",
         })
       } catch (error) {
         console.error("Error deleting trainer:", error)
         toast({
           title: "Error",
           description: "No se pudo eliminar el entrenador",
-          type: "error",
+          variant: "destructive",
         })
       }
     }
@@ -215,7 +220,7 @@ export function TrainersPage() {
       toast({
         title: "Error",
         description: "No tienes permisos para actualizar entrenadores",
-        type: "error",
+        variant: "destructive",
       })
       return
     }
@@ -227,14 +232,13 @@ export function TrainersPage() {
       toast({
         title: "¡Éxito!",
         description: `Entrenador ${trainer.isActive ? "desactivado" : "activado"} correctamente`,
-        type: "success",
       })
     } catch (error) {
       console.error("Error toggling trainer status:", error)
       toast({
         title: "Error",
         description: "No se pudo cambiar el estado del entrenador",
-        type: "error",
+        variant: "destructive",
       })
     }
   }
@@ -244,12 +248,20 @@ export function TrainersPage() {
       toast({
         title: "Error",
         description: "No tienes permisos para crear entrenadores",
-        type: "error",
+        variant: "destructive",
       })
       return
     }
-    setEditingTrainer(null)
+    setEditingTrainer(undefined)
     setIsModalOpen(true)
+  }
+
+  const getStatusBadge = (isActive: boolean) => {
+    return isActive ? (
+      <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Activo</Badge>
+    ) : (
+      <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Inactivo</Badge>
+    )
   }
 
   // Calculate pagination
@@ -264,7 +276,7 @@ export function TrainersPage() {
         <div className="flex flex-col items-center justify-center min-h-[400px]">
           <Card className="w-full max-w-md">
             <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-              <Dumbbell className="h-16 w-16 text-gray-400 mb-4" />
+              <Users className="h-16 w-16 text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No hay entrenadores registrados</h3>
               <p className="text-gray-500 mb-4">Comience agregando el primer entrenador al sistema</p>
               {canCreate && (
@@ -351,103 +363,99 @@ export function TrainersPage() {
         </CardContent>
       </Card>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg border">
-        <div className="px-6 py-4 border-b">
-          <h3 className="font-semibold text-lg">Lista de Entrenadores ({filteredTrainers.length})</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Código</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Teléfono</TableHead>
-                <TableHead>Especialidad</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
+      {/* Trainers Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Lista de Entrenadores ({filteredTrainers.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
-                    <div className="flex items-center justify-center">
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      Cargando entrenadores...
-                    </div>
-                  </TableCell>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Correo</TableHead>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Especialidad</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
-              ) : paginatedTrainers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
-                    <div className="flex flex-col items-center justify-center text-gray-500">
-                      <Dumbbell className="h-8 w-8 mb-2" />
-                      <p>No se encontraron entrenadores</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedTrainers.map((trainer) => (
-                  <TableRow key={trainer.id}>
-                    <TableCell className="font-medium">{trainer.codigo || 'N/A'}</TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{trainer.name} {trainer.lastName}</div>
-                        <div className="text-sm text-gray-500">{trainer.documentNumber}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{trainer.email}</TableCell>
-                    <TableCell>{trainer.phone || 'N/A'}</TableCell>
-                    <TableCell>{trainer.specialty}</TableCell>
-                    <TableCell>
-                      <Badge variant={trainer.isActive ? "default" : "secondary"}>
-                        {trainer.isActive ? "Activo" : "Inactivo"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {canUpdate && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditTrainer(trainer)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleToggleStatus(trainer)}
-                            >
-                              {trainer.isActive ? (
-                                <PowerOff className="h-4 w-4" />
-                              ) : (
-                                <Power className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </>
-                        )}
-                        {canDelete && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteTrainer(trainer)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+              </TableHeader>
+              <TableBody>
+                {filteredTrainers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <div className="flex flex-col items-center gap-2">
+                        <Users className="h-8 w-8 text-gray-400" />
+                        <p className="text-gray-500">No se encontraron entrenadores</p>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+                ) : (
+                  paginatedTrainers.map((trainer) => (
+                    <TableRow key={trainer.id}>
+                      <TableCell className="font-medium">{trainer.codigo || 'N/A'}</TableCell>
+                      <TableCell>{trainer.name} {trainer.lastName}</TableCell>
+                      <TableCell>{trainer.email}</TableCell>
+                      <TableCell>{trainer.documentNumber}</TableCell>
+                      <TableCell>{trainer.specialty}</TableCell>
+                      <TableCell>
+                        {getStatusBadge(trainer.isActive)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Abrir menú</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditTrainer(trainer)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleToggleStatus(trainer)}>
+                              {trainer.isActive ? (
+                                <>
+                                  <PowerOff className="mr-2 h-4 w-4" />
+                                  Desactivar
+                                </>
+                              ) : (
+                                <>
+                                  <Power className="mr-2 h-4 w-4" />
+                                  Activar
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            {canDelete && (
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteTrainer(trainer)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Pagination */}
       {totalPages > 1 && (
@@ -496,7 +504,7 @@ export function TrainersPage() {
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false)
-          setEditingTrainer(null)
+          setEditingTrainer(undefined)
         }}
         onSave={handleSaveTrainer}
         trainer={editingTrainer}

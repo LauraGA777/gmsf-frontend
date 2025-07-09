@@ -12,7 +12,9 @@ import type {
   ApiResponse,
   RoleResponse,
   PermissionSelection,
-  RoleWithPermissionsResponse
+  RoleWithPermissionsResponse,
+  UserInfo,
+  UsersResponse
 } from "@/shared/types/role"
 
 const API_BASE_URL = "https://gmsf-backend.vercel.app/roles"
@@ -25,6 +27,9 @@ const transformRole = (iRole: IRole): Role => ({
   status: iRole.estado ? "Activo" : "Inactivo",
   isActive: iRole.estado,
   permissions: iRole.permisos?.map(transformPermission),
+  // Manejar tanto los nuevos nombres como los legacy
+  createdAt: iRole.fecha_creacion || iRole.createdAt,
+  updatedAt: iRole.fecha_actualizacion || iRole.updatedAt,
 })
 
 // Función para transformar IPermission a Permission
@@ -288,53 +293,60 @@ class RoleService {
       // Transformar los módulos a PermissionSelection[]
       const permissions: PermissionSelection[] = []
       
-      response.modulos.forEach(modulo => {
-        // Agregar permisos del módulo
-        modulo.permisos.forEach(permiso => {
-          permissions.push({
-            permissionId: permiso.id,
-            permissionName: permiso.nombre,
-            permissionCode: permiso.codigo,
-            permissionDescription: permiso.descripcion,
-            module: modulo.nombre,
-            privileges: permiso.privilegios?.map(privilegio => ({
-              id: privilegio.id,
-              name: privilegio.nombre,
-              code: privilegio.codigo,
-              selected: true // Ya están asignados al rol
-            })) || []
-          })
-        })
-        
-        // Agregar privilegios directos del módulo (sin permiso padre)
-        if (modulo.privilegios && modulo.privilegios.length > 0) {
-          // Buscar si ya existe un permiso para este módulo
-          let modulePermission = permissions.find(p => p.module === modulo.nombre && p.permissionId === 0)
-          
-          if (!modulePermission) {
-            // Crear un permiso virtual para los privilegios directos
-            modulePermission = {
+      // Validar que response.modulos existe y es un array
+      if (response.modulos && Array.isArray(response.modulos)) {
+        response.modulos.forEach(modulo => {
+          // Verificar si el módulo tiene un permiso asociado
+          if (modulo.permiso) {
+            // Caso donde el módulo tiene un permiso principal
+            permissions.push({
+              permissionId: modulo.permiso.id,
+              permissionName: modulo.permiso.nombre,
+              permissionCode: modulo.permiso.codigo,
+              permissionDescription: modulo.permiso.descripcion,
+              module: modulo.nombre,
+              privileges: modulo.privilegios?.map(privilegio => ({
+                id: privilegio.id,
+                name: privilegio.nombre,
+                code: privilegio.codigo,
+                selected: true // Ya están asignados al rol
+              })) || []
+            })
+          } else if (modulo.permisos && Array.isArray(modulo.permisos)) {
+            // Caso legacy donde el módulo tiene múltiples permisos
+            modulo.permisos.forEach(permiso => {
+              permissions.push({
+                permissionId: permiso.id,
+                permissionName: permiso.nombre,
+                permissionCode: permiso.codigo,
+                permissionDescription: permiso.descripcion,
+                module: modulo.nombre,
+                privileges: permiso.privilegios?.map(privilegio => ({
+                  id: privilegio.id,
+                  name: privilegio.nombre,
+                  code: privilegio.codigo,
+                  selected: true // Ya están asignados al rol
+                })) || []
+              })
+            })
+          } else if (modulo.privilegios && modulo.privilegios.length > 0) {
+            // Caso donde el módulo solo tiene privilegios directos
+            permissions.push({
               permissionId: 0, // ID especial para privilegios directos
               permissionName: `Privilegios de ${modulo.nombre}`,
               permissionCode: `privilegios_${modulo.nombre.toLowerCase().replace(/\s/g, '_')}`,
               permissionDescription: `Privilegios directos del módulo ${modulo.nombre}`,
               module: modulo.nombre,
-              privileges: []
-            }
-            permissions.push(modulePermission)
-          }
-          
-          // Agregar privilegios directos
-          modulo.privilegios.forEach(privilegio => {
-            modulePermission!.privileges.push({
-              id: privilegio.id,
-              name: privilegio.nombre,
-              code: privilegio.codigo,
-              selected: true // Ya están asignados al rol
+              privileges: modulo.privilegios.map(privilegio => ({
+                id: privilegio.id,
+                name: privilegio.nombre,
+                code: privilegio.codigo,
+                selected: true // Ya están asignados al rol
+              }))
             })
-          })
-        }
-      })
+          }
+        })
+      }
       
       return { role, permissions }
     } catch (error) {
@@ -437,6 +449,7 @@ class RoleService {
         nombre: roleData.name || roleData.nombre,
         descripcion: roleData.description || roleData.descripcion,
         estado: roleData.isActive ?? roleData.estado ?? true,
+        permisos: roleData.permisos?.map(p => p.id) || [],
         privilegios: roleData.privilegios?.map(p => p.id) || []
       }
 
@@ -452,12 +465,62 @@ class RoleService {
     }
   }
 
+  async createRoleWithPermissions(formData: any, permissions: any[]): Promise<Role> {
+    try {
+      // Extraer los IDs de los privilegios seleccionados y sus permisos asociados
+      const selectedPrivileges: number[] = []
+      const selectedPermissions: number[] = []
+      
+      permissions.forEach(permission => {
+        if (permission.privileges) {
+          let hasSelectedPrivileges = false
+          
+          permission.privileges.forEach((privilege: any) => {
+            if (privilege.selected) {
+              selectedPrivileges.push(privilege.id)
+              hasSelectedPrivileges = true
+            }
+          })
+          
+          // Si tiene privilegios seleccionados, agregar el permiso también
+          if (hasSelectedPrivileges && permission.permissionId && permission.permissionId > 0) {
+            selectedPermissions.push(permission.permissionId)
+          }
+        }
+      })
+
+      // Eliminar duplicados de permisos
+      const uniquePermissions = [...new Set(selectedPermissions)]
+
+      const backendData = {
+        nombre: formData.name,
+        descripcion: formData.description,
+        estado: formData.isActive ?? true,
+        permisos: uniquePermissions,
+        privilegios: selectedPrivileges
+      }
+
+      console.log("Datos enviados al backend:", backendData)
+
+      const data = await this.makeRequest(`${API_BASE_URL}`, {
+        method: "POST",
+        body: JSON.stringify(backendData)
+      })
+      
+      return transformRole(data.data.role)
+    } catch (error) {
+      console.error("Error creating role with permissions:", error)
+      throw error
+    }
+  }
+
   async updateRole(id: number, roleData: Partial<Role>): Promise<Role> {
     try {
       const backendData = {
         nombre: roleData.name || roleData.nombre,
         descripcion: roleData.description || roleData.descripcion,
         estado: roleData.isActive ?? roleData.estado,
+        permisos: roleData.permisos?.map(p => p.id) || [],
         privilegios: roleData.privilegios?.map(p => p.id) || []
       }
 
@@ -469,6 +532,55 @@ class RoleService {
       return transformRole(data.data.role)
     } catch (error) {
       console.error("Error updating role:", error)
+      throw error
+    }
+  }
+
+  async updateRoleWithPermissions(role: Role, permissions: any[]): Promise<Role> {
+    try {
+      // Extraer los IDs de los privilegios seleccionados y sus permisos asociados
+      const selectedPrivileges: number[] = []
+      const selectedPermissions: number[] = []
+      
+      permissions.forEach(permission => {
+        if (permission.privileges) {
+          let hasSelectedPrivileges = false
+          
+          permission.privileges.forEach((privilege: any) => {
+            if (privilege.selected) {
+              selectedPrivileges.push(privilege.id)
+              hasSelectedPrivileges = true
+            }
+          })
+          
+          // Si tiene privilegios seleccionados, agregar el permiso también
+          if (hasSelectedPrivileges && permission.permissionId && permission.permissionId > 0) {
+            selectedPermissions.push(permission.permissionId)
+          }
+        }
+      })
+
+      // Eliminar duplicados de permisos
+      const uniquePermissions = [...new Set(selectedPermissions)]
+
+      const backendData = {
+        nombre: role.name || role.nombre,
+        descripcion: role.description || role.descripcion,
+        estado: role.isActive ?? role.estado,
+        permisos: uniquePermissions,
+        privilegios: selectedPrivileges
+      }
+
+      console.log("Datos enviados al backend para actualizar:", backendData)
+
+      const data = await this.makeRequest(`${API_BASE_URL}/${role.id}`, {
+        method: "PUT",
+        body: JSON.stringify(backendData)
+      })
+      
+      return transformRole(data.data.role)
+    } catch (error) {
+      console.error("Error updating role with permissions:", error)
       throw error
     }
   }
@@ -513,54 +625,40 @@ class RoleService {
     }
   }
 
-  // Métodos compatibles con el modal existente
-  async createRoleWithPermissions(formData: any, permissions: PermissionSelection[]): Promise<Role> {
+  async getUsersByRole(roleId: number): Promise<UserInfo[]> {
     try {
-      const selectedPrivileges = permissions
-        .flatMap(p => p.privileges.filter(priv => priv.selected))
-        .map(priv => priv.id)
-
-      const roleData = {
-        nombre: formData.nombre || formData.name,
-        descripcion: formData.descripcion || formData.description,
-        estado: formData.estado ?? formData.isActive ?? true,
-        privilegios: selectedPrivileges
-      }
-
-      const data = await this.makeRequest(`${API_BASE_URL}`, {
-        method: "POST",
-        body: JSON.stringify(roleData)
-      })
+      const data = await this.makeRequest(`${API_BASE_URL}/${roleId}/users`)
       
-      return transformRole(data.data.role)
-    } catch (error) {
-      console.error("Error creating role:", error)
-      throw error
-    }
-  }
-
-  async updateRoleWithPermissions(role: Role, permissions: PermissionSelection[]): Promise<Role> {
-    try {
-      const selectedPrivileges = permissions
-        .flatMap(p => p.privileges.filter(priv => priv.selected))
-        .map(priv => priv.id)
-
-      const roleData = {
-        nombre: role.nombre || role.name,
-        descripcion: role.descripcion || role.description,
-        estado: role.estado ?? role.isActive,
-        privilegios: selectedPrivileges
+      // Handles new API structure: data.data.usuarios
+      if (data.status === "success" && data.data?.usuarios) {
+        const usersResponse: UsersResponse = data.data
+        return usersResponse.usuarios.map((usuario: any) => ({
+          id: usuario.id,
+          codigo: usuario.codigo || usuario.document || usuario.documento || "N/A",
+          nombre: usuario.nombre || usuario.name || usuario.first_name || "",
+          apellido: usuario.apellido || usuario.lastname || usuario.last_name || "",
+          correo: usuario.correo || usuario.email || usuario.correo_electronico || "",
+          estado: usuario.estado,
+          fecha_creacion: usuario.fecha_creacion || usuario.createdAt,
+          fecha_actualizacion: usuario.fecha_actualizacion || usuario.updatedAt
+        }))
       }
-
-      const data = await this.makeRequest(`${API_BASE_URL}/${role.id}`, {
-        method: "PUT",
-        body: JSON.stringify(roleData)
-      })
       
-      return transformRole(data.data.role)
+      // Fallback for other formats
+      const usuarios = data.data?.usuarios || data.usuarios || []
+      return usuarios.map((usuario: any) => ({
+        id: usuario.id,
+        codigo: usuario.codigo || usuario.document || usuario.documento || "N/A",
+        nombre: usuario.nombre || usuario.name || usuario.first_name || "",
+        apellido: usuario.apellido || usuario.lastname || usuario.last_name || "",
+        correo: usuario.correo || usuario.email || usuario.correo_electronico || "",
+        estado: usuario.estado,
+        fecha_creacion: usuario.fecha_creacion || usuario.createdAt,
+        fecha_actualizacion: usuario.fecha_actualizacion || usuario.updatedAt
+      }))
     } catch (error) {
-      console.error("Error updating role:", error)
-      throw error
+      console.error("Error fetching users by role:", error)
+      return [] // Returns empty array on error
     }
   }
 }

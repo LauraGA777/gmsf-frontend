@@ -78,16 +78,32 @@ export function RoleModal({ open, onOpenChange, role, onSuccess }: RoleModalProp
       setIsLoadingPermissions(true)
       
       if (role) {
-        // Si estamos editando un rol, usar el endpoint específico
+        // Al editar, primero cargamos todos los permisos disponibles
+        const allPermissions = await roleService.getPermissionsAndPrivileges()
+        
+        // Luego obtenemos los permisos específicos del rol para marcar los seleccionados
         const { permissions: rolePermissions } = await roleService.getRoleWithPermissions(role.id)
-        setPermissions(rolePermissions)
+        
+        // Crear un Set con los IDs de privilegios seleccionados para búsqueda rápida
+        const selectedPrivilegeIds = new Set(
+          rolePermissions.flatMap(p => p.privileges.filter(priv => priv.selected).map(priv => priv.id))
+        )
+        
+        // Marcar los privilegios seleccionados en todos los permisos
+        const permissionsWithSelection = allPermissions.map(permission => ({
+          ...permission,
+          privileges: permission.privileges.map(privilege => ({
+            ...privilege,
+            selected: selectedPrivilegeIds.has(privilege.id)
+          }))
+        }))
+        
+        setPermissions(permissionsWithSelection)
+        
         // Actualizar el formulario con los privilegios seleccionados
-        const selectedPrivileges = rolePermissions
-          .flatMap(p => p.privileges.filter(priv => priv.selected))
-          .map(priv => priv.id)
         setFormData(prev => ({
           ...prev,
-          privileges: selectedPrivileges
+          privileges: Array.from(selectedPrivilegeIds)
         }))
       } else {
         // Si estamos creando un rol, usar el endpoint general
@@ -318,6 +334,16 @@ export function RoleModal({ open, onOpenChange, role, onSuccess }: RoleModalProp
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {role && (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <h4 className="font-medium text-blue-900 mb-2">Editando rol: {role.nombre}</h4>
+                      <p className="text-sm text-blue-700">
+                        Se muestran todos los permisos disponibles. Los que tienen el badge "Asignado" son los que actualmente tiene este rol.
+                        Puedes seleccionar o deseleccionar cualquier privilegio para modificar los permisos del rol.
+                      </p>
+                    </div>
+                  )}
+                  
                   {errors.privileges && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-md">
                       <p className="text-sm text-red-600">{errors.privileges}</p>
@@ -338,7 +364,14 @@ export function RoleModal({ open, onOpenChange, role, onSuccess }: RoleModalProp
                               }
                             />
                             <div className="flex-1">
-                              <CardTitle className="text-base">{permission.permissionName}</CardTitle>
+                              <CardTitle className="text-base flex items-center gap-2">
+                                {permission.permissionName}
+                                {permission.module && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {permission.module}
+                                  </Badge>
+                                )}
+                              </CardTitle>
                               <CardDescription className="text-sm">{permission.permissionDescription}</CardDescription>
                             </div>
                             <Badge variant="outline">
@@ -358,10 +391,15 @@ export function RoleModal({ open, onOpenChange, role, onSuccess }: RoleModalProp
                                 />
                                 <Label
                                   htmlFor={`privilege-${privilege.id}`}
-                                  className="text-sm font-normal cursor-pointer"
+                                  className="text-sm font-normal cursor-pointer flex-1"
                                 >
                                   {privilege.name}
                                 </Label>
+                                {role && privilege.selected && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Asignado
+                                  </Badge>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -375,14 +413,23 @@ export function RoleModal({ open, onOpenChange, role, onSuccess }: RoleModalProp
           </div>
         </Tabs>
 
-        <div className="flex justify-end space-x-2 pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {role ? "Actualizar" : "Crear"} Rol
-          </Button>
+        <div className="flex justify-between items-center pt-4 border-t">
+          <div className="text-sm text-gray-600">
+            {formData.privileges && formData.privileges.length > 0 && (
+              <span>
+                {formData.privileges.length} privilegio{formData.privileges.length > 1 ? 's' : ''} seleccionado{formData.privileges.length > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <div className="flex space-x-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {role ? "Actualizar" : "Crear"} Rol
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

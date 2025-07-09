@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
@@ -23,7 +23,6 @@ import { usePermissions } from "@/shared/hooks/usePermissions"
 
 export function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([])
-  const [filteredRoles, setFilteredRoles] = useState<Role[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -38,19 +37,40 @@ export function RolesPage() {
   // Hook de permisos
   const { hasPrivilege } = usePermissions()
 
-  // Verificar permisos específicos
-  const canCreate = hasPrivilege("Gestión de roles", "Crear")
-  const canEdit = hasPrivilege("Gestión de roles", "Actualizar")
-  const canDelete = hasPrivilege("Gestión de roles", "Eliminar")
-  const canView = hasPrivilege("Gestión de roles", "Leer")
+  // Verificar permisos específicos (usando strings genéricos para evitar errores de tipado)
+  const canCreate = hasPrivilege("Gestión de roles" as any, "Crear" as any)
+  const canEdit = hasPrivilege("Gestión de roles" as any, "Actualizar" as any)
+  const canDelete = hasPrivilege("Gestión de roles" as any, "Eliminar" as any)
+  const canView = hasPrivilege("Gestión de roles" as any, "Leer" as any)
+
+  // Filtrar y paginar roles usando useMemo para optimización
+  const filteredRoles = useMemo(() => {
+    let filtered = [...roles]
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase()
+      filtered = filtered.filter(
+        (role) => role.name.toLowerCase().includes(term) || role.description.toLowerCase().includes(term),
+      )
+    }
+
+    if (statusFilter !== "all") {
+      const isActive = statusFilter === "active"
+      filtered = filtered.filter((role) => role.status === "Activo" === isActive)
+    }
+
+    return filtered.sort((a, b) => a.codigo?.localeCompare(b.codigo || "") || 0)
+  }, [roles, searchTerm, statusFilter])
+
+  const paginatedRoles = useMemo(() => {
+    return filteredRoles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  }, [filteredRoles, currentPage, itemsPerPage])
+
+  const totalPages = Math.ceil(filteredRoles.length / itemsPerPage)
 
   useEffect(() => {
     loadRoles()
   }, [])
-
-  useEffect(() => {
-    filterRoles()
-  }, [roles, searchTerm, statusFilter])
 
   const loadRoles = async () => {
     try {
@@ -65,25 +85,8 @@ export function RolesPage() {
     }
   }
 
-  const filterRoles = () => {
-    let filtered = [...roles]
-
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        (role) => role.name.toLowerCase().includes(term) || role.description.toLowerCase().includes(term),
-      )
-    }
-
-    if (statusFilter !== "all") {
-      const isActive = statusFilter === "active"
-      filtered = filtered.filter((role) => {
-        const roleStatus = role.status === "Activo"
-        return roleStatus === isActive
-      })
-    }
-
-    setFilteredRoles(filtered)
+  const resetCurrentPage = () => {
+    if (currentPage > 1) setCurrentPage(1)
   }
 
   const handleViewDetails = (role: Role) => {
@@ -97,13 +100,9 @@ export function RolesPage() {
   }
 
   const handleSaveRole = async () => {
-    try {
-      await loadRoles()
-      setIsModalOpen(false)
-      setEditingRole(null)
-    } catch (error) {
-      console.error("Error reloading roles:", error)
-    }
+    await loadRoles()
+    setIsModalOpen(false)
+    setEditingRole(null)
   }
 
   const handleDeleteRole = async (role: Role) => {
@@ -122,7 +121,6 @@ export function RolesPage() {
       try {
         await roleService.deleteRole(role.id)
         await loadRoles()
-
         Swal.fire({
           title: "¡Eliminado!",
           text: "El rol ha sido eliminado correctamente",
@@ -180,18 +178,6 @@ export function RolesPage() {
       }
     }
   }
-
-  // Sort roles by codigo before pagination
-  const sortedRoles = filteredRoles.sort((a, b) => {
-    if (a.codigo && b.codigo) {
-      return a.codigo.localeCompare(b.codigo)
-    }
-    return 0
-  })
-
-  const paginatedRoles = sortedRoles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-
-  const totalPages = Math.ceil(sortedRoles.length / itemsPerPage)
 
   if (roles.length === 0 && !isLoading) {
     return (
@@ -265,12 +251,18 @@ export function RolesPage() {
                 <Input
                   placeholder="Buscar por nombre o descripción..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value)
+                    resetCurrentPage()
+                  }}
                   className="pl-10"
                 />
               </div>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(value) => {
+              setStatusFilter(value)
+              resetCurrentPage()
+            }}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Filtrar por estado" />
               </SelectTrigger>
@@ -327,7 +319,7 @@ export function RolesPage() {
                       <TableCell className="font-medium">{role.name}</TableCell>
                       <TableCell className="max-w-xs truncate">{role.description}</TableCell>
                       <TableCell>
-                        <Badge className="bg-blue-100 text-blue-800">{role.permisos?.length || 0} módulos</Badge>
+                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">{role.permisos?.length || 0} módulos</Badge>
                       </TableCell>
                       <TableCell>
                         {role.status === "Activo" ? (

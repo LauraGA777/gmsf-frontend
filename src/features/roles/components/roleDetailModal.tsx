@@ -1,10 +1,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
 import { Badge } from "@/shared/components/ui/badge"
 import { Separator } from "@/shared/components/ui/separator"
-import { Shield, User, Calendar, Check, AlertTriangle, Loader2 } from "lucide-react"
-import type { Role } from "@/shared/types/role"
 import { Button } from "@/shared/components/ui/button"
+import { Shield, User, Calendar, Check, AlertTriangle, Loader2 } from "lucide-react"
 import { useState, useEffect } from "react"
+import type { Role, UserInfo } from "@/shared/types/role"
 import { roleService } from "../services/roleService"
 
 interface RoleDetailModalProps {
@@ -15,30 +15,27 @@ interface RoleDetailModalProps {
   onDelete: (role: Role) => void
 }
 
-interface UserInfo {
-  id: number
-  codigo: string
-  nombre: string
-  apellido: string
-  correo: string
-}
-
 export function RoleDetailModal({ isOpen, onClose, role, onEdit, onDelete }: RoleDetailModalProps) {
   const [users, setUsers] = useState<UserInfo[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
+  const [fullRole, setFullRole] = useState<Role | null>(null)
+  const [loadingRole, setLoadingRole] = useState(false)
 
   useEffect(() => {
     if (isOpen && role) {
       loadUsersForRole(role.id)
+      loadFullRoleDetails(role.id)
+    } else {
+      // Limpiar datos cuando se cierra el modal
+      setUsers([])
+      setFullRole(null)
     }
   }, [isOpen, role])
 
   const loadUsersForRole = async (roleId: number) => {
     try {
       setLoadingUsers(true)
-      console.log("Loading users for role:", roleId)
       const usersData = await roleService.getUsersByRole(roleId)
-      console.log("Loaded users:", usersData)
       setUsers(usersData)
     } catch (error) {
       console.error("Error loading users for role:", error)
@@ -48,7 +45,27 @@ export function RoleDetailModal({ isOpen, onClose, role, onEdit, onDelete }: Rol
     }
   }
 
+  const loadFullRoleDetails = async (roleId: number) => {
+    try {
+      setLoadingRole(true)
+      const roleData = await roleService.getRoleById(roleId)
+      setFullRole(roleData || null)
+    } catch (error) {
+      console.error("Error loading full role details:", error)
+      setFullRole(null)
+    } finally {
+      setLoadingRole(false)
+    }
+  }
+
   if (!role) return null
+
+  // Usar fullRole si está disponible, sino usar el rol básico
+  const displayRole = fullRole || role
+
+  // Calcular fechas una sola vez
+  const createdDate = role.fecha_creacion || role.createdAt
+  const updatedDate = role.fecha_actualizacion || role.updatedAt
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -71,6 +88,9 @@ export function RoleDetailModal({ isOpen, onClose, role, onEdit, onDelete }: Rol
             <div className="flex-1 min-w-0">
               <h2 className="text-xl font-bold text-gray-900">{role.name}</h2>
               <p className="text-sm text-gray-500">Usuarios asignados: {loadingUsers ? "Cargando..." : users.length}</p>
+              <p className="text-sm text-gray-500">
+                Permisos: {role.permisos?.length || 0} | Privilegios: {role.privilegios?.length || 0}
+              </p>
               <div className="flex items-center space-x-2 mt-2">
                 <Badge
                   className={
@@ -112,7 +132,9 @@ export function RoleDetailModal({ isOpen, onClose, role, onEdit, onDelete }: Rol
 
           {/* Users assigned to this role */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Usuarios Asignados</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Usuarios Asignados ({loadingUsers ? "..." : users.length})
+            </h3>
             {loadingUsers ? (
               <div className="flex items-center justify-center p-4">
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -157,7 +179,7 @@ export function RoleDetailModal({ isOpen, onClose, role, onEdit, onDelete }: Rol
                 <User className="w-5 h-5 text-gray-400" />
                 <div>
                   <p className="text-sm font-medium text-gray-900">Creado por</p>
-                  <p className="text-sm text-gray-500">{role.createdBy || "Admin"}</p>
+                  <p className="text-sm text-gray-500">{"Admin"}</p>
                 </div>
               </div>
 
@@ -166,7 +188,7 @@ export function RoleDetailModal({ isOpen, onClose, role, onEdit, onDelete }: Rol
                 <div>
                   <p className="text-sm font-medium text-gray-900">Fecha de Creación</p>
                   <p className="text-sm text-gray-500">
-                    {role.createdAt ? new Date(role.createdAt).toLocaleDateString("es-ES") : "N/A"}
+                    {createdDate ? new Date(createdDate).toLocaleDateString("es-ES") : "N/A"}
                   </p>
                 </div>
               </div>
@@ -176,7 +198,7 @@ export function RoleDetailModal({ isOpen, onClose, role, onEdit, onDelete }: Rol
                 <div>
                   <p className="text-sm font-medium text-gray-900">Última Actualización</p>
                   <p className="text-sm text-gray-500">
-                    {role.updatedAt ? new Date(role.updatedAt).toLocaleDateString("es-ES") : "N/A"}
+                    {updatedDate ? new Date(updatedDate).toLocaleDateString("es-ES") : "N/A"}
                   </p>
                 </div>
               </div>
@@ -185,33 +207,75 @@ export function RoleDetailModal({ isOpen, onClose, role, onEdit, onDelete }: Rol
 
           <Separator />
 
-          {/* Permissions Only */}
+          {/* Permissions and Privileges */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Permisos Asignados</h3>
-            <div className="space-y-3 max-h-80 overflow-y-auto">
-              {role.permisos && role.permisos.length > 0 ? (
-                role.permisos.map((permission) => (
-                  <div key={permission.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="bg-green-100 p-2 rounded-full">
-                        <Check className="h-4 w-4 text-green-600" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Permisos y Privilegios Asignados
+            </h3>
+            
+            {/* Permisos Section */}
+            <div className="mb-6">
+              <h4 className="text-md font-medium text-gray-800 mb-3">
+                Permisos ({role.permisos?.length || 0})
+              </h4>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {role.permisos && role.permisos.length > 0 ? (
+                  role.permisos.map((permission) => (
+                    <div key={permission.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="bg-green-100 p-2 rounded-full">
+                          <Check className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-800">{permission.nombre}</span>
+                          {permission.descripcion && <p className="text-xs text-gray-500">{permission.descripcion}</p>}
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-800">{permission.nombre}</span>
-                        {permission.descripcion && <p className="text-xs text-gray-500">{permission.descripcion}</p>}
-                      </div>
+                      <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Permiso</Badge>
                     </div>
-                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Permiso</Badge>
+                  ))
+                ) : (
+                  <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="bg-gray-200 p-2 rounded-full">
+                      <AlertTriangle className="h-4 w-4 text-gray-600" />
+                    </div>
+                    <span className="text-sm text-gray-500">No hay permisos asignados a este rol</span>
                   </div>
-                ))
-              ) : (
-                <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="bg-gray-200 p-2 rounded-full">
-                    <AlertTriangle className="h-4 w-4 text-gray-600" />
+                )}
+              </div>
+            </div>
+
+            {/* Privilegios Section */}
+            <div>
+              <h4 className="text-md font-medium text-gray-800 mb-3">
+                Privilegios ({role.privilegios?.length || 0})
+              </h4>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {role.privilegios && role.privilegios.length > 0 ? (
+                  role.privilegios.map((privilege) => (
+                    <div key={privilege.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="bg-blue-100 p-2 rounded-full">
+                          <Shield className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-800">{privilege.nombre}</span>
+                          {privilege.descripcion && <p className="text-xs text-gray-500">{privilege.descripcion}</p>}
+                          {privilege.codigo && <p className="text-xs text-gray-400">Código: {privilege.codigo}</p>}
+                        </div>
+                      </div>
+                      <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Privilegio</Badge>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="bg-gray-200 p-2 rounded-full">
+                      <AlertTriangle className="h-4 w-4 text-gray-600" />
+                    </div>
+                    <span className="text-sm text-gray-500">No hay privilegios asignados a este rol</span>
                   </div>
-                  <span className="text-sm text-gray-500">No hay permisos asignados a este rol</span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 

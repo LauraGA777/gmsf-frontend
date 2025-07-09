@@ -24,8 +24,12 @@ export interface IRole {
   estado: boolean
   permisos?: IPermission[]
   privilegios?: IPrivilege[]
-  createdAt: Date
-  updatedAt: Date
+  usuarios?: any[] // Para la asociación con usuarios
+  fecha_creacion?: Date
+  fecha_actualizacion?: Date
+  // Mantener compatibilidad con el frontend existente
+  createdAt?: Date
+  updatedAt?: Date
 }
 
 // Interfaces del Frontend
@@ -49,7 +53,7 @@ export interface Role extends IRole {
 // Tipo para el formulario de roles
 export type RoleFormData = Omit<
   Role,
-  "id" | "createdAt" | "updatedAt" | "codigo" | "permisos" | "privilegios"
+  "id" | "createdAt" | "updatedAt" | "fecha_creacion" | "fecha_actualizacion" | "codigo" | "permisos" | "privilegios" | "usuarios"
 > & {
   permissions?: number[] // IDs de permisos
   privileges?: number[] // IDs de privilegios
@@ -112,12 +116,30 @@ export interface RoleWithPermissionsResponse {
   rol: IRole
   modulos: {
     nombre: string
-    permisos: IPermission[]
-    privilegios: IPrivilege[]
+    permiso?: IPermission // Permiso principal del módulo (opcional)
+    permisos?: IPermission[] // Array de permisos (para compatibilidad legacy)
+    privilegios?: IPrivilege[] // Privilegios directos del módulo
   }[]
-  resumen: {
+  resumen?: {
     total_modulos: number
     total_permisos: number
     total_privilegios: number
   }
+}
+
+// Interfaz para información de usuarios asociados a roles
+export interface UserInfo {
+  id: number
+  codigo: string
+  nombre: string
+  apellido: string
+  correo: string
+  estado?: boolean
+  fecha_creacion?: Date
+  fecha_actualizacion?: Date
+}
+
+// Respuesta del backend para usuarios por rol
+export interface UsersResponse {
+  usuarios: UserInfo[]
 }

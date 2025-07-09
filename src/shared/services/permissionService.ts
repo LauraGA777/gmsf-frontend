@@ -1,28 +1,80 @@
 import { api } from "./api"
 
 export type PermissionName =
-  | "Panel de control"
-  | "Gestión de roles"
-  | "Gestión de usuarios"
-  | "Gestión de entrenadores"
-  | "Gestión de servicios"
-  | "Gestión de clientes"
-  | "Gestión de contratos"
-  | "Gestión de membresías"
-  | "Control de asistencia"
+  | "ASISTENCIAS"
+  | "CLIENTES"
+  | "MEMBRESIAS"
+  | "HORARIOS"
+  | "ENTRENADORES"
 
-export type PrivilegeName = "Crear" | "Leer" | "Actualizar" | "Eliminar"
+export type PrivilegeName = 
+  // Privilegios de Asistencias
+  | "ASIST_READ"
+  | "ASIST_SEARCH"
+  | "ASIST_CREATE"
+  | "ASIST_DETAILS"
+  | "ASIST_UPDATE"
+  | "ASIST_DELETE"
+  | "ASIST_STATS"
+  // Privilegios de Clientes
+  | "CLIENT_READ"
+  | "CLIENT_DETAILS"
+  | "CLIENT_SEARCH_DOC"
+  | "CLIENT_CREATE"
+  | "CLIENT_UPDATE"
+  | "CLIENT_DELETE"
+  | "CLIENT_BENEFICIARIES"
+  // Privilegios de Membresías
+  | "MEMBERSHIP_READ"
+  | "MEMBERSHIP_SEARCH"
+  | "MEMBERSHIP_CREATE"
+  | "MEMBERSHIP_UPDATE"
+  | "MEMBERSHIP_DEACTIVATE"
+  | "MEMBERSHIP_DETAILS"
+  | "MEMBERSHIP_REACTIVATE"
+  // Privilegios de Horarios
+  | "SCHEDULE_READ"
+  | "SCHEDULE_DETAILS"
+  | "SCHEDULE_CREATE"
+  | "SCHEDULE_UPDATE"
+  | "SCHEDULE_DELETE"
+  | "SCHEDULE_AVAILABILITY"
+  | "SCHEDULE_CLIENT_VIEW"
+  | "SCHEDULE_TRAINER_VIEW"
+  | "SCHEDULE_DAILY_VIEW"
+  | "SCHEDULE_WEEKLY_VIEW"
+  | "SCHEDULE_MONTHLY_VIEW"
+  | "SCHEDULE_TRAINERS_ACTIVE"
+  | "SCHEDULE_CLIENTS_ACTIVE"
+  // Privilegios de Entrenadores
+  | "TRAINER_READ"
+  | "TRAINER_CREATE"
+  | "TRAINER_UPDATE"
+  | "TRAINER_DEACTIVATE"
+  | "TRAINER_DELETE"
+  | "TRAINER_SEARCH"
+  | "TRAINER_DETAILS"
 
 interface Permission {
   id: number
   nombre: PermissionName
+  descripcion?: string
+  codigo: string
   estado: boolean
+  fecha_creacion?: Date
+  fecha_actualizacion?: Date
+  privilegios?: Privilege[]
+  roles?: any[]
 }
 
 interface Privilege {
   id: number
   nombre: PrivilegeName
+  descripcion?: string
+  codigo: string
   id_permiso: number
+  fecha_creacion?: Date
+  fecha_actualizacion?: Date
 }
 
 interface Role {
@@ -33,6 +85,9 @@ interface Role {
   estado: boolean
   permisos?: Permission[]
   privilegios?: Privilege[]
+  usuarios?: any[]
+  fecha_creacion?: Date
+  fecha_actualizacion?: Date
 }
 
 interface User {
@@ -58,50 +113,30 @@ class PermissionService {
 
   // Mapeo de permisos a módulos del frontend
   public readonly PERMISSION_MODULE_MAP = {
-    "Panel de control": {
-      route: "/dashboard",
-      component: "Dashboard",
-      privileges: ["Leer"] as PrivilegeName[],
-    },
-    "Gestión de roles": {
-      route: "/roles",
-      component: "Roles",
-      privileges: ["Crear", "Leer", "Actualizar", "Eliminar"] as PrivilegeName[],
-    },
-    "Gestión de usuarios": {
-      route: "/users",
-      component: "Users",
-      privileges: ["Crear", "Leer", "Actualizar", "Eliminar"] as PrivilegeName[],
-    },
-    "Gestión de entrenadores": {
-      route: "/trainers",
-      component: "Trainers",
-      privileges: ["Crear", "Leer", "Actualizar", "Eliminar"] as PrivilegeName[],
-    },
-    "Gestión de servicios": {
-      route: "/services",
-      component: "Services",
-      privileges: ["Crear", "Leer", "Actualizar", "Eliminar"] as PrivilegeName[],
-    },
-    "Gestión de clientes": {
-      route: "/clients",
-      component: "Clients",
-      privileges: ["Crear", "Leer", "Actualizar", "Eliminar"] as PrivilegeName[],
-    },
-    "Gestión de contratos": {
-      route: "/contracts",
-      component: "Contracts",
-      privileges: ["Crear", "Leer", "Actualizar", "Eliminar"] as PrivilegeName[],
-    },
-    "Gestión de membresías": {
-      route: "/memberships",
-      component: "Memberships",
-      privileges: ["Crear", "Leer", "Actualizar", "Eliminar"] as PrivilegeName[],
-    },
-    "Control de asistencia": {
+    "ASISTENCIAS": {
       route: "/attendance",
       component: "Attendance",
-      privileges: ["Crear", "Leer", "Actualizar"] as PrivilegeName[],
+      privileges: ["ASIST_READ", "ASIST_SEARCH", "ASIST_CREATE", "ASIST_DETAILS", "ASIST_UPDATE", "ASIST_DELETE", "ASIST_STATS"] as PrivilegeName[],
+    },
+    "CLIENTES": {
+      route: "/clients",
+      component: "Clients",
+      privileges: ["CLIENT_READ", "CLIENT_DETAILS", "CLIENT_SEARCH_DOC", "CLIENT_CREATE", "CLIENT_UPDATE", "CLIENT_DELETE", "CLIENT_BENEFICIARIES"] as PrivilegeName[],
+    },
+    "MEMBRESIAS": {
+      route: "/memberships",
+      component: "Memberships",
+      privileges: ["MEMBERSHIP_READ", "MEMBERSHIP_SEARCH", "MEMBERSHIP_CREATE", "MEMBERSHIP_UPDATE", "MEMBERSHIP_DEACTIVATE", "MEMBERSHIP_DETAILS", "MEMBERSHIP_REACTIVATE"] as PrivilegeName[],
+    },
+    "HORARIOS": {
+      route: "/schedule",
+      component: "Schedule",
+      privileges: ["SCHEDULE_READ", "SCHEDULE_DETAILS", "SCHEDULE_CREATE", "SCHEDULE_UPDATE", "SCHEDULE_DELETE", "SCHEDULE_AVAILABILITY", "SCHEDULE_CLIENT_VIEW", "SCHEDULE_TRAINER_VIEW", "SCHEDULE_DAILY_VIEW", "SCHEDULE_WEEKLY_VIEW", "SCHEDULE_MONTHLY_VIEW", "SCHEDULE_TRAINERS_ACTIVE", "SCHEDULE_CLIENTS_ACTIVE"] as PrivilegeName[],
+    },
+    "ENTRENADORES": {
+      route: "/trainers",
+      component: "Trainers",
+      privileges: ["TRAINER_READ", "TRAINER_CREATE", "TRAINER_UPDATE", "TRAINER_DEACTIVATE", "TRAINER_DELETE", "TRAINER_SEARCH", "TRAINER_DETAILS"] as PrivilegeName[],
     },
   }
 
@@ -169,64 +204,179 @@ class PermissionService {
   private applyFallbackPermissions(roleId: number): void {
     console.log("🔧 Aplicando permisos fallback para rol:", roleId)
 
-    const fallbackPermissions: Record<number, PermissionName[]> = {
+    const fallbackPermissions: Record<number, {name: PermissionName, code: string}[]> = {
       1: [
-        // Administrador
-        "Panel de control",
-        "Gestión de roles",
-        "Gestión de usuarios",
-        "Gestión de entrenadores",
-        "Gestión de servicios",
-        "Gestión de clientes",
-        "Gestión de contratos",
-        "Gestión de membresías",
-        "Control de asistencia",
+        // Administrador - Todos los módulos
+        { name: "ASISTENCIAS", code: "ASISTENCIAS" },
+        { name: "CLIENTES", code: "CLIENTES" },
+        { name: "MEMBRESIAS", code: "MEMBRESIAS" },
+        { name: "HORARIOS", code: "HORARIOS" },
+        { name: "ENTRENADORES", code: "ENTRENADORES" },
       ],
       2: [
-        // Entrenador
-        "Panel de control",
-        "Gestión de clientes",
-        "Gestión de contratos",
-        "Gestión de membresías",
-        "Control de asistencia",
+        // Entrenador - Módulos limitados
+        { name: "ASISTENCIAS", code: "ASISTENCIAS" },
+        { name: "CLIENTES", code: "CLIENTES" },
+        { name: "HORARIOS", code: "HORARIOS" },
       ],
       3: [
-        // Cliente
-        "Panel de control",
-        "Gestión de membresías",
-        "Control de asistencia",
+        // Cliente - Solo lectura
+        { name: "ASISTENCIAS", code: "ASISTENCIAS" },
+        { name: "MEMBRESIAS", code: "MEMBRESIAS" },
+        { name: "HORARIOS", code: "HORARIOS" },
       ],
       4: [
-        // Beneficiario
-        "Panel de control",
-        "Gestión de membresías",
-        "Control de asistencia",
+        // Beneficiario - Similar a cliente
+        { name: "ASISTENCIAS", code: "ASISTENCIAS" },
+        { name: "MEMBRESIAS", code: "MEMBRESIAS" },
+        { name: "HORARIOS", code: "HORARIOS" },
       ],
     }
 
     const permissions = fallbackPermissions[roleId] || fallbackPermissions[3] // Default a cliente
 
-    this.userPermissions = permissions.map((nombre, index) => ({
+    this.userPermissions = permissions.map((permission, index) => ({
       id: index + 1,
-      nombre,
+      nombre: permission.name,
+      codigo: permission.code,
       estado: true,
+      descripcion: `Acceso al módulo ${permission.name}`,
+      fecha_creacion: new Date(),
+      fecha_actualizacion: new Date(),
     }))
 
-    // Generar privilegios básicos
+    // Generar privilegios específicos según el rol y módulo
     this.userPrivileges = []
-    permissions.forEach((permiso, permIndex) => {
-      const privileges =
-        roleId === 1
-          ? ["Crear", "Leer", "Actualizar", "Eliminar"]
-          : roleId === 2
-            ? ["Crear", "Leer", "Actualizar"]
-            : ["Leer"]
+    permissions.forEach((permission, permIndex) => {
+      let privileges: {name: PrivilegeName, code: string}[] = []
 
+      // Definir privilegios según el módulo y rol
+      switch (permission.name) {
+        case "ASISTENCIAS":
+          if (roleId === 1) { // Administrador
+            privileges = [
+              { name: "ASIST_READ", code: "ASIST_READ" },
+              { name: "ASIST_SEARCH", code: "ASIST_SEARCH" },
+              { name: "ASIST_CREATE", code: "ASIST_CREATE" },
+              { name: "ASIST_DETAILS", code: "ASIST_DETAILS" },
+              { name: "ASIST_UPDATE", code: "ASIST_UPDATE" },
+              { name: "ASIST_DELETE", code: "ASIST_DELETE" },
+              { name: "ASIST_STATS", code: "ASIST_STATS" }
+            ]
+          } else if (roleId === 2) { // Entrenador
+            privileges = [
+              { name: "ASIST_READ", code: "ASIST_READ" },
+              { name: "ASIST_SEARCH", code: "ASIST_SEARCH" },
+              { name: "ASIST_CREATE", code: "ASIST_CREATE" },
+              { name: "ASIST_DETAILS", code: "ASIST_DETAILS" },
+              { name: "ASIST_UPDATE", code: "ASIST_UPDATE" }
+            ]
+          } else { // Cliente/Beneficiario
+            privileges = [
+              { name: "ASIST_READ", code: "ASIST_READ" },
+              { name: "ASIST_DETAILS", code: "ASIST_DETAILS" }
+            ]
+          }
+          break
+
+        case "CLIENTES":
+          if (roleId === 1) { // Administrador
+            privileges = [
+              { name: "CLIENT_READ", code: "CLIENT_READ" },
+              { name: "CLIENT_DETAILS", code: "CLIENT_DETAILS" },
+              { name: "CLIENT_SEARCH_DOC", code: "CLIENT_SEARCH_DOC" },
+              { name: "CLIENT_CREATE", code: "CLIENT_CREATE" },
+              { name: "CLIENT_UPDATE", code: "CLIENT_UPDATE" },
+              { name: "CLIENT_DELETE", code: "CLIENT_DELETE" },
+              { name: "CLIENT_BENEFICIARIES", code: "CLIENT_BENEFICIARIES" }
+            ]
+          } else if (roleId === 2) { // Entrenador
+            privileges = [
+              { name: "CLIENT_READ", code: "CLIENT_READ" },
+              { name: "CLIENT_DETAILS", code: "CLIENT_DETAILS" },
+              { name: "CLIENT_SEARCH_DOC", code: "CLIENT_SEARCH_DOC" }
+            ]
+          }
+          break
+
+        case "MEMBRESIAS":
+          if (roleId === 1) { // Administrador
+            privileges = [
+              { name: "MEMBERSHIP_READ", code: "MEMBERSHIP_READ" },
+              { name: "MEMBERSHIP_SEARCH", code: "MEMBERSHIP_SEARCH" },
+              { name: "MEMBERSHIP_CREATE", code: "MEMBERSHIP_CREATE" },
+              { name: "MEMBERSHIP_UPDATE", code: "MEMBERSHIP_UPDATE" },
+              { name: "MEMBERSHIP_DEACTIVATE", code: "MEMBERSHIP_DEACTIVATE" },
+              { name: "MEMBERSHIP_DETAILS", code: "MEMBERSHIP_DETAILS" },
+              { name: "MEMBERSHIP_REACTIVATE", code: "MEMBERSHIP_REACTIVATE" }
+            ]
+          } else { // Cliente/Beneficiario
+            privileges = [
+              { name: "MEMBERSHIP_READ", code: "MEMBERSHIP_READ" },
+              { name: "MEMBERSHIP_DETAILS", code: "MEMBERSHIP_DETAILS" }
+            ]
+          }
+          break
+
+        case "HORARIOS":
+          if (roleId === 1) { // Administrador
+            privileges = [
+              { name: "SCHEDULE_READ", code: "SCHEDULE_READ" },
+              { name: "SCHEDULE_DETAILS", code: "SCHEDULE_DETAILS" },
+              { name: "SCHEDULE_CREATE", code: "SCHEDULE_CREATE" },
+              { name: "SCHEDULE_UPDATE", code: "SCHEDULE_UPDATE" },
+              { name: "SCHEDULE_DELETE", code: "SCHEDULE_DELETE" },
+              { name: "SCHEDULE_AVAILABILITY", code: "SCHEDULE_AVAILABILITY" },
+              { name: "SCHEDULE_CLIENT_VIEW", code: "SCHEDULE_CLIENT_VIEW" },
+              { name: "SCHEDULE_TRAINER_VIEW", code: "SCHEDULE_TRAINER_VIEW" },
+              { name: "SCHEDULE_DAILY_VIEW", code: "SCHEDULE_DAILY_VIEW" },
+              { name: "SCHEDULE_WEEKLY_VIEW", code: "SCHEDULE_WEEKLY_VIEW" },
+              { name: "SCHEDULE_MONTHLY_VIEW", code: "SCHEDULE_MONTHLY_VIEW" },
+              { name: "SCHEDULE_TRAINERS_ACTIVE", code: "SCHEDULE_TRAINERS_ACTIVE" },
+              { name: "SCHEDULE_CLIENTS_ACTIVE", code: "SCHEDULE_CLIENTS_ACTIVE" }
+            ]
+          } else if (roleId === 2) { // Entrenador
+            privileges = [
+              { name: "SCHEDULE_READ", code: "SCHEDULE_READ" },
+              { name: "SCHEDULE_DETAILS", code: "SCHEDULE_DETAILS" },
+              { name: "SCHEDULE_TRAINER_VIEW", code: "SCHEDULE_TRAINER_VIEW" },
+              { name: "SCHEDULE_DAILY_VIEW", code: "SCHEDULE_DAILY_VIEW" },
+              { name: "SCHEDULE_WEEKLY_VIEW", code: "SCHEDULE_WEEKLY_VIEW" }
+            ]
+          } else { // Cliente/Beneficiario
+            privileges = [
+              { name: "SCHEDULE_READ", code: "SCHEDULE_READ" },
+              { name: "SCHEDULE_CLIENT_VIEW", code: "SCHEDULE_CLIENT_VIEW" },
+              { name: "SCHEDULE_DAILY_VIEW", code: "SCHEDULE_DAILY_VIEW" }
+            ]
+          }
+          break
+
+        case "ENTRENADORES":
+          if (roleId === 1) { // Solo administrador
+            privileges = [
+              { name: "TRAINER_READ", code: "TRAINER_READ" },
+              { name: "TRAINER_CREATE", code: "TRAINER_CREATE" },
+              { name: "TRAINER_UPDATE", code: "TRAINER_UPDATE" },
+              { name: "TRAINER_DEACTIVATE", code: "TRAINER_DEACTIVATE" },
+              { name: "TRAINER_DELETE", code: "TRAINER_DELETE" },
+              { name: "TRAINER_SEARCH", code: "TRAINER_SEARCH" },
+              { name: "TRAINER_DETAILS", code: "TRAINER_DETAILS" }
+            ]
+          }
+          break
+      }
+
+      // Agregar privilegios a la lista
       privileges.forEach((privilegio, privIndex) => {
         this.userPrivileges.push({
-          id: permIndex * 4 + privIndex + 1,
-          nombre: privilegio as PrivilegeName,
+          id: permIndex * 20 + privIndex + 1, // Más espacio para privilegios
+          nombre: privilegio.name,
+          codigo: privilegio.code,
+          descripcion: `${privilegio.name} en ${permission.name}`,
           id_permiso: permIndex + 1,
+          fecha_creacion: new Date(),
+          fecha_actualizacion: new Date(),
         })
       })
     })

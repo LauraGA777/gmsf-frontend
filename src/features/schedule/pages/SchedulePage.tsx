@@ -54,13 +54,19 @@ export function SchedulePage() {
             }
             
             if (trainersResponse.data) {
+                console.log('🔍 DEBUG: Datos de entrenadores recibidos:', trainersResponse.data);
+                
                 const mappedTrainers = trainersResponse.data
-                    .filter((t: any) => t && t.id && t.name)
+                    .filter((t: any) => t && t.id && t.usuario?.nombre)
                     .map((t: any) => ({
-                        id: t.id.toString(),
-                        name: t.name,
+                        id: t.id.toString(), // ID del entrenador (tabla Trainer)
+                        name: `${t.usuario?.nombre || ''} ${t.usuario?.apellido || ''}`.trim(),
                     }));
+                
+                console.log('🔍 DEBUG: Entrenadores mapeados:', mappedTrainers);
                 setTrainers(mappedTrainers);
+            } else {
+                console.log('❌ DEBUG: No hay datos de entrenadores en la respuesta');
             }
 
             if (trainingsResponse.data) {
@@ -152,7 +158,7 @@ export function SchedulePage() {
 
         if (result.isConfirmed) {
             try {
-                await scheduleService.cancelTraining(id)
+                await scheduleService.deleteTraining(id)
                 toast({ title: "Éxito", description: "El entrenamiento ha sido cancelado.", type: "success" })
                 fetchData()
                 handleCloseForm()

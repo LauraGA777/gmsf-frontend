@@ -18,6 +18,8 @@ import {
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useGym } from "@/shared/contexts/gymContext";
+import { usePermissions } from "@/shared/hooks/usePermissions";
+import { PERMISSIONS, PRIVILEGES } from "@/shared/services/permissionService";
 import { NewClientForm } from "@/features/clients/components/newClientForm";
 import { EditClientModal } from "@/features/clients/components/editClientModal";
 import { ClientDetails } from "../components/clientDetails";
@@ -52,7 +54,23 @@ export function ClientsPage() {
     createClient
   } = useGym();
 
+  const { hasPrivilege } = usePermissions();
   const navigate = useNavigate();
+  
+  // Verificar permisos específicos para cada acción
+  const canViewClients = hasPrivilege(PERMISSIONS.CLIENTES, PRIVILEGES.CLIENT_READ);
+  const canCreateClient = hasPrivilege(PERMISSIONS.CLIENTES, PRIVILEGES.CLIENT_CREATE);
+  const canUpdateClient = hasPrivilege(PERMISSIONS.CLIENTES, PRIVILEGES.CLIENT_UPDATE);
+  const canDeleteClient = hasPrivilege(PERMISSIONS.CLIENTES, PRIVILEGES.CLIENT_DELETE);
+  const canViewDetails = hasPrivilege(PERMISSIONS.CLIENTES, PRIVILEGES.CLIENT_DETAILS);
+  
+  console.log("Client permissions:", {
+    canViewClients,
+    canCreateClient,
+    canUpdateClient,
+    canDeleteClient,
+    canViewDetails
+  });
   const [allClients, setAllClients] = useState<Client[]>([]);
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
@@ -129,8 +147,10 @@ export function ClientsPage() {
   };
 
   const handleViewDetails = (client: Client) => {
+    console.log("handleViewDetails called with client:", client);
     setSelectedClient(client);
     setIsDetailsOpen(true);
+    console.log("Details modal should be open. isDetailsOpen:", true);
   };
 
   const handleEditClient = (client: Client) => {
@@ -233,10 +253,12 @@ export function ClientsPage() {
             <Users className="h-16 w-16 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No hay clientes registrados</h3>
             <p className="text-gray-500 mb-4">Comience agregando el primer cliente al sistema</p>
-            <Button onClick={() => setIsNewClientOpen(true)} className="bg-black hover:bg-gray-800">
-              <Plus className="h-4 w-4 mr-2" />
-              Agregar Cliente
-            </Button>
+            {canCreateClient && (
+              <Button onClick={() => setIsNewClientOpen(true)} className="bg-black hover:bg-gray-800">
+                <Plus className="h-4 w-4 mr-2" />
+                Agregar Cliente
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -256,10 +278,12 @@ export function ClientsPage() {
             <RefreshCw className={`mr-2 h-4 w-4 ${clientsLoading ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
-          <Button onClick={() => setIsNewClientOpen(true)} className="bg-black hover:bg-gray-800">
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Cliente
-          </Button>
+          {canCreateClient && (
+            <Button onClick={() => setIsNewClientOpen(true)} className="bg-black hover:bg-gray-800">
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Cliente
+            </Button>
+          )}
         </div>
       </div>
 
@@ -316,7 +340,9 @@ export function ClientsPage() {
                   <TableHead>Contacto</TableHead>
                   <TableHead>Contratos</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
+                  {(canViewDetails || canUpdateClient || canDeleteClient) && (
+                    <TableHead className="text-right">Acciones</TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -373,38 +399,51 @@ export function ClientsPage() {
                           {getStatusBadge(client.estado)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
+                          {(canViewDetails || canUpdateClient || canDeleteClient) && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleViewDetails(client)}>
-                                <Eye className="w-4 h-4 mr-2" />
-                                Ver detalles
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEditClient(client)}>
-                                <Edit className="w-4 h-4 mr-2" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleToggleClientStatus(client)}>
-                                {client.estado ? (
-                                  <Power className="w-4 h-4 mr-2" />
-                                ) : (
-                                  <RotateCcw className="w-4 h-4 mr-2" />
-                                )}
-                                {client.estado ? "Desactivar" : "Activar"}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDeleteClient(client)}
-                                className="text-red-600 focus:text-red-600"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Eliminar
-                              </DropdownMenuItem>
+                              {canViewDetails && (
+                                <DropdownMenuItem onClick={() => {
+                                  console.log("Ver detalles clicked for client:", client.id_persona);
+                                  handleViewDetails(client);
+                                }}>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  Ver detalles
+                                </DropdownMenuItem>
+                              )}
+                              {canUpdateClient && (
+                                <DropdownMenuItem onClick={() => handleEditClient(client)}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Editar
+                                </DropdownMenuItem>
+                              )}
+                              {canUpdateClient && (
+                                <DropdownMenuItem onClick={() => handleToggleClientStatus(client)}>
+                                  {client.estado ? (
+                                    <Power className="w-4 h-4 mr-2" />
+                                  ) : (
+                                    <RotateCcw className="w-4 h-4 mr-2" />
+                                  )}
+                                  {client.estado ? "Desactivar" : "Activar"}
+                                </DropdownMenuItem>
+                              )}
+                              {canDeleteClient && (
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteClient(client)}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Eliminar
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
+                          )}
                         </TableCell>
                       </TableRow>
                     )
@@ -442,11 +481,18 @@ export function ClientsPage() {
       )}
 
       {/* Client Details Modal */}
-      {selectedClient && isDetailsOpen && (
-        <ClientDetails
-          client={selectedClient}
-          onClose={() => setIsDetailsOpen(false)}
-        />
+      {selectedClient && (
+        <>
+          {console.log("Rendering ClientDetails with:", { selectedClient, isDetailsOpen })}
+          <ClientDetails
+            client={selectedClient}
+            isOpen={isDetailsOpen}
+            onClose={() => {
+              console.log("Closing details modal");
+              setIsDetailsOpen(false);
+            }}
+          />
+        </>
       )}
 
       {/* New Client Modal */}

@@ -103,7 +103,7 @@ export function TrainingForm({ onSubmit, onCancel, initialStartDate, initialEndD
   }
 
   const validClients = Array.isArray(clients) ? clients.filter(c => c && c.id && c.name) : [];
-  const validTrainers = Array.isArray(trainers) ? trainers.filter(t => t && t.id && t.name) : [];
+  const validTrainers = Array.isArray(trainers) ? trainers.filter(t => t && t.id && t.name) : []; // t.id es el ID del entrenador (tabla Trainer)
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="grid grid-cols-1 md:grid-cols-3 gap-8 p-1">

@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/authContext";
 import { AppLayout } from "../layout/appLayout";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { NotAuthorizedPage } from "../pages/NotAuthorizedPage";
+import { ProtectedRoute } from "@/features/auth/components/protectedRoute";
 
 export default function AppRoutes() {
     const { isAuthenticated, user, isLoading, isInitialized, error } = useAuth();
@@ -39,25 +40,29 @@ export default function AppRoutes() {
             case 2: // entrenador
                 return "/dashboard"; // Cambiado para usar dashboard unificado
             case 3: // cliente
-                return "/calendar";
+                return "/my-contract";
             case 4: // beneficiario
-                return "/calendar";
+                return "/my-contract";
             default:
                 console.warn("⚠️ Rol no reconocido en AppRoutes:", user.id_rol);
                 return "/dashboard";
         }
     };
 
-    // Configura la ruta principal con redirección mejorada
+    // ✅ CONFIGURACIÓN CORREGIDA: Ruta raíz siempre redirije a landing si no está autenticado
     const indexRoute = {
         path: "/",
-        element: <Navigate to={getRedirectPath()} replace />
+        element: isAuthenticated ? <Navigate to={getRedirectPath()} replace /> : <Navigate to="/landing" replace />
     };
 
-    // Configura la wrapper para rutas privadas
+    // ✅ CONFIGURACIÓN CORREGIDA: Rutas privadas completamente protegidas
     const privateRoutesWrapper = {
         path: "/",
-        element: isAuthenticated ? <AppLayout /> : <Navigate to="/login" replace />,
+        element: (
+            <ProtectedRoute>
+                <AppLayout />
+            </ProtectedRoute>
+        ),
         children: [
             ...privateRoutes,
             // Ruta para acceso no autorizado
@@ -73,11 +78,13 @@ export default function AppRoutes() {
         ]
     };
 
-    // Combina todas las rutas
+    // ✅ CONFIGURACIÓN CORREGIDA: Combina todas las rutas de manera segura
     const routes = [
         indexRoute,
-        privateRoutesWrapper,
+        // Rutas públicas (landing, login, etc.) - NO protegidas
         ...publicRoutes,
+        // Rutas privadas - COMPLETAMENTE protegidas
+        privateRoutesWrapper,
         // Ruta comodín global para cualquier otra ruta no encontrada (fuera del layout privado)
         {
             path: "*",

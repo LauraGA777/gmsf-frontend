@@ -17,6 +17,7 @@ interface AuthResponse {
     nombre: string
     correo: string
     id_rol: number
+    id_persona?: number // Añadir el id_persona para clientes
   }
 }
 
@@ -42,6 +43,7 @@ interface NormalizedUser {
   nombre: string
   correo: string
   id_rol: number | null
+  id_persona?: number // Añadir id_persona
   [key: string]: any // Permite indexación dinámica
 }
 
@@ -226,8 +228,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const quickRouteMap: { [key: number]: string } = {
         1: "/dashboard", // Administrador
         2: "/dashboard", // Entrenador
-        3: "/client",    // Cliente
-        4: "/client",    // Beneficiario
+        3: "/my-contract",    // Cliente
+        4: "/my-contract",    // Beneficiario
       }
 
       // Redirección rápida si el ID es conocido
@@ -323,6 +325,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         nombre: userData.nombre || userData.nombre_usuario || userData.name || "",
         correo: userData.correo || userData.email || correo,
         id_rol: userData.id_rol || userData.rol_id || userData.roleId || null,
+        id_persona: userData.id_persona || null,
       }
 
       console.log("🎭 Usuario normalizado:", normalizedUser)
@@ -350,7 +353,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id_rol: normalizedUser.id_rol!,
         roleCode: "usuario",
         roleName: "Usuario",
-        clientId: [3, 4].includes(normalizedUser.id_rol!) ? normalizedUser.id.toString() : undefined,
+        clientId: [3, 4].includes(normalizedUser.id_rol!) && normalizedUser.id_persona 
+          ? normalizedUser.id_persona.toString() 
+          : [3, 4].includes(normalizedUser.id_rol!) 
+            ? normalizedUser.id.toString() 
+            : undefined,
       }
 
       // ✅ ACTUALIZAR ESTADO INMEDIATAMENTE
@@ -420,7 +427,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id_rol: authData.user.id_rol,
         roleCode: "usuario", // Temporal
         roleName: "Usuario", // Temporal
-        clientId: [3, 4].includes(authData.user.id_rol) ? authData.user.id.toString() : undefined,
+        clientId: [3, 4].includes(authData.user.id_rol) && authData.user.id_persona 
+          ? authData.user.id_persona.toString() 
+          : [3, 4].includes(authData.user.id_rol) 
+            ? authData.user.id.toString() 
+            : undefined,
       }
 
       // Configurar usuario inmediatamente
@@ -588,13 +599,13 @@ export const DEFAULT_ROLES = {
   CLIENTE: {
     id: 3,
     nombre: "Cliente",
-    ruta: "/client",
+    ruta: "/my-contract",
     permisos: ["ver_perfil", "ver_rutinas", "ver_membresia"],
   },
   BENEFICIARIO: {
     id: 4,
     nombre: "Benenficiario",
-    ruta: "/client",
+    ruta: "/my-contract",
     permisos: ["ver_perfil", "ver_rutinas", "ver_membresia"],
   },
 } as const

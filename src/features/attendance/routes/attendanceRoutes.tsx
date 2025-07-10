@@ -1,5 +1,6 @@
 import { RouteObject } from "react-router-dom";
 import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
+import ClientAttendanceView from "../page/attendaceViewClient";
 import AttendanceRegistry from "../components/attendance";
 
 export const attendanceRoutes: RouteObject[] = [
@@ -15,4 +16,14 @@ export const attendanceRoutes: RouteObject[] = [
             </PermissionProtectedRoute>
         )
     },
+    {
+        path: "/attendance/:id",
+        element: (
+            <PermissionProtectedRoute 
+                requiredModule="ASISTENCIAS" 
+                requiredPrivilege="ASIST_READ">
+                    <ClientAttendanceView/>
+                </PermissionProtectedRoute>
+        )
+    }
 ];

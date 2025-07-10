@@ -225,7 +225,7 @@ export function ClientsPage() {
     ? filteredClients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
     : filteredClients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  if (clients.length === 0 && !clientsLoading) {
+  /* if (clients.length === 0 && !clientsLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <Card className="w-full max-w-md">
@@ -241,7 +241,7 @@ export function ClientsPage() {
         </Card>
       </div>
     );
-  }
+  } */
 
   return (
     <div className="container mx-auto px-4 py-6">

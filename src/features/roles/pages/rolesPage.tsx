@@ -38,10 +38,10 @@ export function RolesPage() {
   const { hasPrivilege } = usePermissions()
 
   // Verificar permisos específicos (usando strings genéricos para evitar errores de tipado)
-  const canCreate = hasPrivilege("Gestión de roles" as any, "Crear" as any)
-  const canEdit = hasPrivilege("Gestión de roles" as any, "Actualizar" as any)
-  const canDelete = hasPrivilege("Gestión de roles" as any, "Eliminar" as any)
-  const canView = hasPrivilege("Gestión de roles" as any, "Leer" as any)
+  const canCreate = hasPrivilege("SISTEMA", "SYSTEM_CREATE_ROLES")
+  const canEdit = hasPrivilege("SISTEMA", "SYSTEM_UPDATE_ROLES")
+  const canDelete = hasPrivilege("SISTEMA", "SYSTEM_DELETE_ROLES")
+  const canView = hasPrivilege("SISTEMA", "SYSTEM_VIEW_ROLES")
 
   // Filtrar y paginar roles usando useMemo para optimización
   const filteredRoles = useMemo(() => {

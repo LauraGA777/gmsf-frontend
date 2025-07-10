@@ -182,7 +182,7 @@ export function ContractsPage() {
     )
   }
 
-  // Estado vacío
+  /* // Estado vacío
   if (contracts.length === 0 && !contractsLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
@@ -201,7 +201,7 @@ export function ContractsPage() {
         </Card>
       </div>
     )
-  }
+  } */
 
   // DEBUG: Log de datos para identificar problemas
   console.log('🔍 DEBUG - Contracts Page:')

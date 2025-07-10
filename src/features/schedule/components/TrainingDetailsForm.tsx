@@ -47,7 +47,7 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
     const isReadOnly = training.estado === "Completado" || training.estado === "Cancelado";
     const isInProgress = training.estado === "En proceso";
 
-    const validTrainers = Array.isArray(trainers) ? trainers.filter(trainer => trainer && trainer.id && trainer.id.toString().trim() !== '') : [];
+    const validTrainers = Array.isArray(trainers) ? trainers.filter(trainer => trainer && trainer.id && trainer.id.toString().trim() !== '') : []; // trainer.id es el ID del entrenador (tabla Trainer)
     const validClients = Array.isArray(clients) ? clients.filter(client => client && client.id && client.id.toString().trim() !== '') : [];
 
     const {

@@ -14,12 +14,14 @@ export interface Training {
   entrenador?: {
     id: number;
     codigo: string;
-    nombre: string;
-    apellido: string;
-    correo: string;
-    telefono?: string;
     especialidad: string;
-    estado: boolean;
+    usuario: {
+      id: number;
+      nombre: string;
+      apellido: string;
+      correo: string;
+      telefono?: string;
+    };
   };
   cliente?: {
     id_persona: number;

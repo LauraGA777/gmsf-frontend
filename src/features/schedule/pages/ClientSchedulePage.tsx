@@ -76,7 +76,7 @@ export function ClientSchedulePage() {
       if (trainersResponse.data) {
         const mappedTrainers = trainersResponse.data.map((t: any) => ({
           id: t.id.toString(),
-          name: `${t.name}`,
+          name: `${t.usuario?.nombre || ''} ${t.usuario?.apellido || ''}`.trim(),
         }));
         setTrainers(mappedTrainers);
       }
@@ -290,7 +290,7 @@ export function ClientSchedulePage() {
                             <h3 className="font-medium">{training.titulo}</h3>
                             <div className="flex items-center text-sm text-gray-500 mt-1">
                               <Dumbbell className="h-3.5 w-3.5 mr-1" />
-                              <span>{training.entrenador?.nombre} {training.entrenador?.apellido}</span>
+                              <span>{training.entrenador?.usuario?.nombre} {training.entrenador?.usuario?.apellido}</span>
                             </div>
                           </div>
                           {getStatusBadge(training.estado as any)}

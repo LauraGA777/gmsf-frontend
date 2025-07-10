@@ -25,7 +25,12 @@ interface ClientDetailsProps {
 }
 
 export function ClientDetails({ client, isOpen, onClose }: ClientDetailsProps) {
-  if (!client) return null
+  console.log("ClientDetails props:", { client, isOpen, onClose });
+  
+  if (!client) {
+    console.log("ClientDetails: No client provided");
+    return null;
+  }
 
   const getStatusBadge = (estado: boolean) => {
     return estado

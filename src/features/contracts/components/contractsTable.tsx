@@ -157,18 +157,25 @@ export function ContractsTable({
     }
   }
   
-  const handleUpdateContract = (id: number, updates: Partial<Contract>) => {
-    onUpdateContract(id, updates);
-    setIsEditModalOpen(false);
+  const handleUpdateContract = (updates: Partial<Contract>) => {
+    if (editingContract) {
+      onUpdateContract(editingContract.id, updates);
+      setIsEditModalOpen(false);
+      setEditingContract(null);
+    }
   }
 
-  const handleStatusUpdate = (id: number, updates: Partial<Contract>) => {
-    onUpdateContract(id, updates);
-    toast({
-      title: `Estado actualizado`,
-      description: `El contrato ahora está en estado: ${updates.estado}`,
-      type: "success",
-    })
+  const handleStatusUpdate = (updates: Partial<Contract>) => {
+    if (statusChangeContract) {
+      onUpdateContract(statusChangeContract.id, updates);
+      setIsStatusModalOpen(false);
+      setStatusChangeContract(null);
+      toast({
+        title: `Estado actualizado`,
+        description: `El contrato ahora está en estado: ${updates.estado}`,
+        type: "success",
+      })
+    }
   }
 
   if (isLoading) {
@@ -303,29 +310,58 @@ export function ContractsTable({
         </div>
       )}
 
-      {selectedContract && isViewModalOpen && (
+      {/* Modal para ver detalles */}
+      {selectedContract && (
         <ContractDetails
           contract={selectedContract}
           isOpen={isViewModalOpen}
-          onClose={() => setIsViewModalOpen(false)}
+          onClose={() => {
+            setIsViewModalOpen(false)
+            setSelectedContract(null)
+          }}
         />
       )}
-      {editingContract && isEditModalOpen && (
-        <EditContractModal
-          contract={editingContract}
-          onUpdateContract={handleUpdateContract}
-          onClose={() => setIsEditModalOpen(false)}
-          clients={clients}
-          memberships={memberships}
-        />
+
+      {/* Modal para editar contrato */}
+      {editingContract && (
+        <Dialog open={isEditModalOpen} onOpenChange={() => {
+          setIsEditModalOpen(false)
+          setEditingContract(null)
+        }}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogTitle>
+              <VisuallyHidden>Editar Contrato</VisuallyHidden>
+            </DialogTitle>
+            <EditContractModal
+              contract={editingContract}
+              memberships={memberships}
+              onUpdateContract={handleUpdateContract}
+              onClose={() => {
+                setIsEditModalOpen(false)
+                setEditingContract(null)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       )}
-      {statusChangeContract && isStatusModalOpen && (
-        <ChangeStatusModal
-          contract={statusChangeContract}
-          isOpen={isStatusModalOpen}
-          onClose={() => setIsStatusModalOpen(false)}
-          onUpdateStatus={handleStatusUpdate}
-        />
+
+      {/* Modal para cambiar estado */}
+      {statusChangeContract && (
+        <Dialog open={isStatusModalOpen} onOpenChange={() => {
+          setIsStatusModalOpen(false)
+          setStatusChangeContract(null)
+        }}>
+          <DialogContent>
+            <ChangeStatusModal
+              contract={statusChangeContract}
+              onUpdateContract={handleStatusUpdate}
+              onClose={() => {
+                setIsStatusModalOpen(false)
+                setStatusChangeContract(null)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </>
   )

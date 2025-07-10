@@ -10,6 +10,9 @@ import { Plus, Search, RefreshCw, FileSignature, MoreHorizontal, Edit, Eye, Tras
 import { useGym } from "@/shared/contexts/gymContext"
 import type { Contract } from "@/shared/types"
 import { NewContractForm } from "@/features/contracts/components/newContractForm"
+import { ContractDetails } from "@/features/contracts/components/contractDetails"
+import { EditContractModal } from "@/features/contracts/components/editContractModal"
+import { ChangeStatusModal } from "@/features/contracts/components/ChangeStatusModal"
 import { useToast } from "@/shared/components/ui/use-toast"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -20,6 +23,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/shared/components/ui/dialog"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import {
   Table,
   TableBody,
@@ -60,6 +69,14 @@ export function ContractsPage() {
   const debouncedSearchTerm = useDebounce(searchTerm, 500)
   const limit = 10
 
+  // Estados para modales
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false)
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingContract, setEditingContract] = useState<Contract | null>(null)
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
+  const [statusChangeContract, setStatusChangeContract] = useState<Contract | null>(null)
+
   useEffect(() => {
     if (canViewContracts) {
       const estado = statusFilter === "all" ? undefined : statusFilter
@@ -91,6 +108,56 @@ export function ContractsPage() {
       refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
     } catch (error) {
       toast({ title: "Error", description: "No se pudo agregar el contrato.", variant: "destructive" })
+    }
+  }
+
+  const handleViewContract = (contract: Contract) => {
+    if (!canViewDetails) {
+      toast({ 
+        title: "Sin permisos", 
+        description: "No tienes permisos para ver detalles de contratos.", 
+        variant: "destructive" 
+      })
+      return
+    }
+    setSelectedContract(contract)
+    setIsViewModalOpen(true)
+  }
+
+  const handleEditContract = (contract: Contract) => {
+    if (!canUpdateContract) {
+      toast({ 
+        title: "Sin permisos", 
+        description: "No tienes permisos para editar contratos.", 
+        variant: "destructive" 
+      })
+      return
+    }
+    setEditingContract(contract)
+    setIsEditModalOpen(true)
+  }
+
+  const handleToggleContractStatus = (contract: Contract) => {
+    if (!canUpdateContract) {
+      toast({ 
+        title: "Sin permisos", 
+        description: "No tienes permisos para cambiar estado de contratos.", 
+        variant: "destructive" 
+      })
+      return
+    }
+    setStatusChangeContract(contract)
+    setIsStatusModalOpen(true)
+  }
+
+  const handleUpdateContract = async (contractId: number, updates: Partial<Contract>) => {
+    try {
+      await updateContract(contractId, updates)
+      toast({ title: "¡Éxito!", description: "Contrato actualizado correctamente." })
+      const estado = statusFilter === "all" ? undefined : statusFilter
+      refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo actualizar el contrato.", variant: "destructive" })
     }
   }
 
@@ -344,15 +411,21 @@ export function ContractsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               {canViewDetails && (
-                                <DropdownMenuItem onClick={() => console.log('Ver detalles', contract)}>
+                                <DropdownMenuItem onClick={() => handleViewContract(contract)}>
                                   <Eye className="w-4 h-4 mr-2" />
                                   Ver detalles
                                 </DropdownMenuItem>
                               )}
                               {canUpdateContract && (
-                                <DropdownMenuItem onClick={() => console.log('Editar', contract)}>
+                                <DropdownMenuItem onClick={() => handleEditContract(contract)}>
                                   <Edit className="w-4 h-4 mr-2" />
                                   Editar
+                                </DropdownMenuItem>
+                              )}
+                              {canUpdateContract && (
+                                <DropdownMenuItem onClick={() => handleToggleContractStatus(contract)}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Cambiar estado
                                 </DropdownMenuItem>
                               )}
                               {canDeleteContract && (
@@ -414,6 +487,68 @@ export function ContractsPage() {
             refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
           }}
         />
+      )}
+
+      {/* Modal para ver detalles */}
+      {selectedContract && (
+        <ContractDetails
+          contract={selectedContract}
+          isOpen={isViewModalOpen}
+          onClose={() => {
+            setIsViewModalOpen(false)
+            setSelectedContract(null)
+          }}
+        />
+      )}
+
+      {/* Modal para editar contrato */}
+      {editingContract && (
+        <Dialog open={isEditModalOpen} onOpenChange={() => {
+          setIsEditModalOpen(false)
+          setEditingContract(null)
+        }}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogTitle>
+              <VisuallyHidden>Editar Contrato</VisuallyHidden>
+            </DialogTitle>
+            <EditContractModal
+              contract={editingContract}
+              memberships={memberships}
+              onUpdateContract={(updates) => {
+                handleUpdateContract(editingContract.id, updates)
+                setIsEditModalOpen(false)
+                setEditingContract(null)
+              }}
+              onClose={() => {
+                setIsEditModalOpen(false)
+                setEditingContract(null)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Modal para cambiar estado */}
+      {statusChangeContract && (
+        <Dialog open={isStatusModalOpen} onOpenChange={() => {
+          setIsStatusModalOpen(false)
+          setStatusChangeContract(null)
+        }}>
+          <DialogContent>
+            <ChangeStatusModal
+              contract={statusChangeContract}
+              onUpdateContract={(updates) => {
+                handleUpdateContract(statusChangeContract.id, updates)
+                setIsStatusModalOpen(false)
+                setStatusChangeContract(null)
+              }}
+              onClose={() => {
+                setIsStatusModalOpen(false)
+                setStatusChangeContract(null)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

@@ -18,17 +18,13 @@ interface RoleDetailModalProps {
 export function RoleDetailModal({ isOpen, onClose, role, onEdit, onDelete }: RoleDetailModalProps) {
   const [users, setUsers] = useState<UserInfo[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
-  const [fullRole, setFullRole] = useState<Role | null>(null)
-  const [loadingRole, setLoadingRole] = useState(false)
 
   useEffect(() => {
     if (isOpen && role) {
       loadUsersForRole(role.id)
-      loadFullRoleDetails(role.id)
     } else {
       // Limpiar datos cuando se cierra el modal
       setUsers([])
-      setFullRole(null)
     }
   }, [isOpen, role])
 
@@ -45,23 +41,7 @@ export function RoleDetailModal({ isOpen, onClose, role, onEdit, onDelete }: Rol
     }
   }
 
-  const loadFullRoleDetails = async (roleId: number) => {
-    try {
-      setLoadingRole(true)
-      const roleData = await roleService.getRoleById(roleId)
-      setFullRole(roleData || null)
-    } catch (error) {
-      console.error("Error loading full role details:", error)
-      setFullRole(null)
-    } finally {
-      setLoadingRole(false)
-    }
-  }
-
   if (!role) return null
-
-  // Usar fullRole si está disponible, sino usar el rol básico
-  const displayRole = fullRole || role
 
   // Calcular fechas una sola vez
   const createdDate = role.fecha_creacion || role.createdAt
@@ -212,7 +192,7 @@ export function RoleDetailModal({ isOpen, onClose, role, onEdit, onDelete }: Rol
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Permisos y Privilegios Asignados
             </h3>
-            
+
             {/* Permisos Section */}
             <div className="mb-6">
               <h4 className="text-md font-medium text-gray-800 mb-3">

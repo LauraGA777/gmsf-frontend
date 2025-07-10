@@ -203,8 +203,7 @@ const DEFAULT_SETTINGS: GymSettings = {
     secondary: '#333533',
     accent: '#FFD100',
     background: '#D6D6D6',
-    text: '#202020',
-    highlight: '#FFEE32'
+    text: '#202020'
   },
   socialMedia: {
     facebook: 'https://facebook.com/strongfitgym',

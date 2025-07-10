@@ -2,7 +2,7 @@ import { useAuth } from "@/shared/contexts/authContext"
 import { permissionService, type PermissionName, type PrivilegeName } from "@/shared/services/permissionService"
 
 export function usePermissions() {
-    const { isAuthenticated, user, isInitialized } = useAuth()
+    const { isAuthenticated, user } = useAuth()
     
     // ✅ NUEVOS ESTADOS DE CARGA
     const isLoading = permissionService.getLoadingState()

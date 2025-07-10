@@ -1,5 +1,4 @@
 import React from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
 import { es } from "date-fns/locale"
 import type { Locale } from "date-fns"
@@ -97,8 +96,6 @@ function Calendar({
           ...classNames,
         }}
         components={{
-          IconLeft: ({ ...props }) => <ChevronLeft className="h-5 w-5" />,
-          IconRight: ({ ...props }) => <ChevronRight className="h-5 w-5" />,
           Dropdown: ({ value, onChange, children, ...props }) => {
             const isMonth = props.name === "months"
             return (

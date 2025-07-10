@@ -7,20 +7,6 @@ import { permissionService } from "@/shared/services/permissionService"
 import { installRoleDebugger } from "@/shared/utils/roleDebugger"
 
 // Tipos
-interface AuthResponse {
-  status: string
-  menssage: string
-  accessToken: string
-  refreshToken: string
-  user: {
-    id: number
-    nombre: string
-    correo: string
-    id_rol: number
-    id_persona?: number // Añadir el id_persona para clientes
-  }
-}
-
 interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
@@ -403,78 +389,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: false, error: errorMessage }
     } finally {
       setIsLoading(false) // ✅ SIEMPRE TERMINAR LOADING
-    }
-  }
-
-  const handleSuccessfulLogin = async (authData: AuthResponse, correo: string) => {
-    try {
-      console.log("🎯 Procesando login exitoso para rol:", authData.user.id_rol)
-      setError(null)
-
-      // Guardar tokens inmediatamente
-      setAccessToken(authData.accessToken)
-      setRefreshToken(authData.refreshToken)
-      localStorage.setItem("accessToken", authData.accessToken)
-      if (authData.refreshToken) {
-        localStorage.setItem("refreshToken", authData.refreshToken)
-      }
-
-      // Crear usuario básico primero para UI rápida
-      const basicUser: User = {
-        id: authData.user.id.toString(),
-        nombre: authData.user.nombre,
-        correo: correo,
-        id_rol: authData.user.id_rol,
-        roleCode: "usuario", // Temporal
-        roleName: "Usuario", // Temporal
-        clientId: [3, 4].includes(authData.user.id_rol) && authData.user.id_persona 
-          ? authData.user.id_persona.toString() 
-          : [3, 4].includes(authData.user.id_rol) 
-            ? authData.user.id.toString() 
-            : undefined,
-      }
-
-      // Configurar usuario inmediatamente
-      setUser(basicUser)
-      localStorage.setItem("user", JSON.stringify(basicUser))
-      setIsInitialized(true)
-
-      // Redirigir inmediatamente con rol básico
-      redirectBasedOnRole(authData.user.id_rol)
-
-      // Cargar roles y permisos en background
-      loadRoles().then(async () => {
-        const userRole = roles.find((r) => r.id === authData.user.id_rol)
-
-        if (userRole) {
-          // Actualizar usuario con información completa
-          const enrichedUser: User = {
-            ...basicUser,
-            role: userRole,
-            roleCode: userRole.nombre?.toLowerCase() || "usuario",
-            roleName: userRole.nombre || "Usuario",
-          }
-
-          setUser(enrichedUser)
-          localStorage.setItem("user", JSON.stringify(enrichedUser))
-
-          // Inicializar permisos
-          try {
-            await permissionService.initializeWithUserId(authData.user.id_rol)
-            console.log("✅ Usuario y permisos actualizados en background")
-          } catch (permError) {
-            console.error("❌ Error cargando permisos:", permError)
-          }
-        }
-      }).catch(error => {
-        console.error("❌ Error cargando roles en background:", error)
-      })
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Error procesando login exitoso"
-      console.error("❌ Error en handleSuccessfulLogin:", errorMessage)
-      setError(errorMessage)
-      throw error
     }
   }
 

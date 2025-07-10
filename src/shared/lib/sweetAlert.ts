@@ -54,9 +54,6 @@ export const showInfo = (title: string, message?: string) => {
 export const showConfirmation = async (
   title: string,
   message: string,
-  confirmText = "Confirmar",
-  cancelText = "Cancelar",
-  dangerMode = false,
 ) => {
   const result = await Swal.fire({
     icon: "question",

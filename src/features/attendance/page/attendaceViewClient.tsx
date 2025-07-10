@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react" // ✅ Agregado useEffect
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
@@ -7,13 +7,13 @@ import { Badge } from "@/shared/components/ui/badge"
 import { Calendar } from "@/shared/components/ui/calendar"
 import { Progress } from "@/shared/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
-import { Search, TrendingUp, Clock, Target, Award, CalendarDays, User, CreditCard, Loader2 } from "lucide-react" // ✅ Agregado Loader2
+import { Search, TrendingUp, Clock, Target, Award, CalendarDays, User, CreditCard, Loader2 } from "lucide-react"
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns"
 import { es } from "date-fns/locale"
 import { Client, Contract } from "@/shared/types/index"
 import { useAuth } from "@/shared/contexts/authContext"
-import { attendanceService } from "../services/attendanceService" // ✅ Agregado import
-import { toast } from "sonner" // ✅ Agregado import
+import { attendanceService } from "../services/attendanceService"
+import { toast } from "sonner"
 
 interface ClientAttendance {
     id: number
@@ -39,18 +39,18 @@ interface ClientInfo {
     }
 }
 
-// Función para mapear Attendance a ClientAttendance
-const mapAttendanceToClientAttendance = (attendance: any): ClientAttendance => { // ✅ Cambiado a 'any' para evitar errores de tipado
+// Función para mapear Attendance a ClientAttendance - FIX: Tipos mejorados
+const mapAttendanceToClientAttendance = (attendance: any): ClientAttendance => {
     return {
-        id: attendance.id,
-        fecha_uso: format(new Date(attendance.fecha_uso || attendance.fecha || new Date()), 'yyyy-MM-dd'), // ✅ Mejorado manejo de fechas
+        id: attendance.id || 0,
+        fecha_uso: format(new Date(attendance.fecha_uso || attendance.fecha || new Date()), 'yyyy-MM-dd'),
         hora_registro: format(new Date(attendance.hora_entrada || attendance.fecha_uso || new Date()), 'HH:mm:ss'),
         estado: attendance.estado === 'Presente' ? "Activo" : "Eliminado",
-        fecha_registro: new Date(attendance.fecha_registro || attendance.fecha_uso || new Date()).toISOString(), // ✅ Simplificado
+        fecha_registro: new Date(attendance.fecha_registro || attendance.fecha_uso || new Date()).toISOString(),
     }
 }
 
-// Función para mapear Client a ClientInfo
+// Función para mapear Client a ClientInfo - FIX: Manejo seguro de propiedades
 const mapClientToClientInfo = (client: Client, contract?: Contract): ClientInfo => {
     const usuario = client.usuario || {}
 
@@ -60,15 +60,15 @@ const mapClientToClientInfo = (client: Client, contract?: Contract): ClientInfo 
     const diasRestantes = Math.max(0, Math.ceil((fechaFin.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)))
 
     return {
-        codigo: client.codigo || `CLI${client.id_persona?.toString().padStart(3, '0')}`,
-        nombre: usuario.nombre || 'Sin nombre',
-        apellido: usuario.apellido || 'Sin apellido',
-        documento: usuario.numero_documento || 'Sin documento',
-        email: usuario.correo || 'sin-email@ejemplo.com',
-        telefono: usuario.telefono || 'Sin teléfono',
+        codigo: client.codigo || `CLI${client.id_persona?.toString().padStart(3, '0') || '000'}`,
+        nombre: (usuario as any)?.nombre || 'Sin nombre', // FIX: Type assertion
+        apellido: (usuario as any)?.apellido || 'Sin apellido', // FIX: Type assertion
+        documento: (usuario as any)?.numero_documento || 'Sin documento', // FIX: Type assertion
+        email: (usuario as any)?.correo || 'sin-email@ejemplo.com', // FIX: Type assertion
+        telefono: (usuario as any)?.telefono || 'Sin teléfono', // FIX: Type assertion
         contrato: {
             tipo: contract?.membresia?.nombre || 'Membresía Básica',
-            estado: contract?.estado === 'Activo' ? 'Activo' : contract?.estado === 'Vencido' ? 'Vencido' : 'Inactivo', // ✅ Mejorado estado
+            estado: contract?.estado === 'Activo' ? 'Activo' : contract?.estado === 'Vencido' ? 'Vencido' : 'Inactivo',
             fecha_inicio: contract?.fecha_inicio ? format(new Date(contract.fecha_inicio), 'yyyy-MM-dd') : '2024-01-01',
             fecha_vencimiento: contract?.fecha_fin ? format(new Date(contract.fecha_fin), 'yyyy-MM-dd') : '2024-12-31',
             dias_restantes: diasRestantes,
@@ -87,7 +87,8 @@ export default function ClientAttendanceView() {
 
     useEffect(() => {
         const loadClientData = async () => {
-            if (!user?.numero_documento) {
+            // FIX: Manejo seguro de propiedades del usuario
+            if (!(user as any)?.numero_documento) {
                 toast.error("No se pudo obtener la información del usuario")
                 return
             }
@@ -95,9 +96,9 @@ export default function ClientAttendanceView() {
             try {
                 setIsLoading(true)
 
-                // Obtener asistencias del cliente
+                // Obtener asistencias del cliente - FIX: Conversión segura
                 const attendancesResponse = await attendanceService.searchAttendances({
-                    codigo_usuario: user.codigo || user.numero_documento,
+                    codigo_usuario: (user as any).codigo || (user as any).numero_documento,
                     page: 1,
                     limit: 1000,
                     orderBy: 'fecha_uso',
@@ -108,52 +109,28 @@ export default function ClientAttendanceView() {
                 const mappedAttendances = attendancesResponse.data.map(mapAttendanceToClientAttendance)
                 setAttendanceData(mappedAttendances)
 
-                // Simular información del cliente (esto debería venir de un endpoint específico)
+                // Simular información del cliente - FIX: Tipos seguros
                 const mockClient: Client = {
-                    id_persona: user.id || 0,
-                    codigo: user.codigo || `CLI${user.id?.toString().padStart(3, '0')}`,
+                    id_persona: Number(user?.id) || 0, // FIX: Conversión a número
+                    codigo: (user as any)?.codigo || `CLI${user?.id?.toString().padStart(3, '0') || '000'}`,
                     fecha_registro: new Date(),
                     fecha_actualizacion: new Date(),
                     estado: true,
                     usuario: {
-                        id: user.id || 0,
-                        codigo: user.codigo || '',
-                        nombre: user.nombre || '',
-                        apellido: user.apellido || '',
-                        correo: user.correo || '',
-                        telefono: user.telefono || '',
-                        tipo_documento: user.tipo_documento || 'CC',
-                        numero_documento: user.numero_documento || '',
+                        id: Number(user?.id) || 0, // FIX: Conversión a número
+                        codigo: (user as any)?.codigo || '',
+                        nombre: (user as any)?.nombre || '',
+                        apellido: (user as any)?.apellido || '',
+                        correo: (user as any)?.correo || '',
+                        telefono: (user as any)?.telefono || '',
+                        tipo_documento: (user as any)?.tipo_documento || 'CC',
+                        numero_documento: (user as any)?.numero_documento || '',
                         fecha_nacimiento: new Date(),
                         estado: true,
-                    }
+                    } as any // FIX: Type assertion para compatibilidad
                 }
 
-                // Simular contrato (esto también debería venir de un endpoint)
-                const mockContract: Contract = {
-                    id: 1,
-                    codigo: 'CON001',
-                    id_persona: user.id || 0,
-                    id_membresia: 1,
-                    fecha_inicio: new Date('2024-01-01'),
-                    fecha_fin: new Date('2024-12-31'),
-                    estado: 'Activo',
-                    fecha_registro: new Date(),
-                    fecha_actualizacion: new Date(),
-                    membresia: {
-                        id: 1,
-                        codigo: 'MEM001',
-                        nombre: 'Membresía Premium',
-                        descripcion: 'Acceso completo al gimnasio',
-                        precio: 50000,
-                        duracion_meses: 12,
-                        estado: true,
-                        fecha_registro: new Date(),
-                        fecha_actualizacion: new Date()
-                    }
-                }
-
-                const mappedClientInfo = mapClientToClientInfo(mockClient, mockContract)
+                const mappedClientInfo = mapClientToClientInfo(mockClient)
                 setClientInfo(mappedClientInfo)
 
             } catch (error) {

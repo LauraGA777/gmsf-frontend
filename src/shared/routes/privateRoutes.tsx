@@ -7,7 +7,6 @@ import { membershipsRoutes } from "@/features/memberships/routes/membershipsRout
 import { rolesRoutes } from "@/features/roles/routes/rolesRoutes";
 import { trainersRoutes } from "@/features/trainers/routes/trainersRoutes";
 import { userRoutes } from "@/features/users/routes/userRoutes";
-import { PermissionsDebugPage } from "@/shared/pages/PermissionsDebugPage";
 
 export const privateRoutes = [
     ...attendanceRoutes,
@@ -19,9 +18,4 @@ export const privateRoutes = [
     ...rolesRoutes,
     ...trainersRoutes,
     ...userRoutes,
-    // Página de debug de permisos (solo para desarrollo)
-    {
-        path: "/debug/permissions",
-        element: <PermissionsDebugPage />
-    },
 ];

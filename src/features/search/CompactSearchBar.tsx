@@ -30,8 +30,6 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings, incl
 
     const results: { type: string; name: string }[] = []
 
-    // Buscar en clientes
-    const clientNames = [...new Set(trainings.map((t) => t.client))]
     clientNames.forEach((client) => {
       if (client.toLowerCase().includes(term.toLowerCase())) {
         results.push({ type: "client", name: client })
@@ -84,7 +82,7 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings, incl
       client: result.type === "client" ? result.name : "",
       trainer: result.type === "trainer" ? result.name : "",
       service: result.type === "service" ? result.name : "",
-      dateRange: { from: null, to: null },
+      dateRange: { from: undefined, to: undefined },
       status: result.type === "status" ? result.name : "",
     }
 
@@ -101,7 +99,7 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings, incl
       client: "",
       trainer: "",
       service: "",
-      dateRange: { from: null, to: null },
+      dateRange: { from: undefined, to: undefined },
       status: "",
     })
   }

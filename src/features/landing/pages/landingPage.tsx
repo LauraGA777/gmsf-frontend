@@ -1700,7 +1700,7 @@ export default function LandingPage() {
           <div className="border-t pt-8" style={{ borderColor: '#333533' }}>
             <div className="flex flex-col md:flex-row justify-between items-center">
               <p style={{ color: '#D6D6D6' }} className="text-base font-medium mb-4 md:mb-0">
-                © 2024 {settings.name}. Todos los derechos reservados.
+                © 2025 {settings.name}. Todos los derechos reservados.
               </p>
               <div className="flex space-x-6">
                 <span style={{ color: '#FFEE32' }} className="text-sm hover:underline cursor-pointer">

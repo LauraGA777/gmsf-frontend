@@ -2,169 +2,169 @@ import { api } from "./api"
 
 // ✅ SINCRONIZADO CON EL BACKEND - permissions.ts
 export const PERMISSIONS = {
-    // Módulos principales
-    ASISTENCIAS: 'ASISTENCIAS',
-    CLIENTES: 'CLIENTES',
-    CONTRATOS: 'CONTRATOS',
-    MEMBRESIAS: 'MEMBRESIAS',
-    HORARIOS: 'HORARIOS',
-    ENTRENADORES: 'ENTRENADORES',
-    USUARIOS: 'USUARIOS',
-    SISTEMA: 'SISTEMA',  
+  // Módulos principales
+  ASISTENCIAS: 'ASISTENCIAS',
+  CLIENTES: 'CLIENTES',
+  CONTRATOS: 'CONTRATOS',
+  MEMBRESIAS: 'MEMBRESIAS',
+  HORARIOS: 'HORARIOS',
+  ENTRENADORES: 'ENTRENADORES',
+  USUARIOS: 'USUARIOS',
+  SISTEMA: 'SISTEMA',
 
-    // Permisos granulares para las rutas (mapean a módulos)
-    // Asistencias
-    REGISTER_ATTENDANCE: 'ASISTENCIAS',
-    VIEW_ATTENDANCE: 'ASISTENCIAS',
-    MANAGE_ATTENDANCE: 'ASISTENCIAS',
+  // Permisos granulares para las rutas (mapean a módulos)
+  // Asistencias
+  REGISTER_ATTENDANCE: 'ASISTENCIAS',
+  VIEW_ATTENDANCE: 'ASISTENCIAS',
+  MANAGE_ATTENDANCE: 'ASISTENCIAS',
 
-    // CONTRATOS 
-    VIEW_CONTRACTS: 'CONTRATOS',
-    CREATE_CONTRACTS: 'CONTRATOS',
-    UPDATE_CONTRACTS: 'CONTRATOS',
-    CANCEL_CONTRACTS: 'CONTRATOS',
-    RENEW_CONTRACTS: 'CONTRATOS',
-    MANAGE_CONTRACTS: 'CONTRATOS',
+  // CONTRATOS 
+  VIEW_CONTRACTS: 'CONTRATOS',
+  CREATE_CONTRACTS: 'CONTRATOS',
+  UPDATE_CONTRACTS: 'CONTRATOS',
+  CANCEL_CONTRACTS: 'CONTRATOS',
+  RENEW_CONTRACTS: 'CONTRATOS',
+  MANAGE_CONTRACTS: 'CONTRATOS',
 
-    // Clientes
-    VIEW_CLIENTS: 'CLIENTES',
-    CREATE_CLIENTS: 'CLIENTES',
-    UPDATE_CLIENTS: 'CLIENTES',
-    MANAGE_CLIENTS: 'CLIENTES',
+  // Clientes
+  VIEW_CLIENTS: 'CLIENTES',
+  CREATE_CLIENTS: 'CLIENTES',
+  UPDATE_CLIENTS: 'CLIENTES',
+  MANAGE_CLIENTS: 'CLIENTES',
 
-    // Membresías
-    VIEW_MEMBERSHIPS: 'MEMBRESIAS',
-    CREATE_MEMBERSHIPS: 'MEMBRESIAS',
-    UPDATE_MEMBERSHIPS: 'MEMBRESIAS',
-    MANAGE_MEMBERSHIPS: 'MEMBRESIAS',
+  // Membresías
+  VIEW_MEMBERSHIPS: 'MEMBRESIAS',
+  CREATE_MEMBERSHIPS: 'MEMBRESIAS',
+  UPDATE_MEMBERSHIPS: 'MEMBRESIAS',
+  MANAGE_MEMBERSHIPS: 'MEMBRESIAS',
 
-    // Horarios
-    VIEW_SCHEDULES: 'HORARIOS',
-    CREATE_SCHEDULES: 'HORARIOS',
-    UPDATE_SCHEDULES: 'HORARIOS',
-    MANAGE_SCHEDULES: 'HORARIOS',
+  // Horarios
+  VIEW_SCHEDULES: 'HORARIOS',
+  CREATE_SCHEDULES: 'HORARIOS',
+  UPDATE_SCHEDULES: 'HORARIOS',
+  MANAGE_SCHEDULES: 'HORARIOS',
 
-    // Entrenadores
-    VIEW_TRAINERS: 'ENTRENADORES',
-    CREATE_TRAINERS: 'ENTRENADORES',
-    UPDATE_TRAINERS: 'ENTRENADORES',
-    MANAGE_TRAINERS: 'ENTRENADORES',
+  // Entrenadores
+  VIEW_TRAINERS: 'ENTRENADORES',
+  CREATE_TRAINERS: 'ENTRENADORES',
+  UPDATE_TRAINERS: 'ENTRENADORES',
+  MANAGE_TRAINERS: 'ENTRENADORES',
 
-    // Usuarios
-    VIEW_USERS: 'USUARIOS',
-    CREATE_USERS: 'USUARIOS',
-    UPDATE_USERS: 'USUARIOS',
-    ACTIVATE_USERS: 'USUARIOS',
-    DEACTIVATE_USERS: 'USUARIOS',
-    DELETE_USERS: 'USUARIOS',
-    MANAGE_USERS: 'USUARIOS',
+  // Usuarios
+  VIEW_USERS: 'USUARIOS',
+  CREATE_USERS: 'USUARIOS',
+  UPDATE_USERS: 'USUARIOS',
+  ACTIVATE_USERS: 'USUARIOS',
+  DEACTIVATE_USERS: 'USUARIOS',
+  DELETE_USERS: 'USUARIOS',
+  MANAGE_USERS: 'USUARIOS',
 
-    // Sistema (para roles y permisos)
-    VIEW_ROLES: 'SISTEMA',
-    MANAGE_ROLES: 'SISTEMA',
-    ASSIGN_PERMISSIONS: 'SISTEMA',
-    VIEW_PERMISSIONS: 'SISTEMA',
-    MANAGE_PERMISSIONS: 'SISTEMA',
+  // Sistema (para roles y permisos)
+  VIEW_ROLES: 'SISTEMA',
+  MANAGE_ROLES: 'SISTEMA',
+  ASSIGN_PERMISSIONS: 'SISTEMA',
+  VIEW_PERMISSIONS: 'SISTEMA',
+  MANAGE_PERMISSIONS: 'SISTEMA',
 } as const;
 
 // ✅ SINCRONIZADO CON EL BACKEND - permissions.ts
 export const PRIVILEGES = {
-    // Privilegios de Asistencias
-    ASIST_READ: 'ASIST_READ',
-    ASIST_SEARCH: 'ASIST_SEARCH',
-    ASIST_CREATE: 'ASIST_CREATE',
-    ASIST_DETAILS: 'ASIST_DETAILS',
-    ASIST_UPDATE: 'ASIST_UPDATE',
-    ASIST_DELETE: 'ASIST_DELETE',
-    ASIST_STATS: 'ASIST_STATS',
-    
-    // Privilegios de Clientes
-    CLIENT_READ: 'CLIENT_READ',
-    CLIENT_DETAILS: 'CLIENT_DETAILS',
-    CLIENT_SEARCH_DOC: 'CLIENT_SEARCH_DOC',
-    CLIENT_CREATE: 'CLIENT_CREATE',
-    CLIENT_UPDATE: 'CLIENT_UPDATE',
-    CLIENT_DELETE: 'CLIENT_DELETE',
-    CLIENT_BENEFICIARIES: 'CLIENT_BENEFICIARIES',
+  // Privilegios de Asistencias
+  ASIST_READ: 'ASIST_READ',
+  ASIST_SEARCH: 'ASIST_SEARCH',
+  ASIST_CREATE: 'ASIST_CREATE',
+  ASIST_DETAILS: 'ASIST_DETAILS',
+  ASIST_UPDATE: 'ASIST_UPDATE',
+  ASIST_DELETE: 'ASIST_DELETE',
+  ASIST_STATS: 'ASIST_STATS',
 
-    // Privilegios de Contratos
-    CONTRACT_READ: 'CONTRACT_READ',
-    CONTRACT_SEARCH: 'CONTRACT_SEARCH',
-    CONTRACT_CREATE: 'CONTRACT_CREATE',
-    CONTRACT_DETAILS: 'CONTRACT_DETAILS',
-    CONTRACT_UPDATE: 'CONTRACT_UPDATE',
-    CONTRACT_DELETE: 'CONTRACT_DELETE',
-    CONTRACT_CANCEL: 'CONTRACT_CANCEL',
-    CONTRACT_RENEW: 'CONTRACT_RENEW',
-    CONTRACT_HISTORY: 'CONTRACT_HISTORY',
-    CONTRACT_ACTIVATE: 'CONTRACT_ACTIVATE',
-    CONTRACT_DEACTIVATE: 'CONTRACT_DEACTIVATE',
-    CONTRACT_EXPORT: 'CONTRACT_EXPORT',
-    CONTRACT_STATS: 'CONTRACT_STATS',
-    
-    // Privilegios de Membresías
-    MEMBERSHIP_READ: 'MEMBERSHIP_READ',
-    MEMBERSHIP_SEARCH: 'MEMBERSHIP_SEARCH',
-    MEMBERSHIP_CREATE: 'MEMBERSHIP_CREATE',
-    MEMBERSHIP_UPDATE: 'MEMBERSHIP_UPDATE',
-    MEMBERSHIP_DEACTIVATE: 'MEMBERSHIP_DEACTIVATE',
-    MEMBERSHIP_DETAILS: 'MEMBERSHIP_DETAILS',
-    MEMBERSHIP_REACTIVATE: 'MEMBERSHIP_REACTIVATE',
-    
-    // Privilegios de Horarios
-    SCHEDULE_READ: 'SCHEDULE_READ',
-    SCHEDULE_DETAILS: 'SCHEDULE_DETAILS',
-    SCHEDULE_CREATE: 'SCHEDULE_CREATE',
-    SCHEDULE_UPDATE: 'SCHEDULE_UPDATE',
-    SCHEDULE_DELETE: 'SCHEDULE_DELETE',
-    SCHEDULE_AVAILABILITY: 'SCHEDULE_AVAILABILITY',
-    SCHEDULE_CLIENT_VIEW: 'SCHEDULE_CLIENT_VIEW',
-    SCHEDULE_TRAINER_VIEW: 'SCHEDULE_TRAINER_VIEW',
-    SCHEDULE_DAILY_VIEW: 'SCHEDULE_DAILY_VIEW',
-    SCHEDULE_WEEKLY_VIEW: 'SCHEDULE_WEEKLY_VIEW',
-    SCHEDULE_MONTHLY_VIEW: 'SCHEDULE_MONTHLY_VIEW',
-    SCHEDULE_TRAINERS_ACTIVE: 'SCHEDULE_TRAINERS_ACTIVE',
-    SCHEDULE_CLIENTS_ACTIVE: 'SCHEDULE_CLIENTS_ACTIVE',
-    
-    // Privilegios de Entrenadores
-    TRAINER_READ: 'TRAINER_READ',
-    TRAINER_CREATE: 'TRAINER_CREATE',
-    TRAINER_UPDATE: 'TRAINER_UPDATE',
-    TRAINER_DEACTIVATE: 'TRAINER_DEACTIVATE',
-    TRAINER_DELETE: 'TRAINER_DELETE',
-    TRAINER_SEARCH: 'TRAINER_SEARCH',
-    TRAINER_DETAILS: 'TRAINER_DETAILS',
+  // Privilegios de Clientes
+  CLIENT_READ: 'CLIENT_READ',
+  CLIENT_DETAILS: 'CLIENT_DETAILS',
+  CLIENT_SEARCH_DOC: 'CLIENT_SEARCH_DOC',
+  CLIENT_CREATE: 'CLIENT_CREATE',
+  CLIENT_UPDATE: 'CLIENT_UPDATE',
+  CLIENT_DELETE: 'CLIENT_DELETE',
+  CLIENT_BENEFICIARIES: 'CLIENT_BENEFICIARIES',
 
-    // Privilegios de Usuarios
-    USER_READ: 'USER_READ',
-    USER_SEARCH: 'USER_SEARCH', 
-    USER_DETAILS: 'USER_DETAILS',
-    USER_CREATE: 'USER_CREATE',
-    USER_UPDATE: 'USER_UPDATE',
-    USER_ACTIVATE: 'USER_ACTIVATE',
-    USER_DEACTIVATE: 'USER_DEACTIVATE',
-    USER_DELETE: 'USER_DELETE',
-    USER_CHECK_DOCUMENT: 'USER_CHECK_DOCUMENT',
-    USER_CHECK_EMAIL: 'USER_CHECK_EMAIL',
-    USER_VIEW_ROLES: 'USER_VIEW_ROLES',
-    USER_ASSIGN_ROLES: 'USER_ASSIGN_ROLES',
-    USER_HISTORY: 'USER_HISTORY',
+  // Privilegios de Contratos
+  CONTRACT_READ: 'CONTRACT_READ',
+  CONTRACT_SEARCH: 'CONTRACT_SEARCH',
+  CONTRACT_CREATE: 'CONTRACT_CREATE',
+  CONTRACT_DETAILS: 'CONTRACT_DETAILS',
+  CONTRACT_UPDATE: 'CONTRACT_UPDATE',
+  CONTRACT_DELETE: 'CONTRACT_DELETE',
+  CONTRACT_CANCEL: 'CONTRACT_CANCEL',
+  CONTRACT_RENEW: 'CONTRACT_RENEW',
+  CONTRACT_HISTORY: 'CONTRACT_HISTORY',
+  CONTRACT_ACTIVATE: 'CONTRACT_ACTIVATE',
+  CONTRACT_DEACTIVATE: 'CONTRACT_DEACTIVATE',
+  CONTRACT_EXPORT: 'CONTRACT_EXPORT',
+  CONTRACT_STATS: 'CONTRACT_STATS',
 
-    // Privilegios del Sistema
-    SYSTEM_VIEW_ROLES: 'SYSTEM_VIEW_ROLES',
-    SYSTEM_CREATE_ROLES: 'SYSTEM_CREATE_ROLES',
-    SYSTEM_UPDATE_ROLES: 'SYSTEM_UPDATE_ROLES',
-    SYSTEM_DELETE_ROLES: 'SYSTEM_DELETE_ROLES',
-    SYSTEM_ASSIGN_ROLES: 'SYSTEM_ASSIGN_ROLES',
-    SYSTEM_VIEW_PERMISSIONS: 'SYSTEM_VIEW_PERMISSIONS',
-    SYSTEM_CREATE_PERMISSIONS: 'SYSTEM_CREATE_PERMISSIONS',
-    SYSTEM_UPDATE_PERMISSIONS: 'SYSTEM_UPDATE_PERMISSIONS',
-    SYSTEM_DELETE_PERMISSIONS: 'SYSTEM_DELETE_PERMISSIONS',
-    SYSTEM_ASSIGN_PERMISSIONS: 'SYSTEM_ASSIGN_PERMISSIONS',
-    SYSTEM_VIEW_LOGS: 'SYSTEM_VIEW_LOGS',
-    SYSTEM_BACKUP: 'SYSTEM_BACKUP',
-    SYSTEM_RESTORE: 'SYSTEM_RESTORE',
-    SYSTEM_MAINTENANCE: 'SYSTEM_MAINTENANCE',
+  // Privilegios de Membresías
+  MEMBERSHIP_READ: 'MEMBERSHIP_READ',
+  MEMBERSHIP_SEARCH: 'MEMBERSHIP_SEARCH',
+  MEMBERSHIP_CREATE: 'MEMBERSHIP_CREATE',
+  MEMBERSHIP_UPDATE: 'MEMBERSHIP_UPDATE',
+  MEMBERSHIP_DEACTIVATE: 'MEMBERSHIP_DEACTIVATE',
+  MEMBERSHIP_DETAILS: 'MEMBERSHIP_DETAILS',
+  MEMBERSHIP_REACTIVATE: 'MEMBERSHIP_REACTIVATE',
+
+  // Privilegios de Horarios
+  SCHEDULE_READ: 'SCHEDULE_READ',
+  SCHEDULE_DETAILS: 'SCHEDULE_DETAILS',
+  SCHEDULE_CREATE: 'SCHEDULE_CREATE',
+  SCHEDULE_UPDATE: 'SCHEDULE_UPDATE',
+  SCHEDULE_DELETE: 'SCHEDULE_DELETE',
+  SCHEDULE_AVAILABILITY: 'SCHEDULE_AVAILABILITY',
+  SCHEDULE_CLIENT_VIEW: 'SCHEDULE_CLIENT_VIEW',
+  SCHEDULE_TRAINER_VIEW: 'SCHEDULE_TRAINER_VIEW',
+  SCHEDULE_DAILY_VIEW: 'SCHEDULE_DAILY_VIEW',
+  SCHEDULE_WEEKLY_VIEW: 'SCHEDULE_WEEKLY_VIEW',
+  SCHEDULE_MONTHLY_VIEW: 'SCHEDULE_MONTHLY_VIEW',
+  SCHEDULE_TRAINERS_ACTIVE: 'SCHEDULE_TRAINERS_ACTIVE',
+  SCHEDULE_CLIENTS_ACTIVE: 'SCHEDULE_CLIENTS_ACTIVE',
+
+  // Privilegios de Entrenadores
+  TRAINER_READ: 'TRAINER_READ',
+  TRAINER_CREATE: 'TRAINER_CREATE',
+  TRAINER_UPDATE: 'TRAINER_UPDATE',
+  TRAINER_DEACTIVATE: 'TRAINER_DEACTIVATE',
+  TRAINER_DELETE: 'TRAINER_DELETE',
+  TRAINER_SEARCH: 'TRAINER_SEARCH',
+  TRAINER_DETAILS: 'TRAINER_DETAILS',
+
+  // Privilegios de Usuarios
+  USER_READ: 'USER_READ',
+  USER_SEARCH: 'USER_SEARCH',
+  USER_DETAILS: 'USER_DETAILS',
+  USER_CREATE: 'USER_CREATE',
+  USER_UPDATE: 'USER_UPDATE',
+  USER_ACTIVATE: 'USER_ACTIVATE',
+  USER_DEACTIVATE: 'USER_DEACTIVATE',
+  USER_DELETE: 'USER_DELETE',
+  USER_CHECK_DOCUMENT: 'USER_CHECK_DOCUMENT',
+  USER_CHECK_EMAIL: 'USER_CHECK_EMAIL',
+  USER_VIEW_ROLES: 'USER_VIEW_ROLES',
+  USER_ASSIGN_ROLES: 'USER_ASSIGN_ROLES',
+  USER_HISTORY: 'USER_HISTORY',
+
+  // Privilegios del Sistema
+  SYSTEM_VIEW_ROLES: 'SYSTEM_VIEW_ROLES',
+  SYSTEM_CREATE_ROLES: 'SYSTEM_CREATE_ROLES',
+  SYSTEM_UPDATE_ROLES: 'SYSTEM_UPDATE_ROLES',
+  SYSTEM_DELETE_ROLES: 'SYSTEM_DELETE_ROLES',
+  SYSTEM_ASSIGN_ROLES: 'SYSTEM_ASSIGN_ROLES',
+  SYSTEM_VIEW_PERMISSIONS: 'SYSTEM_VIEW_PERMISSIONS',
+  SYSTEM_CREATE_PERMISSIONS: 'SYSTEM_CREATE_PERMISSIONS',
+  SYSTEM_UPDATE_PERMISSIONS: 'SYSTEM_UPDATE_PERMISSIONS',
+  SYSTEM_DELETE_PERMISSIONS: 'SYSTEM_DELETE_PERMISSIONS',
+  SYSTEM_ASSIGN_PERMISSIONS: 'SYSTEM_ASSIGN_PERMISSIONS',
+  SYSTEM_VIEW_LOGS: 'SYSTEM_VIEW_LOGS',
+  SYSTEM_BACKUP: 'SYSTEM_BACKUP',
+  SYSTEM_RESTORE: 'SYSTEM_RESTORE',
+  SYSTEM_MAINTENANCE: 'SYSTEM_MAINTENANCE',
 } as const;
 
 export type PermissionName = typeof PERMISSIONS[keyof typeof PERMISSIONS];
@@ -269,7 +269,7 @@ class PermissionService {
     try {
       this.isLoading = true // ✅ Iniciar carga
       this.lastError = null // ✅ Limpiar errores previos
-      
+
       console.log("🔄 Obteniendo permisos del usuario desde backend...", userId)
 
       if (userId) {
@@ -315,7 +315,7 @@ class PermissionService {
 
       this.isInitialized = true
       this.isLoading = false // ✅ Finalizar carga exitosa
-      
+
     } catch (error) {
       console.error("❌ Error al obtener permisos del backend:", error)
       this.isLoading = false // ✅ Finalizar carga con error
@@ -335,7 +335,7 @@ class PermissionService {
       this.userPermissions = []
       this.userPrivileges = []
       this.isInitialized = true
-      
+
       throw error // Re-lanzar para que el AuthContext maneje el error
     }
   }
@@ -372,7 +372,7 @@ class PermissionService {
     )
 
     console.log(`🔍 Usuario ${this.currentUserId} verificando acceso a "${moduleName}":`, hasPermission)
-    
+
     return hasPermission
   }
 
@@ -453,82 +453,13 @@ class PermissionService {
     if (!userId || userId <= 0) {
       throw new Error("ID de usuario válido requerido para inicializar permisos")
     }
-    
+
     console.log("🚀 Inicializando permisos para usuario autenticado:", userId)
     this.currentUserId = userId
     await this.getUserPermissions(userId)
   }
 
   // Método de debugging para inspeccionar permisos
-  debugPermissions(): void {
-    console.log("🔍 === DEBUG DE PERMISOS DEL USUARIO ===")
-    console.log("========================================")
-    
-    console.log("📊 Estado del servicio:")
-    console.log(`  - Inicializado: ${this.isInitialized}`)
-    console.log(`  - Cargando: ${this.isLoading}`)
-    console.log(`  - Usuario actual: ${this.currentUserId}`)
-    console.log(`  - Último error: ${this.lastError || "Ninguno"}`)
-    
-    console.log("🎭 Permisos del usuario:")
-    console.log(`  - Total permisos: ${this.userPermissions.length}`)
-    this.userPermissions.forEach((permission, index) => {
-      console.log(`  ${index + 1}. ${permission.nombre} (${permission.codigo})`)
-    })
-    
-    console.log("🔑 Privilegios del usuario:")
-    console.log(`  - Total privilegios: ${this.userPrivileges.length}`)
-    this.userPrivileges.forEach((privilege, index) => {
-      console.log(`  ${index + 1}. ${privilege.nombre} (${privilege.codigo})`)
-    })
-    
-    console.log("🎯 Verificaciones específicas:")
-    const testModules = ['SISTEMA', 'USUARIOS', 'CLIENTES', 'CONTRATOS', 'MEMBRESIAS', 'ASISTENCIAS', 'HORARIOS', 'ENTRENADORES']
-    testModules.forEach(module => {
-      const hasAccess = this.hasModuleAccess(module as PermissionName)
-      console.log(`  - ${module}: ${hasAccess ? '✅ SÍ' : '❌ NO'}`)
-    })
-    
-    console.log("========================================")
-  }
-  debugModuleAccess(moduleName: PermissionName): boolean {
-    console.log(`🔍 === DEBUG ACCESO A MÓDULO: ${moduleName} ===`)
-    
-    if (!this.isInitialized) {
-      console.log(`❌ Permisos no inicializados`)
-      return false
-    }
 
-    if (!this.currentUserId) {
-      console.log(`❌ Sin usuario autenticado`)
-      return false
-    }
-
-    console.log(`👤 Usuario ID: ${this.currentUserId}`)
-    console.log(`📋 Permisos disponibles: ${this.userPermissions.length}`)
-    
-    // Buscar permiso exacto
-    const exactPermission = this.userPermissions.find(p => p.codigo === moduleName)
-    if (exactPermission) {
-      console.log(`✅ Permiso encontrado: ${exactPermission.nombre} (${exactPermission.codigo})`)
-      return true
-    }
-
-    // Buscar por nombre
-    const namePermission = this.userPermissions.find(p => p.nombre === moduleName)
-    if (namePermission) {
-      console.log(`✅ Permiso encontrado por nombre: ${namePermission.nombre} (${namePermission.codigo})`)
-      return true
-    }
-
-    console.log(`❌ Permiso "${moduleName}" NO encontrado`)
-    console.log(`📝 Permisos disponibles:`)
-    this.userPermissions.forEach(p => {
-      console.log(`   - ${p.nombre} (${p.codigo})`)
-    })
-    
-    return false
-  }
 }
-
 export const permissionService = new PermissionService()

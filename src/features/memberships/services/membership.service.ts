@@ -225,7 +225,7 @@ class MembershipService {
         }
         // Si no hay datos pero la operación fue exitosa, devolvemos la membresía con estado false
         return {
-          id,
+          id: Number(id),
           codigo: '',
           nombre: '',
           descripcion: '',

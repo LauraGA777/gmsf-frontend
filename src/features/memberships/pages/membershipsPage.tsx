@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import Swal from "sweetalert2";
@@ -45,7 +45,6 @@ import {
 import { useGym } from "@/shared/contexts/gymContext";
 import { membershipService } from "@/features/memberships/services/membership.service";
 import type { Membership } from "@/shared/types";
-
 // Types
 interface MembershipFormProps {
   membership?: Membership;
@@ -62,6 +61,7 @@ interface MembershipActionsMenuProps {
 
 // Components
 function MembershipForm({ membership, onSave, onCancel }: MembershipFormProps) {
+    
   const [formData, setFormData] = useState<Partial<Membership>>({
     nombre: membership?.nombre || '',
     descripcion: membership?.descripcion || '',
@@ -202,6 +202,14 @@ export function MembershipsPage() {
     contracts
   } = useGym();
 
+  useEffect(() => {
+    // Cargar membresías al montar el componente si no hay datos
+    if (memberships.length === 0 && !membershipsLoading) {
+      console.log('🔄 Cargando membresías al montar la página...');
+      refreshMemberships();
+    }
+  }, []);
+
   // State
   const [isNewMembershipOpen, setIsNewMembershipOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -287,7 +295,7 @@ export function MembershipsPage() {
     if (!editingMembership) return;
     
     try {
-      await membershipService.updateMembership(editingMembership.id, data);
+      await membershipService.updateMembership(String(editingMembership.id), data);
       await refreshMemberships();
       setIsNewMembershipOpen(false);
       setEditingMembership(null);
@@ -323,9 +331,9 @@ export function MembershipsPage() {
       if (result.isConfirmed) {
         try {
           if (membership.estado) {
-            await membershipService.deactivateMembership(membership.id);
+            await membershipService.deactivateMembership(String(membership.id));
           } else {
-            await membershipService.reactivateMembership(membership.id);
+            await membershipService.reactivateMembership(String(membership.id));
           }
           
           // Actualizar la lista completa
@@ -546,7 +554,7 @@ function MembershipActionsMenu({
                       </TableCell>
                       <TableCell>
                         <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 hover:text-blue-900">
-                          {getActiveContracts(membership.id)} activos
+                          {getActiveContracts(String(membership.id))} activos
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -617,7 +625,7 @@ function MembershipActionsMenu({
                   <div className="flex items-center space-x-2 mt-2">
                     {getStatusBadge(selectedMembership.estado)}
                     <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                      {getActiveContracts(selectedMembership.id)} contratos activos
+                      {getActiveContracts(String(selectedMembership.id))} contratos activos
                     </Badge>
                   </div>
                 </div>

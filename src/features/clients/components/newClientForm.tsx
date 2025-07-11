@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, useFieldArray, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { clientService } from "@/features/clients/services/client.service";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { useToast } from "@/shared/components/ui/use-toast";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 
 const emergencyContactSchema = z.object({
   nombre_contacto: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -131,7 +132,83 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
 
   const tipoDocumento = watch("usuario.tipo_documento");
   const numeroDocumento = watch("usuario.numero_documento");
-  const watchedGenero = watch("usuario.genero");
+  
+  const debouncedNumeroDocumento = useDebounce(numeroDocumento, 500);
+
+  useEffect(() => {
+    // Si el campo de documento está vacío, limpiamos todo y salimos.
+    if (!debouncedNumeroDocumento) {
+      setIsUserFound(false);
+      setUserNotFound(false);
+      setIsAlreadyClient(false);
+      // No limpiamos los campos aquí para evitar el problema de re-renderizado
+      return;
+    }
+    
+    const handleCheckUser = async () => {
+      if (debouncedNumeroDocumento.length < 5 || !tipoDocumento) {
+        return; // No hacer nada si el documento no es válido
+      }
+      
+      setIsCheckingUser(true);
+      // No reseteamos los estados aquí para evitar parpadeos
+      
+      try {
+        const response: any = await clientService.checkUserByDocument(tipoDocumento, debouncedNumeroDocumento);
+        
+        if (response.isAlreadyClient) {
+          setIsAlreadyClient(true);
+          setIsUserFound(true);
+          setUserNotFound(false); // Nos aseguramos que otros estados estén correctos
+          toast({ title: "Usuario ya registrado", description: "Este usuario ya figura como cliente.", variant: "destructive" });
+        } else {
+          // Usuario encontrado, pero no es cliente. Autocompletar.
+          setValue("usuario.id", response.id);
+          setValue("usuario.nombre", response.nombre);
+          setValue("usuario.apellido", response.apellido);
+          setValue("usuario.correo", response.correo);
+          setValue("usuario.telefono", response.telefono || "");
+          setValue("usuario.direccion", response.direccion || "");
+          setValue("usuario.genero", response.genero || undefined);
+          setValue("usuario.tipo_documento", response.tipo_documento);
+
+          const parsedDate = response.fecha_nacimiento ? new Date(response.fecha_nacimiento) : null;
+          if (parsedDate && !isNaN(parsedDate.getTime())) {
+            setValue("usuario.fecha_nacimiento", format(parsedDate, 'yyyy-MM-dd'));
+          } else {
+            setValue("usuario.fecha_nacimiento", "");
+          }
+          
+          setIsUserFound(true);
+          setUserNotFound(false);
+          setIsAlreadyClient(false);
+          toast({ title: "Usuario Encontrado", description: "Datos del usuario autocompletados.", variant: "success" });
+        }
+      } catch (error: any) {
+        if (error.response && error.response.status === 404) {
+          setUserNotFound(true);
+          setIsUserFound(false);
+          setIsAlreadyClient(false);
+          // Limpiamos los campos solo cuando confirmamos que el usuario NO existe
+          setValue("usuario.id", undefined);
+          setValue("usuario.nombre", "");
+          setValue("usuario.apellido", "");
+          setValue("usuario.correo", "");
+          setValue("usuario.telefono", "");
+          setValue("usuario.direccion", "");
+          setValue("usuario.fecha_nacimiento", "");
+          setValue("usuario.genero", undefined);
+          setValue("usuario.contrasena", debouncedNumeroDocumento);
+        } else {
+          toast({ title: "Error de red", description: "No se pudo conectar con el servidor.", variant: "destructive" });
+        }
+      } finally {
+        setIsCheckingUser(false);
+      }
+    };
+
+    handleCheckUser();
+  }, [debouncedNumeroDocumento, tipoDocumento, setValue, toast]);
 
   const { fields: emergencyContacts, append: appendEmergencyContact, remove: removeEmergencyContact } = useFieldArray({
     control,
@@ -143,53 +220,8 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
     name: "beneficiarios",
   });
 
-  const handleCheckUser = async () => {
-    setUserNotFound(false);
-    setIsUserFound(false);
-    setIsAlreadyClient(false);
-    if (!numeroDocumento || numeroDocumento.length < 5 || !tipoDocumento) {
-      return;
-    }
-    setIsCheckingUser(true);
-    try {
-      const user: any = await clientService.checkUserByDocument(tipoDocumento, numeroDocumento);
-      
-      if (user.isAlreadyClient) {
-        setIsAlreadyClient(true);
-        setIsUserFound(true);
-      } else {
-        setValue("usuario.id", user.id);
-        setValue("usuario.nombre", user.nombre);
-        setValue("usuario.apellido", user.apellido);
-        setValue("usuario.correo", user.correo);
-        setValue("usuario.telefono", user.telefono || "");
-        setValue("usuario.direccion", user.direccion || "");
-        setValue("usuario.genero", user.genero || undefined);
-        setValue("usuario.tipo_documento", user.tipo_documento);
-        setValue("usuario.fecha_nacimiento", format(new Date(user.fecha_nacimiento), 'yyyy-MM-dd'));
-        setIsUserFound(true);
-        setUserNotFound(false);
-      }
-    } catch (error) {
-      setIsUserFound(false);
-      setValue("usuario.id", undefined);
-      setValue("usuario.nombre", "");
-      setValue("usuario.apellido", "");
-      setValue("usuario.correo", "");
-      setValue("usuario.telefono", "");
-      setValue("usuario.direccion", "");
-      setValue("usuario.genero", undefined);
-      setValue("usuario.fecha_nacimiento", "");
+  const watchedGenero = watch("usuario.genero");
 
-      if (numeroDocumento) {
-        setValue("usuario.contrasena", numeroDocumento);
-      }
-      setUserNotFound(true);
-    } finally {
-      setIsCheckingUser(false);
-    }
-  };
-  
   const onSubmit: SubmitHandler<CreateClientFormValues> = async (formData) => {
     console.log("Datos del formulario a enviar:", JSON.stringify(formData, null, 2));
     setIsLoading(true);
@@ -246,7 +278,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit, (errors) => {
-          console.error("Errores de validación del formulario:", JSON.stringify(errors, null, 2));
+          console.error("Errores de validación del formulario:", errors);
           
           let errorMessage = 'Por favor, revisa los campos marcados en rojo.';
           
@@ -295,7 +327,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                       </div>
                       <div className="space-y-1 relative">
                         <Label htmlFor="numero_documento">Número de Documento</Label>
-                        <Input id="numero_documento" {...register("usuario.numero_documento")} onBlur={handleCheckUser} onFocus={handleDocumentFocus} />
+                        <Input id="numero_documento" {...register("usuario.numero_documento")} onFocus={handleDocumentFocus} />
                         {isCheckingUser && (
                           <RefreshCw className="absolute right-3 top-8 h-4 w-4 animate-spin text-gray-400" />
                         )}

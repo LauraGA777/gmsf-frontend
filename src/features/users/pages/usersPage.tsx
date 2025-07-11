@@ -42,7 +42,6 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [isNewUserOpen, setIsNewUserOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -54,6 +53,7 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const itemsPerPage = 10;
 
   const loadUsers = useCallback(async (page: number, query = "") => {
     setIsLoading(true);
@@ -66,8 +66,15 @@ export default function UsersPage() {
       if (response?.data && Array.isArray(response.data)) {
         setUsers(response.data);
         setFilteredUsers(response.data); // Inicialmente, los usuarios filtrados son todos los usuarios.
-        if (response.pagination) {
-          setTotalPages(response.pagination.totalPages || 1);
+        
+        // FIX: Verificar las propiedades correctas de paginación
+        if (response.total !== undefined && response.totalPages !== undefined) {
+          setTotalPages(response.totalPages || 1);
+        } else if ((response as any).pagination) {
+          // Fallback para estructura anterior
+          setTotalPages((response as any).pagination.totalPages || 1);
+        } else {
+          setTotalPages(1);
         }
       } else {
         setUsers([]);
@@ -98,8 +105,6 @@ export default function UsersPage() {
     setFilteredUsers(currentlyFiltered);
 
   }, [statusFilter, users]);
-
-  const itemsPerPage = 10;
 
   const [roles, setRoles] = useState<{ id: number; nombre: string }[]>([]);
 
@@ -417,14 +422,13 @@ export default function UsersPage() {
                   <TableHead>Documento</TableHead>
                   <TableHead>Rol</TableHead>
                   <TableHead>Estado</TableHead>
-                  
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <div className="flex flex-col items-center gap-2">
                         <Users className="h-8 w-8 text-gray-400" />
                         <p className="text-gray-500">No se encontraron usuarios</p>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -52,7 +52,7 @@ interface UserFormModalProps {
 }
 
 export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalProps) {
-  const { register, handleSubmit, control, watch, reset, setError, clearErrors, setValue, formState: { errors, isSubmitting } } = useForm<UserFormValues>({
+  const { register, handleSubmit, control, watch, reset, setError, clearErrors, formState: { errors, isSubmitting } } = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
     defaultValues: {
         nombre: '',

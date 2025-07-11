@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Input } from "@/shared/components/ui/input"
 import { Button } from "@/shared/components/ui/button"
 import { Search, X } from "lucide-react"
@@ -19,6 +19,19 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings, incl
   const [searchResults, setSearchResults] = useState<{ type: string; name: string }[]>([])
   const [showResults, setShowResults] = useState<boolean>(false)
   const [selectedFilter, setSelectedFilter] = useState<{ type: string; name: string } | null>(null)
+
+  const clientNames = useMemo(() => {
+    const names = new Set<string>()
+    trainings.forEach((training) => {
+      if (training.cliente?.usuario?.nombre) {
+        const fullName = `${training.cliente.usuario.nombre} ${
+          training.cliente.usuario.apellido || ""
+        }`.trim()
+        names.add(fullName)
+      }
+    })
+    return Array.from(names)
+  }, [trainings])
 
   // Función para buscar coincidencias
   const handleSearch = (term: string) => {

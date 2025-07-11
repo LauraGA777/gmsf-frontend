@@ -2,17 +2,15 @@ import { useState } from "react";
 import { useForm, useFieldArray, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog";
-import { User, Plus, Trash2, Users, Phone, Mail, FileText, Calendar, Search, ShieldCheck, Contact, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
+import { User, Plus, Trash2, Users, RefreshCw, CheckCircle, AlertTriangle, ShieldCheck, Info } from "lucide-react";
 import { format } from "date-fns";
 import { clientService } from "@/features/clients/services/client.service";
-import { Badge } from "@/shared/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { useToast } from "@/shared/components/ui/use-toast";
 
@@ -39,14 +37,15 @@ const userDataSchema = z.object({
     .email("Correo electrónico inválido")
     .min(5, "El correo es demasiado corto")
     .max(100, "El correo no puede tener más de 100 caracteres"),
-  contrasena: z.string().optional(), // La contraseña es opcional para clientes
+  contrasena: z.string().optional().or(z.literal("")), // La contraseña es opcional para clientes
   telefono: z.string()
     .refine(
       (val) => val === "" || /^\d{7,15}$/.test(val),
       "El teléfono debe tener entre 7 y 15 dígitos"
     )
     .optional()
-    .or(z.literal("")),
+    .or(z.literal(""))
+    .or(z.undefined()),
   direccion: z.string()
     .max(200, "La dirección no puede tener más de 200 caracteres")
     .optional(),
@@ -83,7 +82,7 @@ const createClientSchema = z.object({
   es_beneficiario_propio: z.boolean(),
 });
 
-type CreateClientFormValues = z.infer<typeof createClientSchema>;
+export type CreateClientFormValues = z.infer<typeof createClientSchema>;
 
 interface NewClientFormProps {
   isOpen: boolean;
@@ -93,13 +92,12 @@ interface NewClientFormProps {
 }
 
 export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: NewClientFormProps) {
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingUser, setIsCheckingUser] = useState(false);
   const [isUserFound, setIsUserFound] = useState(false);
   const [isAlreadyClient, setIsAlreadyClient] = useState(false);
   const [userNotFound, setUserNotFound] = useState(false);
-  const [userExists, setUserExists] = useState(false);
+
   const { toast } = useToast();
   
   const {
@@ -111,7 +109,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
     reset,
     formState: { errors },
   } = useForm<CreateClientFormValues>({
-    resolver: zodResolver(createClientSchema) as any,
+    resolver: zodResolver(createClientSchema),
     defaultValues: {
       usuario: {
         nombre: "",
@@ -134,7 +132,6 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
   const tipoDocumento = watch("usuario.tipo_documento");
   const numeroDocumento = watch("usuario.numero_documento");
   const watchedGenero = watch("usuario.genero");
-  const watchedEsBeneficiarioPropio = watch("es_beneficiario_propio");
 
   const { fields: emergencyContacts, append: appendEmergencyContact, remove: removeEmergencyContact } = useFieldArray({
     control,
@@ -155,7 +152,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
     }
     setIsCheckingUser(true);
     try {
-      const { data: user } = await clientService.checkUserByDocument(tipoDocumento, numeroDocumento);
+      const user: any = await clientService.checkUserByDocument(tipoDocumento, numeroDocumento);
       
       if (user.isAlreadyClient) {
         setIsAlreadyClient(true);
@@ -167,7 +164,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
         setValue("usuario.correo", user.correo);
         setValue("usuario.telefono", user.telefono || "");
         setValue("usuario.direccion", user.direccion || "");
-        setValue("usuario.genero", user.genero || null);
+        setValue("usuario.genero", user.genero || undefined);
         setValue("usuario.tipo_documento", user.tipo_documento);
         setValue("usuario.fecha_nacimiento", format(new Date(user.fecha_nacimiento), 'yyyy-MM-dd'));
         setIsUserFound(true);
@@ -176,6 +173,14 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
     } catch (error) {
       setIsUserFound(false);
       setValue("usuario.id", undefined);
+      setValue("usuario.nombre", "");
+      setValue("usuario.apellido", "");
+      setValue("usuario.correo", "");
+      setValue("usuario.telefono", "");
+      setValue("usuario.direccion", "");
+      setValue("usuario.genero", undefined);
+      setValue("usuario.fecha_nacimiento", "");
+
       if (numeroDocumento) {
         setValue("usuario.contrasena", numeroDocumento);
       }
@@ -193,7 +198,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
       toast({
         title: '¡Éxito!',
         description: 'Cliente creado correctamente',
-        type: 'success',
+        variant: 'default',
       });
       reset();
       if (onSuccess) onSuccess();
@@ -204,7 +209,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
       toast({
         title: 'Error',
         description: error.response?.data?.message || 'Error al crear el cliente.',
-        type: 'error',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -225,24 +230,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
     setIsAlreadyClient(false);
   };
 
-  const handleDocumentChange = async () => {
-    if (tipoDocumento && numeroDocumento && numeroDocumento.length >= 5) {
-      try {
-        const response = await fetch(`/api/clients/check-document/${tipoDocumento}/${numeroDocumento}`);
-        const data = await response.json() as { exists: boolean };
-        setUserExists(data.exists);
-        if (data.exists) {
-          toast({
-            title: 'Usuario Existente',
-            description: 'Este documento ya está registrado en el sistema.',
-            type: 'info',
-          });
-        }
-      } catch (error) {
-        console.error('Error al verificar documento:', error);
-      }
-    }
-  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -271,7 +259,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
           toast({
             title: 'Formulario inválido',
             description: errorMessage,
-            type: 'error',
+            variant: 'destructive',
           });
         })} className="space-y-4">
           <Tabs defaultValue="titular" className="w-full">
@@ -294,7 +282,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <Label htmlFor="tipo_documento">Tipo de Documento</Label>
-                        <Select onValueChange={(value) => setValue("usuario.tipo_documento", value as any)} defaultValue="CC">
+                        <Select onValueChange={(value) => setValue("usuario.tipo_documento", value as 'CC' | 'CE' | 'TI' | 'PP' | 'DIE')} defaultValue="CC">
                           <SelectTrigger><SelectValue/></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="CC">Cédula de Ciudadanía</SelectItem>
@@ -316,27 +304,31 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                   </div>
 
                   {isUserFound && !isAlreadyClient && (
-                    <Badge variant="outline" className="border-green-600 bg-green-50 text-green-700">
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Usuario encontrado. Datos auto-completados.
-                    </Badge>
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800">
+                      <div className="flex justify-center items-center">
+                        <CheckCircle className="h-5 w-5 mr-2" />
+                        Usuario encontrado. Datos auto-completados.
+                      </div>
+                    </div>
                   )}
                   
                   {isAlreadyClient && (
-                     <Badge variant="destructive" className="border-red-600 bg-red-50 text-red-700">
-                       <AlertTriangle className="h-4 w-4 mr-2" />
-                       Este usuario ya está registrado como cliente.
-                     </Badge>
+                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800">
+                       <div className="flex justify-center items-center">
+                         <AlertTriangle className="h-5 w-5 mr-2" />
+                         Este usuario ya está registrado como cliente.
+                       </div>
+                     </div>
                   )}
 
                   {userNotFound && (
-                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center my-2">
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center my-2">
                       <div className="flex justify-center items-center">
-                        <AlertTriangle className="h-5 w-5 text-yellow-500 mr-2"/>
-                        <p className="font-semibold text-yellow-800">Usuario no encontrado</p>
+                        <Info className="h-5 w-5 text-blue-500 mr-2"/>
+                        <p className="font-semibold text-blue-800">Usuario no encontrado</p>
                       </div>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        El número de documento no está registrado. Debe crear el usuario primero antes de registrarlo como cliente.
+                      <p className="text-sm text-blue-700 mt-1">
+                        Complete el formulario para registrar al nuevo usuario y cliente. La contraseña por defecto será su número de documento.
                       </p>
                     </div>
                   )}
@@ -421,7 +413,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                       <Label>Género</Label>
                       <Select 
                         value={watchedGenero || ''} 
-                        onValueChange={(value) => setValue("usuario.genero", value as any)}
+                        onValueChange={(value) => setValue("usuario.genero", value as 'M' | 'F' | 'O')}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccione género" />
@@ -619,7 +611,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                         <div className="space-y-1">
                           <Label>Tipo de Documento *</Label>
                           <Select 
-                            onValueChange={(v) => setValue(`beneficiarios.${index}.usuario.tipo_documento`, v as any)}
+                            onValueChange={(v) => setValue(`beneficiarios.${index}.usuario.tipo_documento`, v as 'CC' | 'CE' | 'TI' | 'PP' | 'DIE')}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Seleccione tipo" />

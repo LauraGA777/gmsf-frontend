@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -13,7 +13,6 @@ import {
   RefreshCw,
   TrendingUp,
   Activity,
-  CalendarDays,
   BarChart3,
   PieChart,
   ArrowUp,
@@ -27,8 +26,7 @@ import {
 // Servicios optimizados
 import optimizedDashboardService, { 
   DateRange, 
-  OptimizedDashboardResponse,
-  DashboardStats
+  OptimizedDashboardResponse
 } from '@/features/dashboard/services/dashboardOptimizedService';
 import { formatCOP } from '@/shared/lib/formatCop';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
@@ -425,10 +423,10 @@ export default function DashboardOptimizedPage({ className }: DashboardPageProps
                 </CardHeader>
                 <CardContent>
                   <PopularMembershipsChart 
-                    data={(dashboardData?.charts?.membershipDistribution || []).map(item => ({
-                      id: Math.random(),
+                    data={(dashboardData?.charts?.membershipDistribution || []).map((item, index) => ({
+                      id: index, // Usar el índice como ID numérico
                       nombre: item.name || 'Membresía',
-                      precio: 50000,
+                      precio: 50000, // TODO: Debería venir del backend
                       activeContracts: item.value || 0
                     }))}
                     loading={loading}

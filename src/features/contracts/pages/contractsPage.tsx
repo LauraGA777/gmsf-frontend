@@ -41,7 +41,6 @@ import { formatCOP } from "@/shared/lib/formatCop"
 
 export function ContractsPage() {
   const {
-    clients,
     contracts,
     memberships,
     contractsLoading,
@@ -150,7 +149,7 @@ export function ContractsPage() {
     setIsStatusModalOpen(true)
   }
 
-  const handleUpdateContract = async (contractId: number, updates: Partial<Contract>) => {
+  const handleUpdateContract = async (contractId: number, updates: Partial<Contract & { motivo?: string }>) => {
     try {
       await updateContract(contractId, updates)
       toast({ title: "¡Éxito!", description: "Contrato actualizado correctamente." })
@@ -194,29 +193,7 @@ export function ContractsPage() {
     }
   }
 
-  const getClientName = (personaId: number) => {
-    const client = clients.find(c => c.id_persona === personaId)
-    if (!client) return "Cliente no encontrado"
-    return `${client.usuario?.nombre || ''} ${client.usuario?.apellido || ''}`.trim()
-  }
-
-  const getClientDocument = (personaId: number) => {
-    const client = clients.find(c => c.id_persona === personaId)
-    if (!client || !client.usuario) return ""
-    return `${client.usuario.tipo_documento || ''} ${client.usuario.numero_documento || ''}`.trim()
-  }
-
-  const getMembershipName = (membershipId: number) => {
-    const contractWithMembership = contracts.find(c => c.id_membresia === membershipId && c.membresia)
-    return contractWithMembership?.membresia?.nombre || "Membresía no encontrada"
-  }
-
-  const getMembershipPrice = (membershipId: number): number => {
-    const contractWithPrice = contracts.find(c => c.id_membresia === membershipId && c.membresia_precio)
-    return contractWithPrice ? parseFloat(String(contractWithPrice.membresia_precio)) : 0
-  }
-
-  const getStatusBadge = (estado: string) => {
+  const getStatusBadge = (estado: Contract['estado']) => {
     const statusConfig: Record<string, { color: string; label: string }> = {
       'Activo': { color: 'bg-green-100 text-green-800', label: 'Activo' },
       'Por vencer': { color: 'bg-yellow-100 text-yellow-800', label: 'Por vencer' },
@@ -248,35 +225,6 @@ export function ContractsPage() {
       </div>
     )
   }
-
-  /* // Estado vacío
-  if (contracts.length === 0 && !contractsLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <Card className="w-full max-w-md">
-          <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-            <FileSignature className="h-16 w-16 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No hay contratos registrados</h3>
-            <p className="text-gray-500 mb-4">Comience agregando el primer contrato al sistema</p>
-            {canCreateContract && (
-              <Button onClick={() => setIsAddModalOpen(true)} className="bg-black hover:bg-gray-800">
-                <Plus className="h-4 w-4 mr-2" />
-                Agregar Contrato
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    )
-  } */
-
-  // DEBUG: Log de datos para identificar problemas
-  console.log('🔍 DEBUG - Contracts Page:')
-  console.log('Contracts:', contracts.length)
-  console.log('Memberships:', memberships.length)
-  console.log('Clients:', clients.length)
-  console.log('Sample contract:', contracts[0])
-  console.log('Sample membership:', memberships[0])
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -381,10 +329,14 @@ export function ContractsPage() {
                     <TableRow key={contract.id}>
                       <TableCell className="font-medium">{contract.codigo}</TableCell>
                       <TableCell>
-                        <div className="font-medium">{getClientName(contract.id_persona)}</div>
-                        <div className="text-xs text-gray-500">{getClientDocument(contract.id_persona)}</div>
+                        <div className="font-medium">
+                          {`${contract.persona?.usuario?.nombre || ''} ${contract.persona?.usuario?.apellido || ''}`.trim()}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {`${contract.persona?.usuario?.tipo_documento || ''} ${contract.persona?.usuario?.numero_documento || ''}`.trim()}
+                        </div>
                       </TableCell>
-                      <TableCell>{getMembershipName(contract.id_membresia)}</TableCell>
+                      <TableCell>{contract.membresia?.nombre || "N/A"}</TableCell>
                       <TableCell>
                         {contract.fecha_inicio 
                           ? format(new Date(contract.fecha_inicio), "dd/MM/yyyy", { locale: es })
@@ -396,7 +348,7 @@ export function ContractsPage() {
                           : "N/A"}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatCOP(getMembershipPrice(contract.id_membresia))}
+                        {formatCOP(contract.membresia_precio || 0)}
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(contract.estado)}

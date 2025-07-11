@@ -1,112 +1,122 @@
-import type React from "react"
-import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
-import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
-import { Label } from "@/shared/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
-import { Textarea } from "@/shared/components/ui/textarea"
-import { AlertTriangle, CheckCircle, Loader2, Eye, EyeOff } from "lucide-react"
-import Swal from "sweetalert2"
-import type { User, UserFormData } from "../types/user"
-import { userService } from "../services/userService"
-import { useDebounce } from "@/shared/hooks/useDebounce"
+import React, { useState, useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { Textarea } from "@/shared/components/ui/textarea";
+import { AlertTriangle, CheckCircle, Loader2, Eye, EyeOff } from "lucide-react";
+import Swal from "sweetalert2";
+import type { User } from "../types/user";
+import { userService } from "../services/userService";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 import { roleService } from '@/features/roles/services/roleService';
 
+const userFormSchema = z.object({
+  nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
+  apellido: z.string().min(3, "El apellido debe tener al menos 3 caracteres"),
+  correo: z.string().email("Formato de correo inválido"),
+  confirmarCorreo: z.string().email("Formato de correo inválido"),
+  tipo_documento: z.enum(['CC', 'CE', 'TI', 'PP', 'DIE']),
+  numero_documento: z.string().min(5, "El documento debe tener entre 5 y 20 caracteres").max(20),
+  fecha_nacimiento: z.string().refine(d => new Date(d).toString() !== 'Invalid Date', "Fecha inválida"),
+  id_rol: z.number({ required_error: "Debe seleccionar un rol"}).min(1, "Debe seleccionar un rol"),
+  contrasena: z.string().optional(),
+  confirmarContrasena: z.string().optional(),
+  telefono: z.string().optional(),
+  direccion: z.string().optional(),
+  genero: z.enum(['M', 'F', 'O']).optional(),
+}).refine(data => data.correo === data.confirmarCorreo, {
+    message: "Los correos no coinciden",
+    path: ["confirmarCorreo"],
+}).refine(data => {
+    if (data.contrasena) {
+        return data.contrasena === data.confirmarContrasena;
+    }
+    return true;
+}, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirmarContrasena"],
+});
+
+type UserFormValues = z.infer<typeof userFormSchema>;
+
 interface UserFormModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSave: (userData: UserFormData) => void
-  user?: User | null
-  existingUsers?: User[] // Hacer opcional ya que ahora verificamos en tiempo real
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (userData: UserFormValues) => void;
+  user?: User | null;
 }
 
 export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalProps) {
-  const [formData, setFormData] = useState<UserFormData>({
-    tipo_documento: undefined,
-    numero_documento: "",
-    nombre: "",
-    apellido: "",
-    correo: "",
-    confirmarCorreo: "",
-    contrasena: "",
-    confirmarContrasena: "",
-    id_rol: 0,
-    fecha_nacimiento: "",
-    telefono: "",
-    direccion: "",
-    genero: undefined
-  })
+  const { register, handleSubmit, control, watch, reset, setError, clearErrors, setValue, formState: { errors, isSubmitting } } = useForm<UserFormValues>({
+    resolver: zodResolver(userFormSchema),
+    defaultValues: {
+        nombre: '',
+        apellido: '',
+        correo: '',
+        confirmarCorreo: '',
+        numero_documento: '',
+        fecha_nacimiento: '',
+        telefono: '',
+        direccion: '',
+    }
+  });
 
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [roles, setRoles] = useState<{ id: number; nombre: string }[]>([])
-  const [isLoadingRoles, setIsLoadingRoles] = useState(false)
+  const [roles, setRoles] = useState<{ id: number; nombre: string }[]>([]);
+  const [isLoadingRoles, setIsLoadingRoles] = useState(false);
   
-  // Estados para verificación de documento y correo
-  const [documentValidation, setDocumentValidation] = useState<{
-    isChecking: boolean;
-    exists: boolean;
-    message: string;
-  }>({ isChecking: false, exists: false, message: "" })
-  
-  const [emailValidation, setEmailValidation] = useState<{
-    isChecking: boolean;
-    exists: boolean;
-    message: string;
-  }>({ isChecking: false, exists: false, message: "" })
+  const [documentValidation, setDocumentValidation] = useState({ isChecking: false, exists: false, message: "" });
+  const [emailValidation, setEmailValidation] = useState({ isChecking: false, exists: false, message: "" });
 
-  // Debounce para las verificaciones
-  const debouncedDocument = useDebounce(formData.numero_documento, 500)
-  const debouncedEmail = useDebounce(formData.correo, 500)
+  const watchedDocument = watch("numero_documento");
+  const watchedEmail = watch("correo");
+  const debouncedDocument = useDebounce(watchedDocument, 500);
+  const debouncedEmail = useDebounce(watchedEmail, 500);
 
-  // Estados para mostrar/ocultar contraseñas
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      setFormData({
-        tipo_documento: user.tipo_documento as 'CC' | 'CE' | 'TI' | 'PP' | 'DIE',
-        numero_documento: user.numero_documento,
-        nombre: user.nombre,
-        apellido: user.apellido,
-        correo: user.correo,
-        confirmarCorreo: user.correo,
-        contrasena: "",
-        confirmarContrasena: "",
-        id_rol: user.id_rol,
-        fecha_nacimiento: user.fecha_nacimiento,
-        telefono: user.telefono || "",
-        direccion: user.direccion || "",
-        genero: user.genero as 'M' | 'F' | 'O' || undefined
-      })
-    } else {
-      setFormData({
-        tipo_documento: undefined,
-        numero_documento: "",
-        nombre: "",
-        apellido: "",
-        correo: "",
-        confirmarCorreo: "",
-        contrasena: "",
-        confirmarContrasena: "",
-        id_rol: 0,
-        fecha_nacimiento: "",
-        telefono: "",
-        direccion: "",
-        genero: undefined
-      })
+    if (isOpen) {
+        if (user) {
+          reset({
+            ...user,
+            id_rol: user.id_rol || undefined,
+            confirmarCorreo: user.correo,
+            fecha_nacimiento: user.fecha_nacimiento ? new Date(user.fecha_nacimiento).toISOString().split('T')[0] : "",
+            genero: user.genero as 'M' | 'F' | 'O' | undefined,
+            tipo_documento: user.tipo_documento as 'CC' | 'CE' | 'TI' | 'PP' | 'DIE' | undefined,
+          });
+        } else {
+          reset({
+            nombre: "",
+            apellido: "",
+            correo: "",
+            confirmarCorreo: "",
+            numero_documento: "",
+            fecha_nacimiento: "",
+            id_rol: undefined,
+            contrasena: "",
+            confirmarContrasena: "",
+            telefono: "",
+            direccion: "",
+            genero: undefined,
+            tipo_documento: 'CC'
+          });
+        }
     }
-    setErrors({})
-  }, [user, isOpen])
-
+  }, [user, isOpen, reset]);
+  
   useEffect(() => {
     const loadRoles = async () => {
       setIsLoadingRoles(true);
       try {
-        const roles = await roleService.getRolesForSelect();
-        setRoles(roles);
+        const rolesData = await roleService.getRolesForSelect();
+        setRoles(rolesData);
       } catch (error) {
         console.error('Error cargando roles:', error);
       } finally {
@@ -119,283 +129,98 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
     }
   }, [isOpen]);
 
-  // Verificar número de documento
+  // Document validation
   useEffect(() => {
     const checkDocument = async () => {
       if (!debouncedDocument || debouncedDocument.length < 5) {
         setDocumentValidation({ isChecking: false, exists: false, message: "" });
+        clearErrors("numero_documento");
         return;
       }
-
       setDocumentValidation({ isChecking: true, exists: false, message: "" });
-
       try {
-        const exists = await userService.checkDocumentExists(
-          debouncedDocument, 
-          user?.id // Excluir el usuario actual al editar
-        );
-        
+        const exists = await userService.checkDocumentExists(debouncedDocument, user?.id);
         if (exists) {
-          setDocumentValidation({
-            isChecking: false,
-            exists: true,
-            message: "Este número de documento ya está registrado"
-          });
+          setError("numero_documento", { type: "manual", message: "Este documento ya está registrado." });
+          setDocumentValidation({ isChecking: false, exists: true, message: "Documento ya registrado" });
         } else {
-          setDocumentValidation({
-            isChecking: false,
-            exists: false,
-            message: "Número de documento disponible"
-          });
+          clearErrors("numero_documento");
+          setDocumentValidation({ isChecking: false, exists: false, message: "Documento disponible" });
         }
       } catch (error) {
-        console.error('Error verificando documento:', error);
-        setDocumentValidation({
-          isChecking: false,
-          exists: false,
-          message: "Error al verificar el documento"
-        });
+        setDocumentValidation({ isChecking: false, exists: false, message: "Error al verificar" });
       }
     };
-
     checkDocument();
-  }, [debouncedDocument, user?.id]);
+  }, [debouncedDocument, user?.id, setError, clearErrors]);
 
-  // Verificar correo electrónico
+  // Email validation
   useEffect(() => {
     const checkEmail = async () => {
-      if (!debouncedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(debouncedEmail)) {
-        setEmailValidation({ isChecking: false, exists: false, message: "" });
-        return;
-      }
-
-      setEmailValidation({ isChecking: true, exists: false, message: "" });
-
-      try {
-        const exists = await userService.checkEmailExists(
-          debouncedEmail.toLowerCase(),
-          user?.id // Excluir el usuario actual al editar
-        );
-        
-        if (exists) {
-          setEmailValidation({
-            isChecking: false,
-            exists: true,
-            message: "Este correo ya está registrado"
-          });
-        } else {
-          setEmailValidation({
-            isChecking: false,
-            exists: false,
-            message: "Correo disponible"
-          });
+        if (!debouncedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(debouncedEmail)) {
+            setEmailValidation({ isChecking: false, exists: false, message: "" });
+            return;
         }
-      } catch (error) {
-        console.error('Error verificando correo:', error);
-        setEmailValidation({
-          isChecking: false,
-          exists: false,
-          message: "Error al verificar el correo"
-        });
-      }
+        setEmailValidation({ isChecking: true, exists: false, message: "" });
+        try {
+            const exists = await userService.checkEmailExists(debouncedEmail.toLowerCase(), user?.id);
+            if (exists) {
+                setError("correo", { type: "manual", message: "Este correo ya está registrado." });
+                setEmailValidation({ isChecking: false, exists: true, message: "Correo ya registrado" });
+            } else {
+                clearErrors("correo");
+                setEmailValidation({ isChecking: false, exists: false, message: "Correo disponible" });
+            }
+        } catch (error) {
+            setEmailValidation({ isChecking: false, exists: false, message: "Error al verificar" });
+        }
     };
-
     checkEmail();
-  }, [debouncedEmail, user?.id]);
+  }, [debouncedEmail, user?.id, setError, clearErrors]);
 
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {}
-
-    // Campos requeridos
-    const requiredFields = {
-      nombre: "El nombre es requerido",
-      apellido: "El apellido es requerido",
-      correo: "El correo es requerido",
-      tipo_documento: "El tipo de documento es requerido",
-      numero_documento: "El número de documento es requerido",
-      fecha_nacimiento: "La fecha de nacimiento es requerida",
-      id_rol: "El rol es requerido"
+  const onSubmit = async (data: UserFormValues) => {
+    if (!user && (!data.contrasena || data.contrasena.length < 6)) {
+        setError("contrasena", { message: "La contraseña es requerida y debe tener al menos 6 caracteres" });
+        return;
     }
-
-    // Validar campos requeridos
-    Object.entries(requiredFields).forEach(([field, message]) => {
-      if (!formData[field as keyof UserFormData]) {
-        newErrors[field] = message
-      }
-    })
-
-    // Validación avanzada del correo
-    if (formData.correo) {
-      const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/
-      if (!emailRegex.test(formData.correo)) {
-        newErrors.correo = "Formato de correo inválido"
-      }
-      // Verificar que los correos coincidan
-      if (formData.correo !== formData.confirmarCorreo) {
-        newErrors.confirmarCorreo = "Los correos no coinciden"
-      }
-      // Verificar si existe en tiempo real
-      if (emailValidation.exists) {
-        newErrors.correo = emailValidation.message
-      }
-    }
-
-    // Verificar documento en tiempo real
-    if (documentValidation.exists) {
-      newErrors.numero_documento = documentValidation.message
-    }
-
-    // Validación de contraseña para nuevos usuarios
-    if (!user) {
-      if (!formData.contrasena) {
-        newErrors.contrasena = "La contraseña es requerida"
-      } else if (formData.contrasena.length < 8) {
-        newErrors.contrasena = "La contraseña debe tener al menos 8 caracteres"
-      } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.contrasena)) {
-        newErrors.contrasena = "La contraseña debe contener al menos una mayúscula, una minúscula y un número"
-      }
-
-      if (formData.contrasena !== formData.confirmarContrasena) {
-        newErrors.confirmarContrasena = "Las contraseñas no coinciden"
-      }
-    }
-
-    // Validación del teléfono
-    if (formData.telefono && !/^\d{7,15}$/.test(formData.telefono)) {
-      newErrors.telefono = "El teléfono debe tener entre 7 y 15 dígitos"
-    }
-
-    // Validación del género
-    if (formData.genero && !['M', 'F', 'O'].includes(formData.genero)) {
-      newErrors.genero = "El género debe ser M, F u O"
-    }
-
-    // Validación del tipo de documento
-    if (formData.tipo_documento && !['CC', 'CE', 'TI', 'PP', 'DIE'].includes(formData.tipo_documento)) {
-      newErrors.tipo_documento = "Tipo de documento inválido"
-    }
-
-    // Validación del número de documento
-    if (formData.numero_documento && (formData.numero_documento.length < 5 || formData.numero_documento.length > 20)) {
-      newErrors.numero_documento = "El número de documento debe tener entre 5 y 20 caracteres"
-    }
-
-    // Validación de la fecha de nacimiento
-    if (formData.fecha_nacimiento) {
-      const birthDate = new Date(formData.fecha_nacimiento)
-      if (isNaN(birthDate.getTime())) {
-        newErrors.fecha_nacimiento = "Fecha de nacimiento inválida"
-      }
-    }
-
-    // Validación de nombre y apellido
-    if (formData.nombre && formData.nombre.length < 3) {
-      newErrors.nombre = "El nombre debe tener al menos 3 caracteres"
-    }
-    if (formData.apellido && formData.apellido.length < 3) {
-      newErrors.apellido = "El apellido debe tener al menos 3 caracteres"
-    }
-
-    // Validación del rol
-    if (!formData.id_rol) {
-      newErrors.id_rol = "Rol inválido"
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!validateForm()) return
-
-    setIsSubmitting(true)
-
+    
     try {
-      // Preparar datos para enviar (excluimos confirmarCorreo)
-      const userDataToSend = {
-        ...(user && { codigo: user.codigo }), // Incluir ID y código cuando se está editando
-        nombre: formData.nombre?.trim(),
-        apellido: formData.apellido?.trim(),
-        correo: formData.correo?.trim().toLowerCase(),
-        tipo_documento: formData.tipo_documento,
-        numero_documento: formData.numero_documento?.trim(),
-        fecha_nacimiento: formData.fecha_nacimiento,
-        genero: formData.genero,
-        id_rol: Number(formData.id_rol),
-        ...(formData.telefono && { telefono: formData.telefono.trim() }),
-        ...(formData.direccion && { direccion: formData.direccion.trim() }),
-        ...((!user && formData.contrasena) && { contrasena: formData.contrasena })
-      };
-
-      // Validación final antes de enviar
-      if (!userDataToSend.nombre || !userDataToSend.apellido || !userDataToSend.correo) {
-        throw new Error("Faltan campos requeridos");
-      }
-
-      onSave(userDataToSend);
-
-      await Swal.fire({
-        title: "¡Éxito!",
-        text: user ? "Usuario actualizado correctamente" : "Usuario registrado correctamente",
-        icon: "success",
-        timer: 1500,
-        showConfirmButton: false,
-      });
-
+      await onSave(data);
+      Swal.fire("¡Éxito!", user ? "Usuario actualizado" : "Usuario registrado", "success");
       onClose();
     } catch (error) {
-      await Swal.fire({
-        title: "Error",
-        text: "Ocurrió un error al procesar el usuario",
-        icon: "error",
-        confirmButtonColor: "#000000",
-      });
-    } finally {
-      setIsSubmitting(false);
+      Swal.fire("Error", "Ocurrió un error", "error");
     }
-  }
-
-  const handleInputChange = (field: keyof UserFormData, value: string | number) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }))
-    }
-  }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            {user ? "Editar Usuario" : "Registrar Usuario"}
-          </DialogTitle>
+          <DialogTitle>{user ? "Editar Usuario" : "Registrar Usuario"}</DialogTitle>
         </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Document Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="tipo_documento">Tipo de Documento</Label>
-              <Select
-                value={formData.tipo_documento}
-                onValueChange={(value) => handleInputChange("tipo_documento", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CC">Cédula de Ciudadanía</SelectItem>
-                  <SelectItem value="CE">Cédula de Extranjería</SelectItem>
-                  <SelectItem value="TI">Tarjeta de Identidad</SelectItem>
-                  <SelectItem value="PP">Pasaporte</SelectItem>
-                  <SelectItem value="DIE">Documento de Identidad Extranjero</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.tipo_documento && <p className="text-red-500 text-xs mt-1">{errors.tipo_documento}</p>}
+              <Controller
+                  control={control}
+                  name="tipo_documento"
+                  render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger><SelectValue placeholder="Seleccionar tipo" /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="CC">Cédula de Ciudadanía</SelectItem>
+                              <SelectItem value="CE">Cédula de Extranjería</SelectItem>
+                              <SelectItem value="TI">Tarjeta de Identidad</SelectItem>
+                              <SelectItem value="PP">Pasaporte</SelectItem>
+                              <SelectItem value="DIE">Documento de Identidad Extranjero</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  )}
+              />
+              {errors.tipo_documento && <p className="text-red-500 text-xs mt-1">{errors.tipo_documento.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -403,8 +228,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
               <div className="relative">
                 <Input
                   id="numero_documento"
-                  value={formData.numero_documento}
-                  onChange={(e) => handleInputChange("numero_documento", e.target.value)}
+                  {...register("numero_documento")}
                   placeholder="Ingrese el número de documento"
                   className={documentValidation.exists ? "border-red-500" : documentValidation.message && !documentValidation.exists ? "border-green-500" : ""}
                 />
@@ -431,7 +255,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
                   {documentValidation.message}
                 </p>
               )}
-              {errors.numero_documento && <p className="text-red-500 text-sm">{errors.numero_documento}</p>}
+              {errors.numero_documento && <p className="text-red-500 text-sm">{errors.numero_documento.message}</p>}
             </div>
           </div>
 
@@ -441,10 +265,9 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
               <Input
                 id="fecha_nacimiento"
                 type="date"
-                value={formData.fecha_nacimiento}
-                onChange={(e) => handleInputChange("fecha_nacimiento", e.target.value)}
+                {...register("fecha_nacimiento")}
               />
-              {errors.fecha_nacimiento && <p className="text-red-500 text-sm">{errors.fecha_nacimiento}</p>}
+              {errors.fecha_nacimiento && <p className="text-red-500 text-sm">{errors.fecha_nacimiento.message}</p>}
             </div>
           )}
 
@@ -454,22 +277,20 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
               <Label htmlFor="nombre">Nombre</Label>
               <Input
                 id="nombre"
-                value={formData.nombre}
-                onChange={(e) => handleInputChange("nombre", e.target.value)}
+                {...register("nombre")}
                 placeholder="Ingrese nombre"
               />
-              {errors.nombre && <p className="text-red-500 text-xs mt-1">{errors.nombre}</p>}
+              {errors.nombre && <p className="text-red-500 text-xs mt-1">{errors.nombre.message}</p>}
             </div>
 
             <div>
               <Label htmlFor="apellido">Apellido</Label>
               <Input
                 id="apellido"
-                value={formData.apellido}
-                onChange={(e) => handleInputChange("apellido", e.target.value)}
+                {...register("apellido")}
                 placeholder="Ingrese apellido"
               />
-              {errors.apellido && <p className="text-red-500 text-xs mt-1">{errors.apellido}</p>}
+              {errors.apellido && <p className="text-red-500 text-xs mt-1">{errors.apellido.message}</p>}
             </div>
           </div>
 
@@ -481,8 +302,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
                 <Input
                   id="correo"
                   type="email"
-                  value={formData.correo}
-                  onChange={(e) => handleInputChange("correo", e.target.value)}
+                  {...register("correo")}
                   placeholder="ejemplo@correo.com"
                   className={emailValidation.exists ? "border-red-500" : emailValidation.message && !emailValidation.exists ? "border-green-500" : ""}
                 />
@@ -509,7 +329,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
                   {emailValidation.message}
                 </p>
               )}
-              {errors.correo && <p className="text-red-500 text-xs mt-1">{errors.correo}</p>}
+              {errors.correo && <p className="text-red-500 text-xs mt-1">{errors.correo.message}</p>}
             </div>
 
             <div>
@@ -517,13 +337,10 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
               <Input
                 id="confirmarCorreo"
                 type="email"
-                value={formData.confirmarCorreo}
-                onChange={(e) => handleInputChange("confirmarCorreo", e.target.value)}
+                {...register("confirmarCorreo")}
                 placeholder="ejemplo@correo.com"
               />
-              {errors.confirmarCorreo && (
-                <p className="text-red-500 text-xs mt-1">{errors.confirmarCorreo}</p>
-              )}
+              {errors.confirmarCorreo && <p className="text-red-500 text-xs mt-1">{errors.confirmarCorreo.message}</p>}
             </div>
           </div>
 
@@ -536,8 +353,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
                   <Input
                     id="contrasena"
                     type={showPassword ? "text" : "password"}
-                    value={formData.contrasena}
-                    onChange={(e) => handleInputChange("contrasena", e.target.value)}
+                    {...register("contrasena")}
                     placeholder="********"
                     className="pr-10"
                   />
@@ -553,7 +369,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
                     )}
                   </button>
                 </div>
-                {errors.contrasena && <p className="text-red-500 text-xs mt-1">{errors.contrasena}</p>}
+                {errors.contrasena && <p className="text-red-500 text-xs mt-1">{errors.contrasena.message}</p>}
               </div>
               <div>
                 <Label htmlFor="confirmarContrasena">Confirmar Contraseña</Label>
@@ -561,8 +377,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
                   <Input
                     id="confirmarContrasena"
                     type={showConfirmPassword ? "text" : "password"}
-                    value={formData.confirmarContrasena}
-                    onChange={(e) => handleInputChange("confirmarContrasena", e.target.value)}
+                    {...register("confirmarContrasena")}
                     placeholder="********"
                     className="pr-10"
                   />
@@ -578,9 +393,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
                     )}
                   </button>
                 </div>
-                {errors.confirmarContrasena && (
-                  <p className="text-red-500 text-xs mt-1">{errors.confirmarContrasena}</p>
-                )}
+                {errors.confirmarContrasena && <p className="text-red-500 text-xs mt-1">{errors.confirmarContrasena.message}</p>}
               </div>
             </div>
           )}
@@ -590,19 +403,17 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
             <Label htmlFor="telefono">Teléfono</Label>
             <Input
               id="telefono"
-              value={formData.telefono}
-              onChange={(e) => handleInputChange("telefono", e.target.value)}
+              {...register("telefono")}
               placeholder="Ingrese número de teléfono"
             />
-            {errors.telefono && <p className="text-red-500 text-xs mt-1">{errors.telefono}</p>}
+            {errors.telefono && <p className="text-red-500 text-xs mt-1">{errors.telefono.message}</p>}
           </div>
 
           <div>
             <Label htmlFor="direccion">Dirección</Label>
             <Textarea
               id="direccion"
-              value={formData.direccion}
-              onChange={(e) => handleInputChange("direccion", e.target.value)}
+              {...register("direccion")}
               placeholder="Ingrese dirección completa"
             />
           </div>
@@ -611,40 +422,50 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="id_rol">Rol</Label>
-              <Select
-                value={formData.id_rol ? formData.id_rol.toString() : ""}
-                onValueChange={(value) => handleInputChange("id_rol", parseInt(value))}
-                disabled={isLoadingRoles}
-              >
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={isLoadingRoles ? "Cargando roles..." : "Seleccionar rol"}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map((role) => (
-                    <SelectItem key={role.id} value={role.id.toString()}>
-                      {role.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.id_rol && <p className="text-red-500 text-xs mt-1">{errors.id_rol}</p>}
+              <Controller
+                  control={control}
+                  name="id_rol"
+                  render={({ field }) => (
+                      <Select
+                          value={field.value ? field.value.toString() : ""}
+                          onValueChange={(value) => field.onChange(parseInt(value))}
+                          disabled={isLoadingRoles}
+                      >
+                          <SelectTrigger>
+                              <SelectValue placeholder={isLoadingRoles ? "Cargando roles..." : "Seleccionar rol"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {roles.map((role) => (
+                                  <SelectItem key={role.id} value={role.id.toString()}>
+                                      {role.nombre}
+                                  </SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
+                  )}
+              />
+              {errors.id_rol && <p className="text-red-500 text-xs mt-1">{errors.id_rol.message}</p>}
             </div>
 
             <div>
               <Label htmlFor="genero">Género</Label>
-              <Select value={formData.genero} onValueChange={(value) => handleInputChange("genero", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar género" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="M">Masculino</SelectItem>
-                  <SelectItem value="F">Femenino</SelectItem>
-                  <SelectItem value="O">Otro</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.genero && <p className="text-red-500 text-xs mt-1">{errors.genero}</p>}
+              <Controller
+                  name="genero"
+                  control={control}
+                  render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar género" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="M">Masculino</SelectItem>
+                              <SelectItem value="F">Femenino</SelectItem>
+                              <SelectItem value="O">Otro</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  )}
+              />
+              {errors.genero && <p className="text-red-500 text-xs mt-1">{errors.genero.message}</p>}
             </div>
           </div>
 
@@ -670,5 +491,5 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

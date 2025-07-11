@@ -1,5 +1,4 @@
-import type React from "react"
-import { useState, useMemo, useEffect } from "react"
+import { useMemo, useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Label } from "@/shared/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
@@ -7,17 +6,14 @@ import { Calendar } from "@/shared/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
 import { format, addDays } from "date-fns"
 import { es } from "date-fns/locale"
-import { Calendar as CalendarIcon, FileSignature, DollarSign, List, User, Info, Terminal, CalendarDays } from "lucide-react"
+import { Calendar as CalendarIcon, FileSignature, DollarSign, List, User, Info, CalendarDays } from "lucide-react"
 import { cn, formatCOP } from "@/shared/lib/utils"
 import type { Contract, Membership } from "@/shared/types"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useAuth } from "@/shared/contexts/authContext"
-import { Input } from "@/shared/components/ui/input"
-import { Textarea } from "@/shared/components/ui/textarea"
 import { Card, CardHeader, CardTitle, CardContent } from "@/shared/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/shared/components/ui/alert"
 
 const updateContractFormSchema = z.object({
   id_membresia: z.number({ required_error: "Debe seleccionar una membresía" }),
@@ -30,7 +26,7 @@ type UpdateContractFormValues = z.infer<typeof updateContractFormSchema>
 interface EditContractModalProps {
   contract: Contract
   memberships: Membership[]
-  onUpdateContract: (data: Partial<UpdateContractFormValues> & { fecha_inicio: string; usuario_actualizacion?: number }) => void
+  onUpdateContract: (data: Partial<Contract>) => void
   onClose: () => void
 }
 
@@ -56,22 +52,15 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
   const watchStartDate = watch("fecha_inicio")
   const watchStatus = watch("estado")
 
-  const activeMemberships = useMemo(() => memberships.filter(m => {
-    if (typeof m.estado === 'boolean') return m.estado;
-    if (typeof m.estado === 'string') {
-        const state = m.estado.toLowerCase();
-        return state === 'true' || state === 'activo';
-    }
-    return false;
-  }), [memberships]);
+  const activeMemberships = useMemo(() => memberships.filter(m => m.estado), [memberships]);
 
 
   const summaryData = useMemo(() => {
-    const membership = memberships.find(m => String(m.id) === String(watchMembershipId));
+    const membership = memberships.find(m => m.id === watchMembershipId);
     const startDate = watchStartDate;
 
     if (!membership || !startDate) {
-        const originalMembership = memberships.find(m => String(m.id) === String(contract.id_membresia));
+        const originalMembership = memberships.find(m => m.id === contract.id_membresia);
         return {
             endDate: new Date(contract.fecha_fin),
             price: contract.membresia_precio,
@@ -101,12 +90,12 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
   }, [contract, reset])
 
   const onSubmit = (data: UpdateContractFormValues) => {
-    const updateData: Partial<UpdateContractFormValues> & { fecha_inicio: string; usuario_actualizacion?: number } = {
+    const updateData = {
       ...data, 
-      fecha_inicio: format(data.fecha_inicio, "yyyy-MM-dd"),
+      fecha_inicio: format(new Date(data.fecha_inicio), "yyyy-MM-dd"),
       usuario_actualizacion: user?.id ? Number(user.id) : undefined,
     }
-    onUpdateContract(updateData)
+    onUpdateContract(updateData as unknown as Partial<Contract>)
     onClose()
   }
 

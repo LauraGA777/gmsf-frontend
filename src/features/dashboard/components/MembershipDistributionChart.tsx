@@ -1,7 +1,7 @@
-import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, TooltipProps } from 'recharts';
+import { Users, AlertCircle, Crown, Star, CreditCard } from 'lucide-react';
+import { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 import { Badge } from '@/shared/components/ui/badge';
-import { CreditCard, Users, Crown, Star, AlertCircle, TrendingUp } from 'lucide-react';
 
 interface MembershipData {
   name: string;
@@ -85,7 +85,7 @@ export function MembershipDistributionChart({
     return <Users className="h-3 w-3 text-gray-500" />;
   };
 
-  const customTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: TooltipProps<ValueType, NameType>) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       const safePercentage = (data.percentage || 0).toFixed(1);
@@ -101,29 +101,6 @@ export function MembershipDistributionChart({
     }
     return null;
   };
-
-  const CustomLegend = ({ payload }: any) => (
-    <div className="mt-4 space-y-2">
-      {payload.map((entry: any, index: number) => (
-        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-          <div className="flex items-center gap-2">
-            <div 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: entry.color }}
-            />
-            {getIcon(entry.value)}
-            <span className="font-medium text-gray-900 text-sm truncate max-w-[120px]" title={entry.value}>
-              {entry.value}
-            </span>
-          </div>
-          <div className="text-right">
-            <div className="font-bold text-gray-900 text-sm">{entry.payload.value || 0}</div>
-            <div className="text-xs text-gray-500">{(entry.payload.percentage || 0).toFixed(1)}%</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
 
   return (
     <div className="space-y-4">
@@ -184,7 +161,7 @@ export function MembershipDistributionChart({
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip content={customTooltip} />
+            <Tooltip content={<CustomTooltip />} />
             
             {/* Texto central del donut */}
             <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="fill-gray-900">

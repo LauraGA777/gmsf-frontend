@@ -5,15 +5,26 @@ import { TrainingForm } from "@/features/schedule/components/TrainingForm"
 import { TrainingDetailsForm } from "@/features/schedule/components/TrainingDetailsForm"
 import { useAuth } from "@/shared/contexts/authContext"
 import Swal from "sweetalert2"
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
+import { Card, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { ScheduleComponent } from "@/features/schedule/components/ScheduleComponent"
 import { scheduleService } from "@/features/schedule/services/schedule.service"
-import { Training } from "@/shared/types/training"
+import { Training, Trainer } from "@/shared/types"
 import { useToast } from "@/shared/components/ui/use-toast"
 import { ScheduleSkeleton } from "@/shared/components/ui/schedule-skeleton"
 import { EmptyState } from "@/shared/components/ui/empty-state"
 import { Calendar, Plus } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+
+interface Option {
+    id: number;
+    name: string;
+}
+
+interface ActiveClient {
+    id: number;
+    nombre: string;
+    apellido: string;
+}
 
 export function SchedulePage() {
     const { user } = useAuth()
@@ -25,8 +36,8 @@ export function SchedulePage() {
     const [fetchedTrainings, setFetchedTrainings] = useState<Training[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const [trainers, setTrainers] = useState<Array<{ id: string; name: string }>>([])
-    const [clientsWithActiveContracts, setClientsWithActiveContracts] = useState<{ id: string; name: string }[]>([])
+    const [trainers, setTrainers] = useState<Option[]>([])
+    const [clientsWithActiveContracts, setClientsWithActiveContracts] = useState<Option[]>([])
 
     const fetchData = useCallback(async () => {
         try {
@@ -45,9 +56,9 @@ export function SchedulePage() {
 
             if (clientsResponse.data) {
                 const mappedClients = clientsResponse.data
-                    .filter((c: any) => c && c.id)
-                    .map((c: any) => ({
-                        id: c.id.toString(),
+                    .filter((c: ActiveClient) => c && c.id)
+                    .map((c: ActiveClient) => ({
+                        id: c.id,
                         name: `${c.nombre} ${c.apellido}`
                     }));
                 setClientsWithActiveContracts(mappedClients)
@@ -57,9 +68,9 @@ export function SchedulePage() {
                 console.log('🔍 DEBUG: Datos de entrenadores recibidos:', trainersResponse.data);
                 
                 const mappedTrainers = trainersResponse.data
-                    .filter((t: any) => t && t.id && t.usuario?.nombre)
-                    .map((t: any) => ({
-                        id: t.id.toString(), // ID del entrenador (tabla Trainer)
+                    .filter((t: Trainer) => t && t.id && t.usuario?.nombre)
+                    .map((t: Trainer) => ({
+                        id: t.id,
                         name: `${t.usuario?.nombre || ''} ${t.usuario?.apellido || ''}`.trim(),
                     }));
                 
@@ -71,14 +82,20 @@ export function SchedulePage() {
 
             if (trainingsResponse.data) {
                 // Filter trainings based on user role on the client side
-                let filtered = trainingsResponse.data;
+                let filtered: Training[] = trainingsResponse.data;
                 if (user?.role === "CLIENTE" && user.personId) {
-                    filtered = filtered.filter((training) => training.id_cliente?.toString() === user.personId)
+                    const personId = parseInt(user.personId, 10);
+                    if (!isNaN(personId)) {
+                        filtered = filtered.filter((training) => training.id_cliente === personId)
+                    }
                 }
                 else if (user?.role === "ENTRENADOR" && user.trainerId) {
-                    filtered = filtered.filter((training) => training.id_entrenador?.toString() === user.trainerId)
+                    const trainerId = parseInt(user.trainerId, 10);
+                    if (!isNaN(trainerId)) {
+                        filtered = filtered.filter((training) => training.id_entrenador === trainerId)
+                    }
                 }
-                setFetchedTrainings(filtered);
+                setFetchedTrainings(filtered.map(t => ({...t, fecha_inicio: new Date(t.fecha_inicio), fecha_fin: new Date(t.fecha_fin)})));
             }
 
             setError(null)
@@ -103,10 +120,10 @@ export function SchedulePage() {
         try {
             if (isUpdating) {
                 await scheduleService.updateTraining(data.id!, data)
-                toast({ title: "Éxito", description: "Entrenamiento actualizado.", type: "success" })
+                toast({ title: "Éxito", description: "Entrenamiento actualizado." })
             } else {
                 await scheduleService.createTraining(data)
-                toast({ title: "Éxito", description: "Entrenamiento creado.", type: "success" })
+                toast({ title: "Éxito", description: "Entrenamiento creado." })
             }
             fetchData()
             handleCloseForm()
@@ -117,7 +134,7 @@ export function SchedulePage() {
             toast({
                 title: "Error",
                 description: `${description} el entrenamiento. Inténtelo de nuevo.`,
-                type: "error",
+                variant: "destructive",
             })
             throw error
         }
@@ -126,14 +143,14 @@ export function SchedulePage() {
     const handleUpdateTrainingDate = async (trainingId: number, newStartDate: Date, newEndDate: Date) => {
         try {
             await scheduleService.updateTraining(trainingId, { 
-                fecha_inicio: newStartDate.toISOString(),
-                fecha_fin: newEndDate.toISOString()
+                fecha_inicio: newStartDate,
+                fecha_fin: newEndDate
             });
-            toast({ title: "Éxito", description: "El entrenamiento ha sido reagendado.", type: "success" });
+            toast({ title: "Éxito", description: "El entrenamiento ha sido reagendado." });
             fetchData();
         } catch (error) {
             console.error("Error updating training date:", error);
-            toast({ title: "Error", description: "No se pudo reagendar el entrenamiento.", type: "error" });
+            toast({ title: "Error", description: "No se pudo reagendar el entrenamiento.", variant: "destructive" });
             // Optionally refetch to revert the change in the UI
             fetchData();
         }
@@ -159,12 +176,12 @@ export function SchedulePage() {
         if (result.isConfirmed) {
             try {
                 await scheduleService.deleteTraining(id)
-                toast({ title: "Éxito", description: "El entrenamiento ha sido cancelado.", type: "success" })
+                toast({ title: "Éxito", description: "El entrenamiento ha sido cancelado." })
                 fetchData()
                 handleCloseForm()
             } catch (error) {
                 console.error("Error al cancelar el entrenamiento:", error)
-                toast({ title: "Error", description: "No se pudo cancelar el entrenamiento.", type: "error" })
+                toast({ title: "Error", description: "No se pudo cancelar el entrenamiento.", variant: "destructive" })
             }
         }
     }
@@ -203,7 +220,7 @@ export function SchedulePage() {
                     {isLoading ? (
                         <ScheduleSkeleton />
                     ) : error ? (
-                        <EmptyState title="Error" message={error} />
+                        <EmptyState title="Error" description={error} />
                     ) : (
                         <ScheduleComponent
                             trainings={fetchedTrainings}
@@ -236,8 +253,8 @@ export function SchedulePage() {
                         <TrainingForm
                             onSubmit={handleSubmitTraining}
                             onCancel={handleCloseForm}
-                            trainers={trainers}
-                            clients={clientsWithActiveContracts}
+                            trainers={trainers.map(t => ({...t, id: t.id.toString()}))}
+                            clients={clientsWithActiveContracts.map(c => ({...c, id: c.id.toString()}))}
                             initialStartDate={initialDates.start}
                             initialEndDate={initialDates.end}
                         />

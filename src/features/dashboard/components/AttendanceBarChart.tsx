@@ -1,6 +1,6 @@
-import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, TooltipProps } from 'recharts';
 import { Activity, TrendingUp, Calendar } from 'lucide-react';
+import { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 
 interface AttendanceData {
   date: string;
@@ -49,7 +49,7 @@ export function AttendanceBarChart({
   const maxAttendance = Math.max(...data.map(item => item.asistencias || 0));
   const minAttendance = Math.min(...data.map(item => item.asistencias || 0));
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: TooltipProps<ValueType, NameType>) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (

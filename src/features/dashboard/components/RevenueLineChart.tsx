@@ -1,7 +1,7 @@
-import React from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
-import { DollarSign, TrendingUp, Target, Calendar } from 'lucide-react';
+import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, TooltipProps } from 'recharts';
+import { TrendingUp, DollarSign, Calendar, Crosshair } from 'lucide-react';
 import { formatCOP } from '@/shared/lib/formatCop';
+import { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 
 interface RevenueData {
   date: string;
@@ -57,11 +57,11 @@ export function RevenueLineChart({
   const firstHalf = data.slice(0, Math.floor(data.length / 2));
   const secondHalf = data.slice(Math.floor(data.length / 2));
   const firstHalfAvg = firstHalf.reduce((sum, item) => sum + (item.ingresos || 0), 0) / firstHalf.length;
-  const secondHalfAvg = secondHalf.reduce((sum, item) => sum + (item.ingresos || 0), 0) / secondHalf.length;
+  const secondHalfAvg = secondHalf.length > 0 ? secondHalf.reduce((sum, item) => sum + (item.ingresos || 0), 0) / secondHalf.length : 0;
   const trendDirection = secondHalfAvg > firstHalfAvg ? 'up' : secondHalfAvg < firstHalfAvg ? 'down' : 'stable';
   const trendPercentage = firstHalfAvg > 0 ? ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100 : 0;
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: TooltipProps<ValueType, NameType>) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
@@ -74,7 +74,7 @@ export function RevenueLineChart({
             </p>
             {data.meta && (
               <p className="text-blue-600 flex items-center gap-2">
-                <Target className="h-4 w-4" />
+                <Crosshair className="h-4 w-4" />
                 <span>Meta: {formatCOP(data.meta)}</span>
               </p>
             )}

@@ -10,14 +10,12 @@ import {
   Mail,
   Phone,
   Info,
-  BadgeCheck,
 } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/shared/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
 import { formatCOP } from "@/shared/lib/utils"
-import { Label } from "@/shared/components/ui/label"
 import { Separator } from "@/shared/components/ui/separator"
 
 interface ContractDetailsProps {
@@ -34,7 +32,7 @@ const getStatusBadge = (estado: Contract["estado"]) => {
     Cancelado: { color: "bg-gray-100 text-gray-800", label: "Cancelado" },
     "Por vencer": { color: "bg-yellow-100 text-yellow-800", label: "Por vencer" },
   }
-  const config = statusConfig[estado] || statusConfig["Activo"]
+  const config = statusConfig[estado]
   return <Badge className={`${config.color}`}>{config.label}</Badge>
 }
 
@@ -50,8 +48,6 @@ const DetailItem = ({ icon: Icon, label, value }: { icon: React.ElementType; lab
 
 export function ContractDetails({ contract, isOpen, onClose }: ContractDetailsProps) {
   const { persona, membresia } = contract
-
-  console.log('--- [UI] Data received in ContractDetails ---', contract);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -147,7 +143,7 @@ export function ContractDetails({ contract, isOpen, onClose }: ContractDetailsPr
               <DetailItem 
                 icon={User}
                 label="Nombre Completo"
-                value={`${persona?.usuario?.nombre} ${persona?.usuario?.apellido}`}
+                value={`${persona?.usuario?.nombre ?? ''} ${persona?.usuario?.apellido ?? ''}`.trim() || 'No especificado'}
               />
               <DetailItem
                 icon={Mail}

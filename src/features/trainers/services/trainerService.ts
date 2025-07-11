@@ -1,5 +1,12 @@
 import { api } from "@/shared/services/api"
-import type { Trainer, TrainerFormData, TrainerDisplayData } from "@/shared/types/trainer"
+import type { Trainer, TrainerFormData, TrainerDisplayData, User } from "@/shared/types/trainer"
+import axios from "axios"
+
+interface ApiResponse<T> {
+  status: string
+  data: T
+  message?: string
+}
 
 // Servicio de API real para entrenadores
 class TrainerService {
@@ -17,44 +24,38 @@ class TrainerService {
       lastName: trainer.usuario?.apellido || "",
       email: trainer.usuario?.correo || "",
       phone: trainer.usuario?.telefono || "",
-      // Estos campos no vienen en la respuesta del backend, usar valores por defecto
       address: trainer.usuario?.direccion || "No especificada",
       gender: trainer.usuario?.genero || "M",
       documentType: trainer.usuario?.tipo_documento || "CC",
-      documentNumber: trainer.usuario?.numero_documento || "No disponible", // Campo faltante
+      documentNumber: trainer.usuario?.numero_documento || "No disponible",
       birthDate: trainer.usuario?.fecha_nacimiento ? new Date(trainer.usuario.fecha_nacimiento) : new Date(),
       specialty: trainer.especialidad,
       hireDate: trainer.fecha_registro ? new Date(trainer.fecha_registro) : new Date(),
       isActive: trainer.estado,
-      services: [], // Por ahora vacío, se puede implementar después
+      services: [],
     }
   }
 
   // Función para mapear datos del frontend al formato del backend
-  private mapDisplayDataToBackend(data: Omit<TrainerDisplayData, "id">): TrainerFormData {
+  private mapDisplayDataToBackend(data: Partial<TrainerDisplayData>): TrainerFormData {
     return {
-      numero_documento: data.documentNumber,
-      especialidad: data.specialty,
+      numero_documento: data.documentNumber || "",
+      especialidad: data.specialty || "",
       estado: data.isActive,
     }
   }
 
   async getTrainers(): Promise<TrainerDisplayData[]> {
     try {
-      const response = await api.get(this.baseUrl)
+      const response = await api.get<ApiResponse<{ trainers: Trainer[] }>>(this.baseUrl)
 
       console.log("API Response:", response)
 
       if (response.data && response.data.status === "success" && response.data.data) {
-        const trainersData = response.data.data.trainers || response.data.data
+        const trainersData = response.data.data.trainers
 
         if (Array.isArray(trainersData)) {
-          const mappedTrainers = trainersData.map((trainer: Trainer) => {
-            const mapped = this.mapTrainerToDisplayData(trainer)
-            console.log("Mapped trainer:", mapped) // Debug log para ver el mapeo
-            return mapped
-          })
-          return mappedTrainers
+          return trainersData.map((trainer) => this.mapTrainerToDisplayData(trainer))
         }
       }
 
@@ -62,12 +63,11 @@ class TrainerService {
       return []
     } catch (error) {
       console.error("Error fetching trainers:", error)
-
-      if (error.response) {
-        const errorMessage = error.response.data?.message || error.response.data?.error || "Error desconocido"
-        throw new Error(`Error del servidor: ${error.response.status} - ${errorMessage}`)
-      } else if (error.request) {
-        throw new Error("Error de conexión. Verifique su conexión a internet.")
+      if (axios.isAxiosError(error)) {
+        const errorMessage = error.response?.data?.message || error.response?.data?.error || "Error desconocido"
+        throw new Error(`Error del servidor: ${error.response?.status} - ${errorMessage}`)
+      } else if (error instanceof Error) {
+        throw new Error(`Error inesperado al cargar los entrenadores: ${error.message}`)
       } else {
         throw new Error("Error inesperado al cargar los entrenadores")
       }
@@ -75,9 +75,9 @@ class TrainerService {
   }
 
   // Método para obtener información completa del usuario por ID
-  private async getUserById(userId: number): Promise<any> {
+  private async getUserById(userId: number): Promise<User | null> {
     try {
-      const response = await api.get(`${this.usersBaseUrl}/${userId}`)
+      const response = await api.get<ApiResponse<{ usuario: User }>>(`${this.usersBaseUrl}/${userId}`)
 
       if (response.data && response.data.status === "success" && response.data.data) {
         return response.data.data.usuario || response.data.data
@@ -93,14 +93,15 @@ class TrainerService {
   // Método mejorado para obtener entrenadores con información completa del usuario
   async getTrainersWithCompleteUserInfo(): Promise<TrainerDisplayData[]> {
     try {
-      const trainers = await this.getTrainers()
+      const response = await api.get<ApiResponse<{ trainers: Trainer[] }>>(this.baseUrl)
+      const trainers = response.data.data.trainers.map(t => this.mapTrainerToDisplayData(t))
 
       // Para cada entrenador, obtener la información completa del usuario
       const trainersWithCompleteInfo = await Promise.all(
         trainers.map(async (trainer) => {
           if (trainer.documentNumber === "No disponible") {
             // Buscar información completa del usuario
-            const trainerResponse = await api.get(`${this.baseUrl}/${trainer.id}`)
+            const trainerResponse = await api.get<ApiResponse<{ trainer: Trainer }>>(`${this.baseUrl}/${trainer.id}`)
 
             if (trainerResponse.data?.data?.trainer?.id_usuario) {
               const userInfo = await this.getUserById(trainerResponse.data.data.trainer.id_usuario)
@@ -126,13 +127,13 @@ class TrainerService {
     } catch (error) {
       console.error("Error getting trainers with complete info:", error)
       // Si falla, devolver los entrenadores básicos
-      return this.getTrainers()
+      throw error
     }
   }
 
   async getTrainerById(id: string): Promise<TrainerDisplayData> {
     try {
-      const response = await api.get(`${this.baseUrl}/${id}`)
+      const response = await api.get<ApiResponse<{ trainer: Trainer }>>(`${this.baseUrl}/${id}`)
 
       if (response.data && response.data.status === "success" && response.data.data) {
         const trainer = response.data.data.trainer
@@ -161,30 +162,28 @@ class TrainerService {
       throw new Error("Formato de respuesta inesperado")
     } catch (error) {
       console.error("Error fetching trainer:", error)
-      if (error.response?.status === 404) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
         throw new Error("Entrenador no encontrado")
       }
       throw new Error("Error al cargar el entrenador")
     }
   }
 
-  async createTrainer(trainerData: Omit<TrainerDisplayData, "id">): Promise<TrainerDisplayData> {
+  async createTrainer(trainerData: Omit<TrainerDisplayData, "id" | "codigo">): Promise<TrainerDisplayData> {
     try {
       const backendData = this.mapDisplayDataToBackend(trainerData)
       console.log("Creating trainer with data:", backendData) // Debug log
 
-      const response = await api.post(this.baseUrl, backendData)
+      const response = await api.post<ApiResponse<{ trainer: Trainer }>>(this.baseUrl, backendData)
 
       if (response.data && response.data.status === "success" && response.data.data) {
-        const mapped = this.mapTrainerToDisplayData(response.data.data.trainer)
-        console.log("Created trainer mapped:", mapped) // Debug log
-        return mapped
+        return this.mapTrainerToDisplayData(response.data.data.trainer)
       }
 
       throw new Error("Formato de respuesta inesperado")
     } catch (error) {
       console.error("Error creating trainer:", error)
-      if (error.response) {
+      if (axios.isAxiosError(error) && error.response) {
         const errorMessage =
           error.response.data?.message || error.response.data?.error || "Error al crear el entrenador"
         throw new Error(errorMessage)
@@ -203,18 +202,16 @@ class TrainerService {
 
       console.log("Updating trainer with data:", updateData) // Debug log
 
-      const response = await api.put(`${this.baseUrl}/${trainer.id}`, updateData)
+      const response = await api.put<ApiResponse<{ trainer: Trainer }>>(`${this.baseUrl}/${trainer.id}`, updateData)
 
       if (response.data && response.data.status === "success" && response.data.data) {
-        const mapped = this.mapTrainerToDisplayData(response.data.data.trainer)
-        console.log("Updated trainer mapped:", mapped) // Debug log
-        return mapped
+        return this.mapTrainerToDisplayData(response.data.data.trainer)
       }
 
       throw new Error("Formato de respuesta inesperado")
     } catch (error) {
       console.error("Error updating trainer:", error)
-      if (error.response) {
+      if (axios.isAxiosError(error) && error.response) {
         const errorMessage =
           error.response.data?.message || error.response.data?.error || "Error al actualizar el entrenador"
         throw new Error(errorMessage)
@@ -228,10 +225,10 @@ class TrainerService {
       await api.delete(`${this.baseUrl}/${id}`)
     } catch (error) {
       console.error("Error deleting trainer:", error)
-      if (error.response?.status === 404) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
         throw new Error("Entrenador no encontrado")
       }
-      if (error.response) {
+      if (axios.isAxiosError(error) && error.response) {
         const errorMessage =
           error.response.data?.message || error.response.data?.error || "Error al eliminar el entrenador"
         throw new Error(errorMessage)
@@ -246,66 +243,42 @@ class TrainerService {
       console.log(`Searching for user with document: ${documentNumber}`)
 
       // Usar el endpoint de búsqueda de usuarios
-      const response = await api.get(`${this.usersBaseUrl}/search`, {
+      const response = await api.get<ApiResponse<{ usuario: User }>>(`${this.usersBaseUrl}/search`, {
         params: {
-          q: documentNumber,
-          pagina: 1,
-          limite: 10,
+          documento: documentNumber,
         },
       })
 
-      console.log("User search response:", response)
+      console.log("Verify document response:", response)
 
-      if (response.data && response.data.status === "success" && response.data.data) {
-        const usuarios = response.data.data.usuarios || []
-
-        // Buscar el usuario que tenga exactamente ese número de documento
-        const usuario = usuarios.find((user: any) => user.numero_documento === documentNumber)
-
-        if (usuario) {
-          console.log("User found:", usuario)
-
-          // Mapear los datos del usuario al formato esperado por el frontend
-          return {
-            name: usuario.nombre,
-            lastName: usuario.apellido,
-            email: usuario.correo,
-            phone: usuario.telefono || "",
-            address: usuario.direccion || "",
-            gender: usuario.genero || "M",
-            documentType: usuario.tipo_documento || "CC",
-            documentNumber: usuario.numero_documento, // Asegurar que se mapee correctamente
-            birthDate: usuario.fecha_nacimiento || new Date(),
-            specialty: "", // Se llenará en el formulario
-            hireDate: new Date(),
-            isActive: true,
-            services: [],
-          }
-        } else {
-          console.log("No user found with exact document number")
-          return null
+      if (response.data && response.data.status === "success" && response.data.data.usuario) {
+        const user = response.data.data.usuario
+        return {
+          name: user.nombre,
+          lastName: user.apellido,
+          email: user.correo,
+          phone: user.telefono,
+          address: user.direccion || "No especificado",
+          gender: user.genero || "M",
+          documentType: user.tipo_documento || "CC",
+          documentNumber: user.numero_documento,
+          birthDate: user.fecha_nacimiento ? new Date(user.fecha_nacimiento) : new Date(),
         }
       }
 
-      console.log("No users found in search response")
       return null
     } catch (error) {
       console.error("Error verifying document:", error)
-
-      if (error.response?.status === 404) {
-        return null // Usuario no encontrado
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        console.log("User not found with that document.")
+        return null // No se encontró el usuario, no es un error fatal
       }
-
-      // Si hay un error de autenticación, lanzar el error
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error("No tiene permisos para buscar usuarios")
-      }
-
-      throw new Error("Error al verificar el documento")
+      // Otros errores sí se podrían lanzar o manejar
+      return null
     }
   }
 
-  // Buscar entrenadores
+  // Nuevo método para buscar entrenadores con paginación
   async searchTrainers(
     query: string,
     page = 1,
@@ -316,28 +289,28 @@ class TrainerService {
     totalPages: number
   }> {
     try {
-      const response = await api.get(`${this.baseUrl}/search`, {
-        params: {
-          q: query,
-          pagina: page,
-          limite: limit,
-        },
+      const response = await api.get<
+        ApiResponse<{ trainers: Trainer[]; total: number; totalPages: number }>
+      >(`${this.baseUrl}/search`, {
+        params: { q: query, page, limit },
       })
 
       if (response.data && response.data.status === "success" && response.data.data) {
-        const { trainers, total, total_paginas } = response.data.data
-
+        const { trainers, total, totalPages } = response.data.data
         return {
-          trainers: trainers.map((trainer: Trainer) => this.mapTrainerToDisplayData(trainer)),
+          trainers: trainers.map((t) => this.mapTrainerToDisplayData(t)),
           total,
-          totalPages: total_paginas,
+          totalPages,
         }
       }
-
       return { trainers: [], total: 0, totalPages: 0 }
     } catch (error) {
       console.error("Error searching trainers:", error)
-      throw new Error("Error al buscar entrenadores")
+      if (axios.isAxiosError(error)) {
+        const errorMessage = error.response?.data?.message || "Error al buscar entrenadores"
+        throw new Error(errorMessage)
+      }
+      throw new Error("Error inesperado al buscar entrenadores")
     }
   }
 }

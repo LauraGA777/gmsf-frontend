@@ -1,11 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/shared/components/ui/button';
-import { Card, CardContent } from '@/shared/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
-import { Calendar } from '@/shared/components/ui/calendar';
+import { CalendarDays } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';
 import { 
-  CalendarDays, 
   ChevronDown, 
   Calendar as CalendarIcon,
   Clock,
@@ -13,6 +11,8 @@ import {
 } from 'lucide-react';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays, subWeeks, subMonths, subYears } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { DateRange as DayPickerDateRange } from 'react-day-picker';
+import { Calendar } from '@/shared/components/ui/calendar';
 import { DateRange } from '../services/dashboardService';
 
 interface DateRangeFilterProps {
@@ -204,7 +204,7 @@ export function DateRangeFilter({ selectedRange, onRangeChange }: DateRangeFilte
                       from: selectedRange.from,
                       to: selectedRange.to
                     }}
-                    onSelect={(range) => {
+                    onSelect={(range: DayPickerDateRange | undefined) => {
                       if (range?.from && range?.to) {
                         handleCustomDateSelect(range.from, range.to);
                       }

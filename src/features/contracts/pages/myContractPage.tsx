@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { contractService } from "@/features/contracts/services/contract.service";
 import { ContractDetails } from "@/features/contracts/components/contractDetails";
-import { format, differenceInDays, isPast, isToday } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { 
   User, 
@@ -37,14 +37,11 @@ export function MyContractPage() {
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
-  // Verificar permisos para ver contratos propios
   const canViewOwnContracts = hasModuleAccess("CONTRATOS");
 
-  // Obtener contratos del cliente actual
   const fetchMyContracts = async () => {
-    if (!user?.clientId) {
-      console.error("🚨 DEBUG: No se encontró clientId en el usuario:", user);
-      setError("No se encontró información del cliente");
+    if (!user?.personId) {
+      setError("No se encontró información del cliente para cargar los contratos.");
       setIsLoading(false);
       return;
     }
@@ -53,79 +50,58 @@ export function MyContractPage() {
       setIsLoading(true);
       setError(null);
       
-      console.log("🔍 DEBUG: Intentando obtener contratos para clientId:", user.clientId);
-      console.log("🔍 DEBUG: Usuario completo:", user);
-      
       const response = await contractService.getContracts({
-        id_persona: parseInt(user.clientId),
+        id_persona: user.personId,
         limit: 10
       });
       
-      console.log("✅ DEBUG: Respuesta del servicio:", response);
-      console.log("✅ DEBUG: Contratos obtenidos:", response.data);
-      
       setContracts(response.data);
     } catch (err: any) {
-      console.error("❌ DEBUG: Error al cargar contratos:", err);
-      console.error("❌ DEBUG: Error completo:", err.response?.data || err.message);
-      setError(err.message || "Error al cargar los contratos");
+      const errorMessage = err.response?.data?.message || "Ocurrió un error al cargar tus contratos.";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (canViewOwnContracts && user?.clientId) {
+    if (canViewOwnContracts && user?.personId) {
       fetchMyContracts();
     } else if (!canViewOwnContracts) {
-      setError("No tienes permisos para ver los contratos");
+      setError("No tienes permisos para ver esta página.");
       setIsLoading(false);
     }
-  }, [user?.clientId, canViewOwnContracts]);
+  }, [user?.personId, canViewOwnContracts]);
 
-  // Función para determinar el estado del contrato
-  const getContractStatus = (contract: Contract) => {
-    const today = new Date();
-    const endDate = new Date(contract.fecha_fin);
-    const daysUntilExpiry = differenceInDays(endDate, today);
-
-    if (contract.estado === "Cancelado") {
-      return { 
+  const getContractStatusInfo = (contract: Contract) => {
+    const statusConfig: Record<Contract['estado'], { label: string; color: string; icon: React.ReactElement }> = {
+      Cancelado: { 
         label: "Cancelado", 
         color: "bg-red-100 text-red-800",
         icon: <Ban className="h-4 w-4" />
-      };
-    }
-    
-    if (contract.estado === "Congelado") {
-      return { 
+      },
+      Congelado: { 
         label: "Congelado", 
         color: "bg-blue-100 text-blue-800",
         icon: <Snowflake className="h-4 w-4" />
-      };
-    }
-
-    if (isPast(endDate) && !isToday(endDate)) {
-      return { 
+      },
+      Vencido: { 
         label: "Vencido", 
         color: "bg-gray-100 text-gray-800",
         icon: <AlertTriangle className="h-4 w-4" />
-      };
-    }
-
-    if (daysUntilExpiry <= 7 && daysUntilExpiry >= 0) {
-      return { 
-        label: `Por vencer en ${daysUntilExpiry} día(s)`, 
+      },
+      'Por vencer': { 
+        label: "Por vencer", 
         color: "bg-yellow-100 text-yellow-800",
         icon: <Clock className="h-4 w-4" />
-      };
-    }
-
-    return { 
-      label: "Activo", 
-      color: "bg-green-100 text-green-800",
-      icon: <CheckCircle className="h-4 w-4" />
+      },
+      Activo: { 
+        label: "Activo", 
+        color: "bg-green-100 text-green-800",
+        icon: <CheckCircle className="h-4 w-4" />
+      }
     };
+    return statusConfig[contract.estado] || statusConfig.Activo;
   };
 
   const handleViewDetails = (contract: Contract) => {
@@ -250,9 +226,9 @@ export function MyContractPage() {
               {activeContract.membresia?.nombre || "Membresía"}
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Badge className={`flex items-center gap-1 ${getContractStatus(activeContract).color}`}>
-                {getContractStatus(activeContract).icon}
-                {getContractStatus(activeContract).label}
+              <Badge className={`flex items-center gap-1 ${getContractStatusInfo(activeContract).color}`}>
+                {getContractStatusInfo(activeContract).icon}
+                {getContractStatusInfo(activeContract).label}
               </Badge>
             </div>
           </div>
@@ -381,8 +357,8 @@ export function MyContractPage() {
               {otherContracts.map((contract) => (
                 <div key={contract.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
-                    <Badge className={`${getContractStatus(contract).color}`}>
-                      {getContractStatus(contract).label}
+                    <Badge className={`${getContractStatusInfo(contract).color}`}>
+                      {getContractStatusInfo(contract).label}
                     </Badge>
                     <div>
                       <p className="text-sm font-medium">{contract.membresia?.nombre}</p>

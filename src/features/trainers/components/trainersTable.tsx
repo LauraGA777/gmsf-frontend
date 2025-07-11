@@ -4,23 +4,18 @@ import { Button } from "@/shared/components/ui/button"
 import {
   Eye,
   Edit,
-  AlertTriangle,
-  CheckCircle,
   Trash2,
   MoreHorizontal,
   Dumbbell,
   Power,
   RotateCcw
 } from "lucide-react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
 import { TrainerDetailModal } from "./trainerDetailModal"
 import { TrainerModal } from "./trainerModal"
 import { useAuth } from "@/shared/contexts/authContext"
 import { usePermissions } from "@/shared/hooks/usePermissions"
 import type { TrainerDisplayData } from "@/shared/types/trainer"
 import Swal from "sweetalert2"
-import { cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
 import {
   DropdownMenu,
@@ -44,15 +39,13 @@ export function TrainersTable({
   onDeleteTrainer,
   onToggleStatus,
 }: TrainersTableProps) {
-  const { user } = useAuth()
   const { hasPrivilege } = usePermissions()
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedTrainer, setSelectedTrainer] = useState<TrainerDisplayData | null>(null)
   
-  const isAdmin = useMemo(() => user?.role === 'ADMIN', [user])
-  const canUpdate = useMemo(() => hasPrivilege('Gestión de entrenadores', 'Actualizar'), [hasPrivilege])
-  const canDelete = useMemo(() => hasPrivilege('Gestión de entrenadores', 'Eliminar'), [hasPrivilege])
+  const canUpdate = useMemo(() => hasPrivilege('ENTRENADORES', 'TRAINER_UPDATE'), [hasPrivilege])
+  const canDelete = useMemo(() => hasPrivilege('ENTRENADORES', 'TRAINER_DELETE'), [hasPrivilege])
 
   const handleViewTrainer = (trainer: TrainerDisplayData) => {
     setSelectedTrainer(trainer)
@@ -75,7 +68,7 @@ export function TrainersTable({
     setSelectedTrainer(null)
   }
 
-  const handleSaveTrainer = async (trainerData: Omit<TrainerDisplayData, "id">) => {
+  const handleSaveTrainer = async (trainerData: Omit<TrainerDisplayData, "id" | "codigo">) => {
     if (!selectedTrainer) return
     
     const updatedTrainer: TrainerDisplayData = {
@@ -246,4 +239,4 @@ export function TrainersTable({
       )}
     </>
   )
-} 
+}

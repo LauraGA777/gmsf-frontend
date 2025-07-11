@@ -42,13 +42,18 @@ export interface Client {
     numero_documento: string;
     fecha_nacimiento: Date;
     fecha_actualizacion?: Date;
-    asistencias_totales?: number;
+    asistencias_totales: number;
     estado: boolean;
     id_rol?: number;
   };
   contactos_emergencia?: EmergencyContact[];
   titular?: Client;
   beneficiarios?: Beneficiary[];
+  contratos?: Array<{
+    id: number;
+    estado: 'Activo' | 'Congelado' | 'Vencido' | 'Cancelado' | 'Por vencer';
+    [key: string]: any;
+  }>;
 }
 
 export interface EmergencyContact {

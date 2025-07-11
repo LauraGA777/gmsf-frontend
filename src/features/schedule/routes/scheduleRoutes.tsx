@@ -1,15 +1,15 @@
 import { SchedulePage } from "@/features/schedule/pages/SchedulePage";
 import { ClientSchedulePage } from "@/features/schedule/pages/ClientSchedulePage";
 import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
+import { PERMISSIONS, PRIVILEGES } from "@/shared/services/permissionService";
 
 export const scheduleRoutes = [
   {
     path: "/schedule",
     element: (
       <PermissionProtectedRoute 
-        requiredModule="HORARIOS" 
-        requiredPrivilege="SCHEDULE_READ"
-        // ✅ Solo permisos de BD - Sin fallbacks
+        requiredModule={PERMISSIONS.HORARIOS}
+        requiredPrivilege={PRIVILEGES.SCHEDULE_READ}
       >
         <SchedulePage />
       </PermissionProtectedRoute>
@@ -19,9 +19,8 @@ export const scheduleRoutes = [
     path: "/calendar",
     element: (
       <PermissionProtectedRoute 
-        requiredModule="HORARIOS" 
-        requiredPrivilege="SCHEDULE_READ"
-        // ✅ Solo permisos de BD - Sin fallbacks
+        requiredModule={PERMISSIONS.HORARIOS}
+        requiredPrivilege={PRIVILEGES.SCHEDULE_READ}
       >
         <SchedulePage />
       </PermissionProtectedRoute>
@@ -31,9 +30,8 @@ export const scheduleRoutes = [
     path: "/client-schedule",
     element: (
       <PermissionProtectedRoute 
-        requiredModule="HORARIOS" 
-        requiredPrivilege="CLIENT_SCHEDULE_READ"
-        // ✅ Solo permisos de BD - Sin fallbacks
+        requiredModule={PERMISSIONS.HORARIOS}
+        requiredPrivilege={PRIVILEGES.SCHEDULE_CLIENT_VIEW}
       >
         <ClientSchedulePage />
       </PermissionProtectedRoute>

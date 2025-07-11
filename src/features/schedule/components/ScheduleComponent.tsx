@@ -2,9 +2,9 @@ import { useCallback, useState, useRef } from "react"
 import FullCalendar from "@fullcalendar/react"
 import dayGridPlugin from "@fullcalendar/daygrid"
 import timeGridPlugin from "@fullcalendar/timegrid"
-import interactionPlugin from "@fullcalendar/interaction"
+import interactionPlugin, { DateClickArg, EventResizeArg } from "@fullcalendar/interaction"
 import esLocale from "@fullcalendar/core/locales/es"
-import { EventDropArg, EventClickArg, EventContentArg, SlotLabelContentArg, MoreLinkArg, EventResizeDoneArg } from "@fullcalendar/core"
+import { EventDropArg, EventClickArg, EventContentArg, SlotLabelContentArg, MoreLinkArg, DateSelectArg } from "@fullcalendar/core"
 import type { Training } from "@/shared/types/training"
 import { Button } from "@/shared/components/ui/button"
 import { cn } from "@/shared/lib/utils"
@@ -20,22 +20,13 @@ interface ScheduleComponentProps {
   onUpdateTrainingDate: (trainingId: number, newStartDate: Date, newEndDate: Date) => void
 }
 
-interface DateClickArg {
-  date: Date
-  dateStr: string
-  allDay: boolean
-  jsEvent: MouseEvent
-  view: any
-  dayEl: HTMLElement
-}
-
 export function ScheduleComponent({
   onTrainingClick,
   trainings,
   onAddTraining,
   onUpdateTrainingDate
 }: ScheduleComponentProps) {
-  const [popoverState, setPopoverState] = useState<{
+  const [_popoverState, setPopoverState] = useState<{
     isOpen: boolean
     target: HTMLElement | null
     date: Date | null
@@ -71,14 +62,14 @@ export function ScheduleComponent({
     }
   }
 
-  const handleEventResize = (resizeInfo: any) => {
+  const handleEventResize = (resizeInfo: EventResizeArg) => {
     const { event } = resizeInfo;
     if (event.start && event.end) {
         onUpdateTrainingDate(Number(event.id), event.start, event.end);
     }
   }
 
-  const handleSelect = (selectionInfo: any) => {
+  const handleSelect = (selectionInfo: DateSelectArg) => {
     onAddTraining({ start: selectionInfo.start, end: selectionInfo.end });
   }
 
@@ -93,7 +84,7 @@ export function ScheduleComponent({
     onTrainingClick(arg.event.extendedProps as Training)
   }
 
-  const handleDateClick = (arg: any) => {
+  const handleDateClick = (arg: DateClickArg) => {
     onAddTraining({ start: arg.date, end: arg.date })
   }
   
@@ -278,6 +269,7 @@ export function ScheduleComponent({
         dateClick={handleDateClick}
         navLinkDayClick={handleNavLinkDayClick}
         eventContent={renderEventContent}
+        slotLabelContent={renderSlotLabel}
         slotLabelFormat={{
             hour: '2-digit',
             minute: '2-digit',

@@ -1,7 +1,6 @@
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/shared/components/ui/table"
 import { Button } from "@/shared/components/ui/button"
-import { Dialog, DialogContent } from "@/shared/components/ui/dialog"
 import {
   Eye,
   Edit,
@@ -15,11 +14,10 @@ import {
 } from "lucide-react"
 import { format } from "date-fns"
 import { ClientDetails } from "./clientDetails"
-import { EditClientModal } from "./editClientModal"
-import { useAuth } from "@/shared/contexts/authContext"
+import { EditClientModal, type UpdateClientFormValues } from "./editClientModal"
 import { usePermissions } from "@/shared/hooks/usePermissions"
 import { PERMISSIONS, PRIVILEGES } from "@/shared/services/permissionService"
-import type { Client } from "@/shared/types"
+import type { Client } from "@/shared/types/client"
 import Swal from "sweetalert2"
 import { cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
@@ -58,7 +56,6 @@ export function ClientsTable({
   onPageChange,
   onAddNewClient,
 }: ClientsTableProps) {
-  const { user } = useAuth()
   const { hasPrivilege } = usePermissions()
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -91,8 +88,8 @@ export function ClientsTable({
     setSelectedClient(null)
   }
 
-  const handleUpdateClient = async (clientId: number, updates: Partial<Client>) => {
-    await onUpdateClient(clientId, updates)
+  const handleUpdateClient = async (clientId: number, updates: UpdateClientFormValues) => {
+    await onUpdateClient(clientId, updates as unknown as Partial<Client>)
     setIsEditModalOpen(false)
   }
 
@@ -166,7 +163,7 @@ export function ClientsTable({
               const beneficiaryInfo = client.beneficiarios && client.beneficiarios.length > 0
                 ? client.beneficiarios[0].persona_beneficiaria?.usuario
                 : client.usuario
-              const activeContracts = client.contratos?.filter(c => c.estado === 'Activo').length || 0
+              const activeContracts = client.contratos?.filter((c: any) => c.estado === 'Activo').length || 0
 
               return (
                 <TableRow key={client.id_persona} className="hover:bg-gray-50">

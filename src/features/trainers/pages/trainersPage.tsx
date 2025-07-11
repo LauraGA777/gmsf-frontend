@@ -15,7 +15,6 @@ import {
   Trash2,
   Power,
   PowerOff,
-  Eye,
   MoreHorizontal
 } from "lucide-react"
 import { trainerService } from "../services/trainerService"
@@ -112,7 +111,7 @@ export function TrainersPage() {
     setCurrentPage(1) // Reset page when filters change
   }
 
-  const handleSaveTrainer = async (trainerData: Omit<TrainerDisplayData, "id">) => {
+  const handleSaveTrainer = async (trainerData: Omit<TrainerDisplayData, "id" | "codigo">) => {
     try {
       if (editingTrainer) {
         if (!canUpdate) {

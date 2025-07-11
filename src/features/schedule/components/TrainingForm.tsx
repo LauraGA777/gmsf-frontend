@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -11,11 +11,6 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/shared/components/ui/command";
 import { format, isBefore, startOfDay, differenceInMinutes } from "date-fns";
 import { es } from "date-fns/locale";
-import { clientService } from "@/features/clients/services/client.service";
-import { contractService } from "@/features/contracts/services/contract.service";
-import type { Client, Contract, Trainer } from "@/shared/types/index";
-import type { Training } from "@/shared/types/training";
-import { mapDbClientToUiClient, mapDbContractToUiContract } from "@/shared/types/index";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { CalendarIcon, Clock, User, Dumbbell, FileText, Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/shared/lib/utils";
@@ -88,7 +83,11 @@ export function TrainingForm({ onSubmit, onCancel, initialStartDate, initialEndD
   const handleFormSubmit = async (data: TrainingFormData) => {
     setIsLoading(true);
     try {
-      await onSubmit(data);
+      await onSubmit({
+        ...data,
+        fecha_inicio: new Date(data.fecha_inicio),
+        fecha_fin: new Date(data.fecha_fin)
+      });
     } catch (error) {
       console.error("Error submitting training:", error);
       throw error;

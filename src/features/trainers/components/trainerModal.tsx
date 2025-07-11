@@ -10,7 +10,7 @@ import { Calendar } from "@/shared/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { AlertCircle, Save, User, Mail, Phone, CalendarIcon, Check, FileText, MapPin, Dumbbell, RefreshCw, CheckCircle, AlertTriangle } from "lucide-react"
+import { AlertCircle, Save, User, Mail, Phone, CalendarIcon, FileText, MapPin, Dumbbell, RefreshCw, CheckCircle, AlertTriangle } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
 import Swal from "sweetalert2"
@@ -21,7 +21,7 @@ import { trainerService } from "../services/trainerService"
 interface TrainerModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (trainer: Omit<TrainerDisplayData, "id">) => void
+  onSave: (trainer: Omit<TrainerDisplayData, "id" | "codigo">) => Promise<void>
   trainer?: TrainerDisplayData
   title: string
 }
@@ -39,7 +39,7 @@ const isValidPhone = (phone: string): boolean => {
 
 // Validación de documento
 const isValidDocument = (doc: string): boolean => {
-  return /^\d{6,12}$/.test(doc)
+  return /^d{6,12}$/.test(doc)
 }
 
 export function TrainerModal({ isOpen, onClose, onSave, trainer, title }: TrainerModalProps) {
@@ -256,44 +256,27 @@ export function TrainerModal({ isOpen, onClose, onSave, trainer, title }: Traine
       return
     }
 
-    setIsProcessing(true)
+    const trainerData: Omit<TrainerDisplayData, "id" | "codigo"> = {
+      name,
+      lastName,
+      email,
+      phone,
+      address,
+      gender,
+      documentType,
+      documentNumber,
+      birthDate,
+      specialty,
+      hireDate,
+      isActive,
+      services: [], // Campo por defecto
+    }
 
     try {
-      // Crear objeto de entrenador
-      const trainerData: Omit<TrainerDisplayData, "id"> = {
-        name,
-        lastName,
-        email,
-        phone,
-        address,
-        gender,
-        documentType,
-        documentNumber,
-        birthDate,
-        specialty,
-        hireDate,
-        isActive,
-        services: trainer?.services || [],
-      }
-
-      // Llamar a la función onSave que maneja la creación/actualización
+      setIsProcessing(true)
       await onSave(trainerData)
-
-      // Cerrar el modal
-      onClose()
     } catch (error) {
-      console.error("Error saving trainer:", error)
-      Swal.fire({
-        title: "Error",
-        text: error.message || "Error al guardar el entrenador",
-        icon: "error",
-        confirmButtonColor: "#000",
-        confirmButtonText: "Cerrar",
-        timer: 5000,
-        timerProgressBar: true,
-        allowOutsideClick: true,
-        allowEscapeKey: true,
-      })
+      // El error ya se maneja y muestra en la página principal
     } finally {
       setIsProcessing(false)
     }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
@@ -36,10 +36,10 @@ import {
 } from "@/shared/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { roleService } from '@/features/roles/services/roleService';
+import { useDebounce } from "@/shared/hooks/useDebounce";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>([]); // Para almacenar todos los usuarios cuando hay filtros
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [isNewUserOpen, setIsNewUserOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -51,159 +51,55 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [hasFilters, setHasFilters] = useState(false);
-  const itemsPerPage = 10;
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  useEffect(() => {
-    // Carga inicial de usuarios
-    loadUsers();
-  }, []);
-
-  useEffect(() => {
-    const hasActiveFilters = searchTerm.trim() !== "" || statusFilter !== "all";
-    setHasFilters(hasActiveFilters);
-    
-    if (hasActiveFilters) {
-      // Si hay filtros, cargar todos los usuarios
-      loadAllUsers();
-    } else {
-      // Si no hay filtros, usar paginación del backend
-      setCurrentPage(1); // Reset a la primera página
-      loadUsers();
-    }
-  }, [searchTerm, statusFilter]);
-
-  useEffect(() => {
-    if (!hasFilters) {
-      loadUsers();
-    }
-  }, [currentPage, hasFilters]);
-
-  useEffect(() => {
-    filterUsers();
-  }, [users, allUsers, searchTerm, statusFilter, hasFilters]);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async (page: number, query = "") => {
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      const response = await userService.getUsers(currentPage, itemsPerPage);
-      
-      console.log('=== DEBUGGING USER DATA ===');
-      console.log('Response from backend:', response);
-      console.log('Type of response:', typeof response);
-      console.log('Keys in response:', response ? Object.keys(response) : 'response is null/undefined');
-      
-      // Verificar si la respuesta tiene la estructura esperada
-      let userData: User[] = [];
-      let totalPagesCount = 1;
-      
-      if (response && typeof response === 'object') {
-        // Caso 1: Response directa con data array
-        if (Array.isArray(response.data)) {
-          userData = response.data;
-          totalPagesCount = response.totalPages || 1;
-          console.log('Found data array:', userData.length, 'users');
+      const response = query 
+        ? await userService.searchUsers(query, page, itemsPerPage)
+        : await userService.getUsers(page, itemsPerPage);
+
+      if (response?.data && Array.isArray(response.data)) {
+        setUsers(response.data);
+        setFilteredUsers(response.data); // Inicialmente, los usuarios filtrados son todos los usuarios.
+        if (response.pagination) {
+          setTotalPages(response.pagination.totalPages || 1);
         }
-        // Caso 2: Response es un array directamente
-        else if (Array.isArray(response)) {
-          userData = response as User[];
-          console.log('Response is direct array:', userData.length, 'users');
-        }
-        // Caso 3: Response anidada
-        else if ('data' in response && response.data && Array.isArray(response.data)) {
-          userData = response.data;
-          totalPagesCount = ('totalPages' in response && typeof response.totalPages === 'number') ? response.totalPages : 1;
-          console.log('Found nested data array:', userData.length, 'users');
-        }
-        // Caso 4: Response con diferentes estructuras
-        else {
-          console.warn('Unexpected response structure:', response);
-          userData = [];
-        }
+      } else {
+        setUsers([]);
+        setFilteredUsers([]);
+        setTotalPages(1);
       }
-      
-      console.log('Final users data:', userData);
-      console.log('Sample user:', userData.length > 0 ? userData[0] : 'No users found');
-      if (userData.length > 0 && userData[0]) {
-        console.log('Sample user rol_id:', userData[0].id_rol);
-      }
-      console.log('=== END DEBUG ===');
-      
-      setUsers(userData);
-      setTotalPages(totalPagesCount);
-    } catch (error) {
-      console.error('Error loading users:', error);
-      console.error('Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      setError('Error al cargar los usuarios');
-      // En caso de error, establecer arrays vacíos para evitar crashes
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error al cargar los usuarios');
       setUsers([]);
-      setTotalPages(1);
+      setFilteredUsers([]);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const loadAllUsers = async () => {
-    try {
-      setIsLoading(true);
-      // Cargar todos los usuarios (usar un límite alto)
-      const response = await userService.getUsers(1, 1000);
-      
-      // Extraer datos de manera segura
-      let userData: User[] = [];
-      if (response && typeof response === 'object') {
-        if (Array.isArray(response.data)) {
-          userData = response.data;
-        } else if (Array.isArray(response)) {
-          userData = response as User[];
-        }
-      }
-      
-      setAllUsers(userData);
-    } catch (error) {
-      console.error('Error loading all users:', error);
-      setError('Error al cargar los usuarios');
-      setAllUsers([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const filterUsers = () => {
-    let dataToFilter = hasFilters ? allUsers : users;
-    let filtered = [...(dataToFilter || [])];
-
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(user => {
-        // Verificar que los campos existen antes de usarlos
-        const nombre = user?.nombre?.toLowerCase() || '';
-        const apellido = user?.apellido?.toLowerCase() || '';
-        const correo = user?.correo?.toLowerCase() || '';
-        const documento = user?.numero_documento?.toLowerCase() || '';
-        
-        return nombre.includes(term) ||
-               apellido.includes(term) ||
-               correo.includes(term) ||
-               documento.includes(term);
-      });
-    }
+  }, []);
+  
+  useEffect(() => {
+    loadUsers(currentPage, debouncedSearchQuery);
+  }, [currentPage, debouncedSearchQuery, loadUsers]);
+  
+  useEffect(() => {
+    let currentlyFiltered = users;
 
     if (statusFilter !== "all") {
       const isActive = statusFilter === "active";
-      filtered = filtered.filter(user => user?.estado === isActive);
+      currentlyFiltered = currentlyFiltered.filter(user => user?.estado === isActive);
     }
-
-    setFilteredUsers(filtered);
     
-    // Calcular paginación para filtros locales
-    if (hasFilters) {
-      setTotalPages(Math.ceil(filtered.length / itemsPerPage));
-    }
-  };
+    setFilteredUsers(currentlyFiltered);
+
+  }, [statusFilter, users]);
+
+  const itemsPerPage = 10;
 
   const [roles, setRoles] = useState<{ id: number; nombre: string }[]>([]);
 
@@ -267,25 +163,18 @@ export default function UsersPage() {
     setEditingUser(user);
     setIsNewUserOpen(true);
   };
+  
+  const handleSaveUser = async () => {
+    await loadUsers(currentPage, debouncedSearchQuery);
+    setIsNewUserOpen(false);
+    setEditingUser(null);
+  }
 
   const handleCreateUser = async (data: UserFormData) => {
     try {
       await userService.createUser(data);
-      // Recargar datos según el estado actual
-      if (hasFilters) {
-        await loadAllUsers();
-      } else {
-        await loadUsers();
-      }
-      setIsNewUserOpen(false);
-      setEditingUser(null);
-      
-      Swal.fire({
-        title: '¡Éxito!',
-        text: 'Usuario creado correctamente',
-        icon: 'success',
-        confirmButtonColor: '#000',
-      });
+      await handleSaveUser();
+      Swal.fire('¡Éxito!', 'Usuario creado correctamente', 'success');
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
@@ -294,24 +183,10 @@ export default function UsersPage() {
 
   const handleUpdateUser = async (data: Partial<UserFormData>) => {
     if (!editingUser) return;
-    
     try {
       await userService.updateUser(editingUser.id, data);
-      // Recargar datos según el estado actual
-      if (hasFilters) {
-        await loadAllUsers();
-      } else {
-        await loadUsers();
-      }
-      setIsNewUserOpen(false);
-      setEditingUser(null);
-      
-      Swal.fire({
-        title: '¡Éxito!',
-        text: 'Usuario actualizado correctamente',
-        icon: 'success',
-        confirmButtonColor: '#000',
-      });
+      await handleSaveUser();
+      Swal.fire('¡Éxito!', 'Usuario actualizado correctamente', 'success');
     } catch (error) {
       console.error('Error updating user:', error);
       throw error;
@@ -342,19 +217,12 @@ export default function UsersPage() {
         } else {
           await userService.activateUser(id);
         }
-        // Recargar datos según el estado actual
-        if (hasFilters) {
-          await loadAllUsers();
-        } else {
-          await loadUsers();
-        }
+        await handleSaveUser(); // Recargar y refrescar
         
         Swal.fire({
           title: currentStatus ? "¡Desactivado!" : "¡Activado!",
           text: `El usuario ha sido ${currentStatus ? "desactivado" : "activado"} correctamente`,
           icon: "success",
-          timer: 1500,
-          showConfirmButton: false,
         });
       } catch (error: any) {
         console.error('Error toggling user status:', error);
@@ -417,19 +285,12 @@ export default function UsersPage() {
     if (motivo) {
       try {
         await userService.deleteUserPermanently(id, motivo);
-        // Recargar datos según el estado actual
-        if (hasFilters) {
-          await loadAllUsers();
-        } else {
-          await loadUsers();
-        }
+        await handleSaveUser(); // Recargar y refrescar
         
         Swal.fire({
           title: "¡Eliminado permanentemente!",
           text: "El usuario ha sido eliminado de forma permanente",
           icon: "success",
-          timer: 1500,
-          showConfirmButton: false,
         });
       } catch (error: any) {
         console.error('Error deleting user permanently:', error);
@@ -443,9 +304,7 @@ export default function UsersPage() {
     }
   };
 
-  const paginatedUsers = hasFilters 
-    ? filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-    : filteredUsers;
+  const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (users.length === 0 && !isLoading) {
     return (
@@ -474,11 +333,7 @@ export default function UsersPage() {
             variant="outline"
             onClick={() => {
               setError(null);
-              if (hasFilters) {
-                loadAllUsers();
-              } else {
-                loadUsers();
-              }
+              loadUsers(currentPage, debouncedSearchQuery);
             }}
             className="mt-2"
           >
@@ -495,13 +350,7 @@ export default function UsersPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => {
-              if (hasFilters) {
-                loadAllUsers();
-              } else {
-                loadUsers();
-              }
-            }}
+            onClick={() => loadUsers(currentPage, debouncedSearchQuery)}
             disabled={isLoading}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -525,8 +374,8 @@ export default function UsersPage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   placeholder="Buscar por nombre, correo o documento..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
               </div>

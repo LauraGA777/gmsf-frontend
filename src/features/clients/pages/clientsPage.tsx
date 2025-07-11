@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
@@ -16,14 +16,13 @@ import {
   RotateCcw
 } from "lucide-react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { useGym } from "@/shared/contexts/gymContext";
 import { usePermissions } from "@/shared/hooks/usePermissions";
 import { PERMISSIONS, PRIVILEGES } from "@/shared/services/permissionService";
-import { NewClientForm } from "@/features/clients/components/newClientForm";
-import { EditClientModal } from "@/features/clients/components/editClientModal";
+import { NewClientForm, type CreateClientFormValues } from "@/features/clients/components/newClientForm";
+import { EditClientModal, EditClientFormValues } from "@/features/clients/components/editClientModal";
 import { ClientDetails } from "../components/clientDetails";
-import type { Client } from "@/shared/types";
+import type { Client, Contract } from "@/shared/types/client";
 import Swal from "sweetalert2";
 import {
   DropdownMenu,
@@ -41,7 +40,8 @@ import {
 } from "@/shared/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { useToast } from "@/shared/components/ui/use-toast";
-import { useNavigate } from "react-router-dom";
+
+type ClientWithContracts = Client & { contratos?: Contract[] };
 
 export function ClientsPage() {
   const {
@@ -55,9 +55,7 @@ export function ClientsPage() {
   } = useGym();
 
   const { hasPrivilege } = usePermissions();
-  const navigate = useNavigate();
   
-  // Verificar permisos específicos para cada acción
   const canViewClients = hasPrivilege(PERMISSIONS.CLIENTES, PRIVILEGES.CLIENT_READ);
   const canCreateClient = hasPrivilege(PERMISSIONS.CLIENTES, PRIVILEGES.CLIENT_CREATE);
   const canUpdateClient = hasPrivilege(PERMISSIONS.CLIENTES, PRIVILEGES.CLIENT_UPDATE);
@@ -72,7 +70,7 @@ export function ClientsPage() {
     canViewDetails
   });
   const [allClients, setAllClients] = useState<Client[]>([]);
-  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
+  const [filteredClients, setFilteredClients] = useState<ClientWithContracts[]>([]);
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -86,9 +84,13 @@ export function ClientsPage() {
   const itemsPerPage = 10;
   const { toast } = useToast();
 
-  useEffect(() => {
+  const memoizedRefreshClients = useCallback(() => {
     refreshClients();
-  }, []);
+  }, [refreshClients]);
+
+  useEffect(() => {
+    memoizedRefreshClients();
+  }, [memoizedRefreshClients]);
 
   useEffect(() => {
     const hasActiveFilters = searchTerm.trim() !== "" || statusFilter !== "all";
@@ -102,41 +104,39 @@ export function ClientsPage() {
   }, [searchTerm, statusFilter, clients]);
 
   useEffect(() => {
+    const filterClients = () => {
+      let dataToFilter = hasFilters ? allClients : clients;
+      let filtered = [...dataToFilter];
+  
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        filtered = filtered.filter(client => 
+          `${client.usuario?.nombre} ${client.usuario?.apellido}`.toLowerCase().includes(term) ||
+          client.usuario?.correo?.toLowerCase().includes(term) ||
+          client.usuario?.numero_documento?.toLowerCase().includes(term) ||
+          client.codigo?.toLowerCase().includes(term)
+        );
+      }
+  
+      if (statusFilter !== "all") {
+        filtered = filtered.filter(client => (client.estado ? "Activo" : "Inactivo") === statusFilter);
+      }
+  
+      const clientsWithContracts: ClientWithContracts[] = filtered.map(client => ({
+        ...client,
+        contratos: getClientContracts(client.id_persona)
+      }));
+  
+      setFilteredClients(clientsWithContracts);
+      
+      if (hasFilters) {
+        setTotalPages(Math.ceil(clientsWithContracts.length / itemsPerPage));
+      } else {
+        setTotalPages(Math.ceil(clients.length / itemsPerPage));
+      }
+    };
     filterClients();
-  }, [clients, allClients, searchTerm, statusFilter, hasFilters]);
-
-  const filterClients = () => {
-    let dataToFilter = hasFilters ? allClients : clients;
-    let filtered = [...dataToFilter];
-
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(client => 
-        `${client.usuario?.nombre} ${client.usuario?.apellido}`.toLowerCase().includes(term) ||
-        client.usuario?.correo?.toLowerCase().includes(term) ||
-        client.usuario?.numero_documento?.toLowerCase().includes(term) ||
-        client.codigo?.toLowerCase().includes(term)
-      );
-    }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(client => (client.estado ? "Activo" : "Inactivo") === statusFilter);
-    }
-
-    const clientsWithContracts = filtered.map(client => ({
-      ...client,
-      contratos: getClientContracts(client.id_persona)
-    }));
-
-    setFilteredClients(clientsWithContracts);
-    
-    // Calcular paginación para filtros locales
-    if (hasFilters) {
-      setTotalPages(Math.ceil(clientsWithContracts.length / itemsPerPage));
-    } else {
-      setTotalPages(Math.ceil(clientsWithContracts.length / itemsPerPage));
-    }
-  };
+  }, [clients, allClients, searchTerm, statusFilter, hasFilters, getClientContracts]);
 
   const getStatusBadge = (estado: boolean) => {
     return estado ? (
@@ -158,21 +158,20 @@ export function ClientsPage() {
     setIsEditClientOpen(true);
   };
 
-  const handleUpdateClient = async (clientId: number, updates: Partial<Client>) => {
+  const handleUpdateClient = async (clientId: number, updates: EditClientFormValues) => {
     try {
       await updateClient(clientId, updates);
-      await refreshClients();
       setEditingClient(null);
       setIsEditClientOpen(false);
       
       toast({
         title: '¡Éxito!',
         description: 'Cliente actualizado correctamente',
-        type: 'success',
+        variant: 'default',
       });
     } catch (error) {
       console.error('Error updating client:', error);
-      toast({ title: 'Error', description: 'No se pudo actualizar el cliente.', type: 'error' });
+      toast({ title: 'Error', description: 'No se pudo actualizar el cliente.', variant: 'destructive' });
     }
   };
 
@@ -199,14 +198,14 @@ export function ClientsPage() {
         toast({
           title: '¡Éxito!',
           description: `Cliente ${client.estado ? 'desactivado' : 'activado'} correctamente`,
-          type: 'success',
+          variant: 'default',
         });
       } catch (error) {
         console.error('Error updating client status:', error);
         toast({
           title: 'Error',
           description: 'Error al actualizar el estado del cliente',
-          type: 'error',
+          variant: 'destructive',
         });
       }
     }
@@ -232,18 +231,25 @@ export function ClientsPage() {
         toast({
           title: '¡Éxito!',
           description: 'Cliente eliminado correctamente',
-          type: 'success',
+          variant: 'default',
         });
       } catch (error) {
         console.error('Error deleting client:', error);
-        toast({ title: 'Error', description: 'No se pudo eliminar el cliente.', type: 'error' });
+        toast({ title: 'Error', description: 'No se pudo eliminar el cliente.', variant: 'destructive' });
       }
     }
   };
 
-  const paginatedClients = hasFilters 
-    ? filteredClients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-    : filteredClients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const handleCreateClient = async (data: CreateClientFormValues) => {
+    try {
+      await createClient(data);
+    } catch (error) {
+      console.error("Error al crear cliente desde la página", error);
+      // El toast de error ya se muestra en NewClientForm, pero podemos agregar uno genérico si es necesario.
+    }
+  };
+
+  const paginatedClients = filteredClients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   /* if (clients.length === 0 && !clientsLoading) {
     return (
@@ -360,7 +366,7 @@ export function ClientsPage() {
                     const beneficiaryInfo = client.beneficiarios && client.beneficiarios.length > 0
                       ? client.beneficiarios[0].persona_beneficiaria?.usuario
                       : client.usuario
-                    const activeContracts = client.contratos?.filter(c => c.estado === 'Activo').length || 0
+                    const activeContracts = client.contratos?.filter((c: Contract) => c.estado === 'Activo').length || 0
 
                     return (
                       <TableRow key={client.id_persona}>
@@ -499,14 +505,14 @@ export function ClientsPage() {
       <NewClientForm
         isOpen={isNewClientOpen}
         onClose={() => setIsNewClientOpen(false)}
-        onCreateClient={createClient}
+        onCreateClient={handleCreateClient}
         onSuccess={refreshClients}
       />
 
       {/* Edit Client Modal */}
       {editingClient && isEditClientOpen && (
         <EditClientModal
-          client={editingClient}
+          client={editingClient as Client & { usuario: NonNullable<Client['usuario']>}}
           onClose={() => {
             setEditingClient(null)
             setIsEditClientOpen(false)

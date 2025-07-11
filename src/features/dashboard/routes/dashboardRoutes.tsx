@@ -1,4 +1,4 @@
-import DashboardPage from "@/features/dashboard/pages/dashboardPage";
+import DashboardOptimizedPage from "@/features/dashboard/pages/dashboardOptimizedPage";
 import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
 
 export const dashboardRoutes = [
@@ -11,7 +11,7 @@ export const dashboardRoutes = [
                 emergencyBypass={true}
                 // ✅ Bypass temporal para administrador mientras se configuran los permisos en BD
             >
-                <DashboardPage />
+                <DashboardOptimizedPage />
             </PermissionProtectedRoute>
         )
     }

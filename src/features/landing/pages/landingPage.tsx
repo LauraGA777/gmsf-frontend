@@ -22,20 +22,17 @@ import {
   Image as ImageIcon,
   Facebook,
   Instagram,
-  Twitter,
-  Youtube,
   MessageCircle,
   ChevronLeft,
   ChevronRight,
   Pause,
   Play,
-  Eye,
   Maximize2
 } from 'lucide-react';
 
 // Función para obtener el icono correspondiente
 const getIconComponent = (iconName: string) => {
-  const icons: { [key: string]: React.ComponentType<any> } = {
+  const icons: { [key: string]: React.ComponentType<React.SVGProps<SVGSVGElement>> } = {
     Dumbbell,
     Heart,
     Users,
@@ -71,7 +68,7 @@ export default function LandingPage() {
   });
   const navigate = useNavigate();
   const { settings, loading } = useGymSettings();
-  const { user } = useAuth();
+  useAuth();
 
   // Agregar estilos CSS para las animaciones
   useEffect(() => {
@@ -293,13 +290,13 @@ export default function LandingPage() {
             boxShadow: '0 8px 32px rgba(37, 211, 102, 0.3)'
           }}
           onMouseEnter={(e) => {
-            const btn = e.currentTarget;
+            const btn = e.currentTarget as HTMLElement;
             btn.style.transform = 'scale(1.2) rotate(5deg)';
             btn.style.boxShadow = '0 25px 50px rgba(37, 211, 102, 0.6)';
             btn.style.backgroundColor = '#1DB954';
           }}
           onMouseLeave={(e) => {
-            const btn = e.currentTarget;
+            const btn = e.currentTarget as HTMLElement;
             btn.style.transform = 'scale(1) rotate(0deg)';
             btn.style.boxShadow = '0 8px 32px rgba(37, 211, 102, 0.3)';
             btn.style.backgroundColor = '#25D366';
@@ -390,13 +387,13 @@ export default function LandingPage() {
                       border: '1px solid #D6D6D6'
                     }}
                     onMouseEnter={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = '#1877F2';
                       btn.style.borderColor = '#1877F2';
                       btn.style.color = 'white';
                     }}
                     onMouseLeave={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = 'transparent';
                       btn.style.borderColor = '#D6D6D6';
                       btn.style.color = '#D6D6D6';
@@ -417,13 +414,13 @@ export default function LandingPage() {
                       border: '1px solid #D6D6D6'
                     }}
                     onMouseEnter={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.background = 'linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)';
                       btn.style.borderColor = '#E4405F';
                       btn.style.color = 'white';
                     }}
                     onMouseLeave={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.background = 'transparent';
                       btn.style.borderColor = '#D6D6D6';
                       btn.style.color = '#D6D6D6';
@@ -444,13 +441,13 @@ export default function LandingPage() {
                       border: '1px solid #D6D6D6'
                     }}
                     onMouseEnter={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = '#25D366';
                       btn.style.borderColor = '#25D366';
                       btn.style.color = 'white';
                     }}
                     onMouseLeave={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = 'transparent';
                       btn.style.borderColor = '#D6D6D6';
                       btn.style.color = '#D6D6D6';
@@ -544,13 +541,13 @@ export default function LandingPage() {
                     boxShadow: '0 10px 40px rgba(255, 221, 0, 0.3)'
                   }}
                   onMouseEnter={(e) => {
-                    const btn = e.currentTarget;
+                    const btn = e.currentTarget as HTMLElement;
                     btn.style.transform = 'scale(1.1) translateY(-5px) rotate(1deg)';
                     btn.style.boxShadow = '0 20px 60px rgba(255, 221, 0, 0.6)';
                     btn.style.backgroundColor = '#FFEE32';
                   }}
                   onMouseLeave={(e) => {
-                    const btn = e.currentTarget;
+                    const btn = e.currentTarget as HTMLElement;
                     btn.style.transform = 'scale(1) translateY(0) rotate(0deg)';
                     btn.style.boxShadow = '0 10px 40px rgba(255, 221, 0, 0.3)';
                     btn.style.backgroundColor = '#FFD100';
@@ -576,14 +573,14 @@ export default function LandingPage() {
                     boxShadow: '0 10px 40px rgba(214, 214, 214, 0.2)'
                   }}
                   onMouseEnter={(e) => {
-                    const btn = e.currentTarget;
+                    const btn = e.currentTarget as HTMLElement;
                     btn.style.backgroundColor = '#D6D6D6';
                     btn.style.color = '#333533';
                     btn.style.transform = 'scale(1.1) translateY(-5px) rotate(-1deg)';
                     btn.style.boxShadow = '0 20px 60px rgba(214, 214, 214, 0.4)';
                   }}
                   onMouseLeave={(e) => {
-                    const btn = e.currentTarget;
+                    const btn = e.currentTarget as HTMLElement;
                     btn.style.backgroundColor = 'transparent';
                     btn.style.color = '#D6D6D6';
                     btn.style.transform = 'scale(1) translateY(0) rotate(0deg)';
@@ -672,12 +669,12 @@ export default function LandingPage() {
                   className="hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-4 hover:rotate-1 border-2 rounded-2xl overflow-hidden group cursor-pointer"
                   style={{ borderColor: '#D6D6D6' }}
                   onMouseEnter={(e) => {
-                    const card = e.currentTarget;
+                    const card = e.currentTarget as HTMLElement;
                     card.style.boxShadow = '0 25px 50px rgba(255, 221, 0, 0.3)';
                     card.style.borderColor = '#FFD100';
                   }}
                   onMouseLeave={(e) => {
-                    const card = e.currentTarget;
+                    const card = e.currentTarget as HTMLElement;
                     card.style.boxShadow = '';
                     card.style.borderColor = '#D6D6D6';
                   }}
@@ -821,12 +818,12 @@ export default function LandingPage() {
                             }}
                             onClick={() => openModal(image)}
                             onMouseEnter={(e) => {
-                              const btn = e.currentTarget;
+                              const btn = e.currentTarget as HTMLElement;
                               btn.style.backgroundColor = '#FFEE32';
                               btn.style.boxShadow = '0 12px 40px rgba(255, 221, 0, 0.6)';
                             }}
                             onMouseLeave={(e) => {
-                              const btn = e.currentTarget;
+                              const btn = e.currentTarget as HTMLElement;
                               btn.style.backgroundColor = '#FFD100';
                               btn.style.boxShadow = '0 8px 32px rgba(255, 221, 0, 0.4)';
                             }}
@@ -928,13 +925,13 @@ export default function LandingPage() {
                       boxShadow: '0 8px 32px rgba(255, 221, 0, 0.6), 0 0 0 4px rgba(255, 255, 255, 0.3)'
                     }}
                     onMouseEnter={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = '#FFEE32';
                       btn.style.boxShadow = '0 12px 40px rgba(255, 221, 0, 0.8), 0 0 0 4px rgba(255, 255, 255, 0.5)';
                       btn.style.transform = 'scale(1.15) rotate(5deg)';
                     }}
                     onMouseLeave={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = '#FFD100';
                       btn.style.boxShadow = '0 8px 32px rgba(255, 221, 0, 0.6), 0 0 0 4px rgba(255, 255, 255, 0.3)';
                       btn.style.transform = 'scale(1) rotate(0deg)';
@@ -1060,14 +1057,14 @@ export default function LandingPage() {
                   style={{ height: '100px' }}
                   onMouseEnter={(e) => {
                     if (index !== currentSlide) {
-                      e.currentTarget.style.transform = 'scale(1.1) rotate(2deg)';
-                      e.currentTarget.style.boxShadow = '0 15px 30px rgba(255, 221, 0, 0.3)';
+                      (e.currentTarget as HTMLElement).style.transform = 'scale(1.1) rotate(2deg)';
+                      (e.currentTarget as HTMLElement).style.boxShadow = '0 15px 30px rgba(255, 221, 0, 0.3)';
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (index !== currentSlide) {
-                      e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
-                      e.currentTarget.style.boxShadow = '';
+                      (e.currentTarget as HTMLElement).style.transform = 'scale(1) rotate(0deg)';
+                      (e.currentTarget as HTMLElement).style.boxShadow = '';
                     }
                   }}
                 >
@@ -1102,7 +1099,7 @@ export default function LandingPage() {
           {/* Información adicional personalizable */}
           <div className="mt-16 text-center">
             <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8">
-              {settings.features.slice(0, 2).map((feature, index) => {
+              {settings.features.slice(0, 2).map((feature) => {
                 const IconComponent = getIconComponent(feature.icon);
                 return (
                   <div 
@@ -1110,12 +1107,12 @@ export default function LandingPage() {
                     className="p-8 rounded-3xl transform transition-all duration-500 hover:scale-105 hover:-translate-y-2 group cursor-pointer relative overflow-hidden"
                     style={{ backgroundColor: 'white', boxShadow: '0 15px 40px rgba(255, 221, 0, 0.2)' }}
                     onMouseEnter={(e) => {
-                      const card = e.currentTarget;
+                      const card = e.currentTarget as HTMLElement;
                       card.style.boxShadow = '0 25px 60px rgba(255, 221, 0, 0.4)';
                       card.style.transform = 'scale(1.05) translateY(-10px) rotate(1deg)';
                     }}
                     onMouseLeave={(e) => {
-                      const card = e.currentTarget;
+                      const card = e.currentTarget as HTMLElement;
                       card.style.boxShadow = '0 15px 40px rgba(255, 221, 0, 0.2)';
                       card.style.transform = 'scale(1) translateY(0) rotate(0deg)';
                     }}
@@ -1242,13 +1239,13 @@ export default function LandingPage() {
                       borderColor: '#FFD100'
                     }}
                     onMouseEnter={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = '#FFD100';
                       btn.style.color = '#202020';
                       btn.style.boxShadow = '0 10px 30px rgba(255, 221, 0, 0.4)';
                     }}
                     onMouseLeave={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       if (!plan.isPopular) {
                         btn.style.backgroundColor = 'transparent';
                         btn.style.color = '#D6D6D6';
@@ -1288,12 +1285,12 @@ export default function LandingPage() {
                     className="p-4 rounded-2xl flex-shrink-0 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-lg"
                     style={{ backgroundColor: '#FFD100', boxShadow: '0 8px 32px rgba(255, 221, 0, 0.3)' }}
                     onMouseEnter={(e) => {
-                      const icon = e.currentTarget;
+                      const icon = e.currentTarget as HTMLElement;
                       icon.style.boxShadow = '0 15px 40px rgba(255, 221, 0, 0.6)';
                       icon.style.backgroundColor = '#FFEE32';
                     }}
                     onMouseLeave={(e) => {
-                      const icon = e.currentTarget;
+                      const icon = e.currentTarget as HTMLElement;
                       icon.style.boxShadow = '0 8px 32px rgba(255, 221, 0, 0.3)';
                       icon.style.backgroundColor = '#FFD100';
                     }}
@@ -1311,12 +1308,12 @@ export default function LandingPage() {
                     className="p-4 rounded-2xl flex-shrink-0 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-lg"
                     style={{ backgroundColor: '#FFD100', boxShadow: '0 8px 32px rgba(255, 221, 0, 0.3)' }}
                     onMouseEnter={(e) => {
-                      const icon = e.currentTarget;
+                      const icon = e.currentTarget as HTMLElement;
                       icon.style.boxShadow = '0 15px 40px rgba(255, 221, 0, 0.6)';
                       icon.style.backgroundColor = '#FFEE32';
                     }}
                     onMouseLeave={(e) => {
-                      const icon = e.currentTarget;
+                      const icon = e.currentTarget as HTMLElement;
                       icon.style.boxShadow = '0 8px 32px rgba(255, 221, 0, 0.3)';
                       icon.style.backgroundColor = '#FFD100';
                     }}
@@ -1334,12 +1331,12 @@ export default function LandingPage() {
                     className="p-4 rounded-2xl flex-shrink-0 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-lg"
                     style={{ backgroundColor: '#FFD100', boxShadow: '0 8px 32px rgba(255, 221, 0, 0.3)' }}
                     onMouseEnter={(e) => {
-                      const icon = e.currentTarget;
+                      const icon = e.currentTarget as HTMLElement;
                       icon.style.boxShadow = '0 15px 40px rgba(255, 221, 0, 0.6)';
                       icon.style.backgroundColor = '#FFEE32';
                     }}
                     onMouseLeave={(e) => {
-                      const icon = e.currentTarget;
+                      const icon = e.currentTarget as HTMLElement;
                       icon.style.boxShadow = '0 8px 32px rgba(255, 221, 0, 0.3)';
                       icon.style.backgroundColor = '#FFD100';
                     }}
@@ -1357,12 +1354,12 @@ export default function LandingPage() {
                     className="p-4 rounded-2xl flex-shrink-0 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-lg"
                     style={{ backgroundColor: '#FFD100', boxShadow: '0 8px 32px rgba(255, 221, 0, 0.3)' }}
                     onMouseEnter={(e) => {
-                      const icon = e.currentTarget;
+                      const icon = e.currentTarget as HTMLElement;
                       icon.style.boxShadow = '0 15px 40px rgba(255, 221, 0, 0.6)';
                       icon.style.backgroundColor = '#FFEE32';
                     }}
                     onMouseLeave={(e) => {
-                      const icon = e.currentTarget;
+                      const icon = e.currentTarget as HTMLElement;
                       icon.style.boxShadow = '0 8px 32px rgba(255, 221, 0, 0.3)';
                       icon.style.backgroundColor = '#FFD100';
                     }}
@@ -1501,12 +1498,12 @@ export default function LandingPage() {
                         borderColor: '#FFD100'
                       }}
                       onMouseEnter={(e) => {
-                        const btn = e.currentTarget;
+                        const btn = e.currentTarget as HTMLElement;
                         btn.style.boxShadow = '0 10px 30px rgba(255, 221, 0, 0.4)';
                         btn.style.transform = 'scale(1.05) translateY(-2px)';
                       }}
                       onMouseLeave={(e) => {
-                        const btn = e.currentTarget;
+                        const btn = e.currentTarget as HTMLElement;
                         btn.style.boxShadow = '';
                         btn.style.transform = 'scale(1) translateY(0)';
                       }}
@@ -1614,14 +1611,14 @@ export default function LandingPage() {
                       border: '2px solid #FFD100'
                     }}
                     onMouseEnter={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = '#1877F2';
                       btn.style.borderColor = '#1877F2';
                       btn.style.color = 'white';
                       btn.style.transform = 'scale(1.1)';
                     }}
                     onMouseLeave={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = '#333533';
                       btn.style.borderColor = '#FFD100';
                       btn.style.color = '#D6D6D6';
@@ -1643,14 +1640,14 @@ export default function LandingPage() {
                       border: '2px solid #FFD100'
                     }}
                     onMouseEnter={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.background = 'linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)';
                       btn.style.borderColor = '#E4405F';
                       btn.style.color = 'white';
                       btn.style.transform = 'scale(1.1)';
                     }}
                     onMouseLeave={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.background = '#333533';
                       btn.style.borderColor = '#FFD100';
                       btn.style.color = '#D6D6D6';
@@ -1672,14 +1669,14 @@ export default function LandingPage() {
                       border: '2px solid #FFD100'
                     }}
                     onMouseEnter={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = '#25D366';
                       btn.style.borderColor = '#25D366';
                       btn.style.color = 'white';
                       btn.style.transform = 'scale(1.1)';
                     }}
                     onMouseLeave={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = '#333533';
                       btn.style.borderColor = '#FFD100';
                       btn.style.color = '#D6D6D6';
@@ -1739,12 +1736,12 @@ export default function LandingPage() {
               boxShadow: '0 8px 32px rgba(255, 221, 0, 0.4)'
             }}
             onMouseEnter={(e) => {
-              const btn = e.currentTarget;
+              const btn = e.currentTarget as HTMLElement;
               btn.style.backgroundColor = '#FFEE32';
               btn.style.boxShadow = '0 12px 40px rgba(255, 221, 0, 0.6)';
             }}
             onMouseLeave={(e) => {
-              const btn = e.currentTarget;
+              const btn = e.currentTarget as HTMLElement;
               btn.style.backgroundColor = '#FFD100';
               btn.style.boxShadow = '0 8px 32px rgba(255, 221, 0, 0.4)';
             }}
@@ -1800,12 +1797,12 @@ export default function LandingPage() {
                       setModalImage(images[prevIndex]);
                     }}
                     onMouseEnter={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = '#FFEE32';
                       btn.style.boxShadow = '0 8px 24px rgba(255, 221, 0, 0.5)';
                     }}
                     onMouseLeave={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = '#FFD100';
                       btn.style.boxShadow = '0 4px 16px rgba(255, 221, 0, 0.3)';
                     }}
@@ -1824,12 +1821,12 @@ export default function LandingPage() {
                       setModalImage(images[nextIndex]);
                     }}
                     onMouseEnter={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = '#FFEE32';
                       btn.style.boxShadow = '0 8px 24px rgba(255, 221, 0, 0.5)';
                     }}
                     onMouseLeave={(e) => {
-                      const btn = e.currentTarget;
+                      const btn = e.currentTarget as HTMLElement;
                       btn.style.backgroundColor = '#FFD100';
                       btn.style.boxShadow = '0 4px 16px rgba(255, 221, 0, 0.3)';
                     }}

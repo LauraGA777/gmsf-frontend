@@ -13,7 +13,7 @@ import { format, isBefore, startOfDay, differenceInMinutes } from "date-fns"
 import { es } from "date-fns/locale"
 import type { Training } from "@/shared/types/training"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
-import { CalendarIcon, Clock, User, Dumbbell, Info, FileText, Check, ChevronsUpDown } from "lucide-react"
+import { CalendarIcon, Clock, User, Dumbbell, FileText, Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/shared/lib/utils";
 
 const trainingSchema = z.object({
@@ -28,13 +28,23 @@ const trainingSchema = z.object({
 
 type TrainingFormData = z.infer<typeof trainingSchema>
 
+interface TrainerOption {
+    id: number;
+    name: string;
+}
+
+interface ClientOption {
+    id: number;
+    name: string;
+}
+
 interface TrainingDetailsFormProps {
     training: Training | null;
     onUpdate: (data: Partial<Training>) => void;
     onDelete: () => void;
     onClose: () => void;
-    trainers: Array<{ id: string; name: string }>;
-    clients: Array<{ id: string; name: string }>;
+    trainers: TrainerOption[];
+    clients: ClientOption[];
 }
 
 export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, trainers = [], clients = [] }: TrainingDetailsFormProps) {
@@ -46,9 +56,6 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
 
     const isReadOnly = training.estado === "Completado" || training.estado === "Cancelado";
     const isInProgress = training.estado === "En proceso";
-
-    const validTrainers = Array.isArray(trainers) ? trainers.filter(trainer => trainer && trainer.id && trainer.id.toString().trim() !== '') : []; // trainer.id es el ID del entrenador (tabla Trainer)
-    const validClients = Array.isArray(clients) ? clients.filter(client => client && client.id && client.id.toString().trim() !== '') : [];
 
     const {
         register,
@@ -73,8 +80,8 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
     const watchFields = watch();
 
     const summaryData = useMemo(() => {
-        const client = clients.find(c => c.id === watchFields.id_cliente?.toString());
-        const trainer = trainers.find(t => t.id === watchFields.id_entrenador?.toString());
+        const client = clients.find(c => c.id === watchFields.id_cliente);
+        const trainer = trainers.find(t => t.id === watchFields.id_entrenador);
         const startDate = watchFields.fecha_inicio ? new Date(watchFields.fecha_inicio) : null;
         const endDate = watchFields.fecha_fin ? new Date(watchFields.fecha_fin) : null;
         
@@ -102,7 +109,12 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
     const handleFormSubmit = async (data: TrainingFormData) => {
         setIsLoading(true)
         try {
-            await onUpdate(data)
+            await onUpdate({
+                ...data,
+                id: training.id,
+                fecha_inicio: new Date(data.fecha_inicio),
+                fecha_fin: new Date(data.fecha_fin),
+            });
             onClose()
         } catch (error) {
             console.error("Error updating training:", error)
@@ -213,7 +225,7 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
                                 <Popover>
                                     <PopoverTrigger asChild disabled={isReadOnly}>
                                         <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                                            {field.value ? validClients.find(c => c.id === field.value.toString())?.name : "Seleccione un cliente"}
+                                            {field.value ? clients.find(c => c.id === field.value)?.name : "Seleccione un cliente"}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
@@ -222,15 +234,15 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
                                             <CommandInput placeholder="Buscar cliente..." />
                                             <CommandEmpty>No se encontró el cliente.</CommandEmpty>
                                             <CommandGroup>
-                                                {validClients.map(client => (
+                                                {clients.map(client => (
                                                     <CommandItem
                                                         key={client.id}
                                                         value={client.name}
                                                         onSelect={() => {
-                                                            setValue("id_cliente", parseInt(client.id, 10));
+                                                            setValue("id_cliente", client.id);
                                                         }}
                                                     >
-                                                        <Check className={cn("mr-2 h-4 w-4", field.value === parseInt(client.id, 10) ? "opacity-100" : "opacity-0")} />
+                                                        <Check className={cn("mr-2 h-4 w-4", field.value === client.id ? "opacity-100" : "opacity-0")} />
                                                         {client.name}
                                                     </CommandItem>
                                                 ))}
@@ -252,7 +264,7 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
                                 <Popover>
                                     <PopoverTrigger asChild disabled={isReadOnly}>
                                         <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                                            {field.value ? validTrainers.find(t => t.id === field.value.toString())?.name : "Seleccione un entrenador"}
+                                            {field.value ? trainers.find(t => t.id === field.value)?.name : "Seleccione un entrenador"}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
@@ -261,15 +273,15 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
                                             <CommandInput placeholder="Buscar entrenador..." />
                                             <CommandEmpty>No se encontró el entrenador.</CommandEmpty>
                                             <CommandGroup>
-                                                {validTrainers.map(trainer => (
+                                                {trainers.map(trainer => (
                                                     <CommandItem
                                                         key={trainer.id}
                                                         value={trainer.name}
                                                         onSelect={() => {
-                                                            setValue("id_entrenador", parseInt(trainer.id, 10));
+                                                            setValue("id_entrenador", trainer.id);
                                                         }}
                                                     >
-                                                        <Check className={cn("mr-2 h-4 w-4", field.value === parseInt(trainer.id, 10) ? "opacity-100" : "opacity-0")} />
+                                                        <Check className={cn("mr-2 h-4 w-4", field.value === trainer.id ? "opacity-100" : "opacity-0")} />
                                                         {trainer.name}
                                                     </CommandItem>
                                                 ))}

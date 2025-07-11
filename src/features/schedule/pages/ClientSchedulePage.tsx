@@ -5,34 +5,42 @@ import {
   Calendar as CalendarIcon,
   Clock,
   Search,
-  Filter,
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
   AlertCircle,
   Clock3,
   XCircle,
-  User,
   Dumbbell,
   CalendarDays,
   Plus,
 } from "lucide-react";
 import Swal from "sweetalert2";
-import { Training, TrainingsResponse, AvailabilityResponse } from "@/shared/types/training";
-import { format, isSameDay, addDays, subDays, isToday, startOfDay, endOfDay } from "date-fns";
+import { Training } from "@/shared/types/training";
+import { format, isSameDay, addDays, subDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
 import { Input } from "@/shared/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { ScheduleComponent } from "@/features/schedule/components/ScheduleComponent";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { TrainingForm } from "@/features/schedule/components/TrainingForm";
 import { TrainingDetailsForm } from "@/features/schedule/components/TrainingDetailsForm";
 import { scheduleService } from "@/features/schedule/services/schedule.service";
-import { cn } from "@/shared/lib/utils";
 import { useToast } from "@/shared/components/ui/use-toast";
+import { Trainer } from "@/shared/types";
+
+interface Option {
+  id: number;
+  name: string;
+}
+
+interface ActiveClient {
+  id: number;
+  nombre: string;
+  apellido: string;
+}
 
 export function ClientSchedulePage() {
   const { user } = useAuth();
@@ -45,9 +53,9 @@ export function ClientSchedulePage() {
   const [fetchedTrainings, setFetchedTrainings] = useState<Training[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentMonth, setCurrentMonth] = useState<string>(format(new Date(), "yyyy-MM-dd"));
-  const [trainers, setTrainers] = useState<Array<{ id: string; name: string }>>([]);
-  const [clientsWithActiveContracts, setClientsWithActiveContracts] = useState<{ id: string; name: string }[]>([]);
+  const [currentMonth, _setCurrentMonth] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  const [trainers, setTrainers] = useState<Option[]>([]);
+  const [clientsWithActiveContracts, setClientsWithActiveContracts] = useState<Option[]>([]);
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -62,7 +70,7 @@ export function ClientSchedulePage() {
       if (viewMode === 'calendar') {
         trainingsPromise = scheduleService.getMonthlySchedule(new Date(currentMonth).getFullYear(), new Date(currentMonth).getMonth() + 1);
       } else {
-        trainingsPromise = scheduleService.getClientSchedule(user.personId);
+        trainingsPromise = scheduleService.getClientSchedule(parseInt(user.personId, 10));
       }
       
       const clientsPromise = scheduleService.getActiveClients();
@@ -74,8 +82,8 @@ export function ClientSchedulePage() {
       ]);
 
       if (trainersResponse.data) {
-        const mappedTrainers = trainersResponse.data.map((t: any) => ({
-          id: t.id.toString(),
+        const mappedTrainers = trainersResponse.data.map((t: Trainer) => ({
+          id: t.id,
           name: `${t.usuario?.nombre || ''} ${t.usuario?.apellido || ''}`.trim(),
         }));
         setTrainers(mappedTrainers);
@@ -86,8 +94,8 @@ export function ClientSchedulePage() {
       }
 
       if (clientsResponse.data) {
-        const mappedClients = clientsResponse.data.map((c: any) => ({
-          id: c.id.toString(),
+        const mappedClients = clientsResponse.data.map((c: ActiveClient) => ({
+          id: c.id,
           name: `${c.nombre} ${c.apellido}`
         }));
         setClientsWithActiveContracts(mappedClients)
@@ -111,7 +119,8 @@ export function ClientSchedulePage() {
 
     // For clients, filter to show only their own trainings
     if (user?.personId) {
-      filtered = filtered.filter(t => t.id_cliente === user.personId);
+      const personId = parseInt(user.personId, 10);
+      filtered = filtered.filter(t => t.id_cliente === personId);
     }
 
     if (viewMode === "daily") {
@@ -122,8 +131,8 @@ export function ClientSchedulePage() {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(t =>
         t.titulo?.toLowerCase().includes(term) ||
-        t.entrenador?.nombre?.toLowerCase().includes(term) ||
-        t.entrenador?.apellido?.toLowerCase().includes(term) ||
+        t.entrenador?.usuario?.nombre?.toLowerCase().includes(term) ||
+        t.entrenador?.usuario?.apellido?.toLowerCase().includes(term) ||
         t.estado?.toLowerCase().includes(term)
       );
     }
@@ -153,7 +162,7 @@ export function ClientSchedulePage() {
       if (selectedTraining) {
         await scheduleService.updateTraining(selectedTraining.id, data);
       } else {
-        await scheduleService.createTraining({ ...data, id_cliente: user?.personId });
+        await scheduleService.createTraining({ ...data, id_cliente: user?.personId ? parseInt(user.personId, 10) : 0 });
       }
       setIsFormOpen(false);
       setIsEditFormOpen(false);
@@ -175,7 +184,7 @@ export function ClientSchedulePage() {
   }
 
   const handleAddTraining = () => {
-    const hasActiveContract = clientsWithActiveContracts.some(c => c.id === user?.personId.toString());
+    const hasActiveContract = clientsWithActiveContracts.some(c => c.id.toString() === user?.personId);
     if (!hasActiveContract) {
       toast({
         title: "Contrato Requerido",
@@ -314,12 +323,11 @@ export function ClientSchedulePage() {
       {viewMode === "calendar" && (
         <ScheduleComponent
           trainings={displayedTrainings}
-          onSelectDate={handleSelectDate}
-          selectedDate={selectedDate}
           onTrainingClick={handleTrainingClick}
-          currentMonth={currentMonth}
-          setCurrentMonth={setCurrentMonth}
-          onAddTraining={handleAddTraining}
+          onAddTraining={() => handleAddTraining()}
+          onUpdateTrainingDate={(trainingId, newStartDate, newEndDate) => {
+            handleSubmitTraining({ id: trainingId, fecha_inicio: newStartDate, fecha_fin: newEndDate })
+          }}
         />
       )}
 
@@ -329,9 +337,9 @@ export function ClientSchedulePage() {
           <TrainingForm
             onSubmit={handleSubmitTraining}
             onCancel={() => setIsFormOpen(false)}
-            initialDate={selectedDate}
-            clients={clientsWithActiveContracts.filter(c => c.id === user?.personId.toString())}
-            trainers={trainers}
+            initialStartDate={selectedDate}
+            clients={clientsWithActiveContracts.filter(c => c.id.toString() === user?.personId).map(c => ({ ...c, id: c.id.toString() }))}
+            trainers={trainers.map(t => ({ ...t, id: t.id.toString() }))}
           />
         </DialogContent>
       </Dialog>

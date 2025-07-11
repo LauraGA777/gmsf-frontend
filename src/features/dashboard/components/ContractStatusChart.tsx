@@ -1,6 +1,7 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { FileText, CheckCircle, Clock, XCircle, AlertTriangle } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, TooltipProps } from 'recharts';
+import { FileText, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 
 interface ContractStatusData {
   status: string;
@@ -77,7 +78,7 @@ export function ContractStatusChart({
     );
   }
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: TooltipProps<ValueType, NameType>) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       const percentage = totalContracts > 0 ? ((data.count / totalContracts) * 100).toFixed(1) : '0.0';
@@ -88,7 +89,7 @@ export function ContractStatusChart({
             <div style={{ color: data.color }}>
               {data.icon}
             </div>
-            <p className="font-semibold text-gray-900">{data.status}</p>
+            <p className="font-semibold text-gray-900">{label}</p>
           </div>
           <p className="text-sm text-gray-600">Cantidad: {data.count}</p>
           <p className="text-sm text-gray-600">Porcentaje: {percentage}%</p>

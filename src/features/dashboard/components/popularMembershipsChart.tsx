@@ -1,4 +1,3 @@
-import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { TrendingUp, Crown, AlertCircle } from 'lucide-react';
 import { formatCOP } from '@/shared/lib/formatCop';

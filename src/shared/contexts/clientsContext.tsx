@@ -1,11 +1,11 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { clientService } from "@/features/clients/services/client.service";
 import { contractService } from "@/features/contracts/services/contract.service";
-import type { Client, Contract } from "@/shared/types";
+import type { UIClient, Contract } from "@/shared/types";
 import { mapDbClientToUiClient, mapDbContractToUiContract } from "@/shared/types";
 
 interface ClientsContextType {
-    clients: Client[];
+    clients: UIClient[];
     contracts: Contract[];
     loading: boolean;
     error: string | null;
@@ -24,7 +24,7 @@ export const useGlobalClients = () => {
 };
 
 export const GlobalClientsProvider = ({ children }: { children: React.ReactNode }) => {
-    const [clients, setClients] = useState<Client[]>([]);
+    const [clients, setClients] = useState<UIClient[]>([]);
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -34,15 +34,13 @@ export const GlobalClientsProvider = ({ children }: { children: React.ReactNode 
             setLoading(true);
             const response = await clientService.getClients({});
             
-            // Verificar que la respuesta tiene la estructura esperada
             const clientsData = response?.data || [];
             if (Array.isArray(clientsData)) {
-                // Filtrar clientes válidos antes de mapear
+                
                 const validClients = clientsData.filter(client => 
-                    client && (client.id_persona || client.id)
+                    client && client.id_persona
                 );
                 
-                // Mapear clientes de forma segura
                 const mappedClients = validClients.map(client => {
                     try {
                         return mapDbClientToUiClient(client);
@@ -50,7 +48,7 @@ export const GlobalClientsProvider = ({ children }: { children: React.ReactNode 
                         console.warn('Error mapping client:', client, err);
                         return null;
                     }
-                }).filter(Boolean); // Remover nulls
+                }).filter((client): client is UIClient => client !== null);
                 
                 setClients(mappedClients);
                 setError(null);
@@ -73,15 +71,13 @@ export const GlobalClientsProvider = ({ children }: { children: React.ReactNode 
             setLoading(true);
             const response = await contractService.getContracts();
             
-            // Verificar que la respuesta tiene la estructura esperada
-            const contractsData = response?.data?.data || response?.data || [];
+            const contractsData = response?.data || [];
             if (Array.isArray(contractsData)) {
-                // Filtrar contratos válidos antes de mapear
+                
                 const validContracts = contractsData.filter(contract => 
                     contract && contract.id
                 );
                 
-                // Mapear contratos de forma segura
                 const mappedContracts = validContracts.map(contract => {
                     try {
                         return mapDbContractToUiContract(contract);
@@ -89,7 +85,7 @@ export const GlobalClientsProvider = ({ children }: { children: React.ReactNode 
                         console.warn('Error mapping contract:', contract, err);
                         return null;
                     }
-                }).filter(Boolean); // Remover nulls
+                }).filter((contract): contract is Contract => contract !== null); 
                 
                 setContracts(mappedContracts);
                 setError(null);

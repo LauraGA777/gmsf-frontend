@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
@@ -54,6 +55,7 @@ export function ClientsPage() {
     createClient
   } = useGym();
 
+  const navigate = useNavigate();
   const { hasPrivilege } = usePermissions();
   
   const canViewClients = hasPrivilege(PERMISSIONS.CLIENTES, PRIVILEGES.CLIENT_READ);
@@ -247,6 +249,23 @@ export function ClientsPage() {
       console.error("Error al crear cliente desde la página", error);
       // El toast de error ya se muestra en NewClientForm, pero podemos agregar uno genérico si es necesario.
     }
+  };
+
+  const handleCreateClientSuccess = () => {
+    Swal.fire({
+      title: '¡Cliente Creado!',
+      text: '¿Deseas crear un contrato para este nuevo cliente?',
+      icon: 'success',
+      showCancelButton: true,
+      confirmButtonColor: '#000000',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Sí, crear contrato',
+      cancelButtonText: 'No, después'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        navigate('/contracts'); // Asumiendo que esta es la ruta para crear un contrato
+      }
+    });
   };
 
   const paginatedClients = filteredClients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -506,7 +525,7 @@ export function ClientsPage() {
         isOpen={isNewClientOpen}
         onClose={() => setIsNewClientOpen(false)}
         onCreateClient={handleCreateClient}
-        onSuccess={refreshClients}
+        onSuccess={handleCreateClientSuccess}
       />
 
       {/* Edit Client Modal */}

@@ -1,242 +1,183 @@
-import { useState, useMemo } from "react"
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/shared/components/ui/table"
-import { Button } from "@/shared/components/ui/button"
-import {
-  Eye,
-  Edit,
-  Trash2,
-  MoreHorizontal,
-  Dumbbell,
-  Power,
-  RotateCcw
-} from "lucide-react"
-import { TrainerDetailModal } from "./trainerDetailModal"
-import { TrainerModal } from "./trainerModal"
-import { useAuth } from "@/shared/contexts/authContext"
-import { usePermissions } from "@/shared/hooks/usePermissions"
-import type { TrainerDisplayData } from "@/shared/types/trainer"
-import Swal from "sweetalert2"
-import { Badge } from "@/shared/components/ui/badge"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/shared/components/ui/dropdown-menu"
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/shared/components/ui/table";
+import { Button } from "@/shared/components/ui/button";
+import { Badge } from "@/shared/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/shared/components/ui/dropdown-menu";
+import { Eye, Edit, Trash2, MoreHorizontal, CheckCircle, AlertTriangle, Power, RotateCcw, User } from "lucide-react";
+import { format } from "date-fns";
+import type { Trainer } from "@/shared/types/trainer";
+import { TableSkeleton } from "@/shared/components/ui/table-skeleton";
+import { EmptyState } from "@/shared/components/ui/empty-state";
+import { cn } from "@/shared/lib/utils";
 
 interface TrainersTableProps {
-  trainers: TrainerDisplayData[]
-  isLoading: boolean
-  onUpdateTrainer: (trainer: TrainerDisplayData) => Promise<void>
-  onDeleteTrainer: (trainer: TrainerDisplayData) => Promise<void>
-  onToggleStatus: (trainer: TrainerDisplayData) => Promise<void>
+  trainers: Trainer[];
+  isLoading: boolean;
+  onViewDetails: (trainer: Trainer) => void;
+  onEdit: (trainer: Trainer) => void;
+  onToggleStatus: (trainer: Trainer) => void;
+  onDelete: (id: number) => void;
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  onPageChange: (page: number) => void;
+  permissions: {
+    canUpdateTrainers: boolean;
+    canDeleteTrainers: boolean;
+    canChangeStatus: boolean;
+  };
+  onAddNewTrainer?: () => void;
 }
 
-export function TrainersTable({ 
-  trainers, 
+export function TrainersTable({
+  trainers,
   isLoading,
-  onUpdateTrainer,
-  onDeleteTrainer,
+  onViewDetails,
+  onEdit,
   onToggleStatus,
+  onDelete,
+  pagination,
+  onPageChange,
+  permissions,
+  onAddNewTrainer
 }: TrainersTableProps) {
-  const { hasPrivilege } = usePermissions()
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [selectedTrainer, setSelectedTrainer] = useState<TrainerDisplayData | null>(null)
   
-  const canUpdate = useMemo(() => hasPrivilege('ENTRENADORES', 'TRAINER_UPDATE'), [hasPrivilege])
-  const canDelete = useMemo(() => hasPrivilege('ENTRENADORES', 'TRAINER_DELETE'), [hasPrivilege])
-
-  const handleViewTrainer = (trainer: TrainerDisplayData) => {
-    setSelectedTrainer(trainer)
-    setIsViewModalOpen(true)
-  }
-
-  const handleCloseViewModal = () => {
-    setIsViewModalOpen(false)
-    setSelectedTrainer(null)
-  }
-
-  const handleEditTrainer = (trainer: TrainerDisplayData) => {
-    if (!canUpdate) return
-    setSelectedTrainer(trainer)
-    setIsEditModalOpen(true)
-  }
-
-  const handleCloseEditModal = () => {
-    setIsEditModalOpen(false)
-    setSelectedTrainer(null)
-  }
-
-  const handleSaveTrainer = async (trainerData: Omit<TrainerDisplayData, "id" | "codigo">) => {
-    if (!selectedTrainer) return
-    
-    const updatedTrainer: TrainerDisplayData = {
-      ...selectedTrainer,
-      ...trainerData,
-    }
-    
-    await onUpdateTrainer(updatedTrainer)
-    setIsEditModalOpen(false)
-    setSelectedTrainer(null)
-  }
-
-  const handleDelete = async (trainer: TrainerDisplayData) => {
-    if (!canDelete) return
-    
-    const result = await Swal.fire({
-      title: "¿Eliminar entrenador?",
-      text: `¿Está seguro que desea eliminar a ${trainer.name} ${trainer.lastName}?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: "Sí, eliminar",
-      cancelButtonText: "Cancelar"
-    })
-
-    if (result.isConfirmed) {
-      await onDeleteTrainer(trainer)
-    }
-  }
-
-  const handleToggleStatus = async (trainer: TrainerDisplayData) => {
-    if (!canUpdate) return
-    
-    const result = await Swal.fire({
-      title: trainer.isActive ? "¿Desactivar entrenador?" : "¿Activar entrenador?",
-      text: trainer.isActive
-        ? `¿Está seguro que desea desactivar a ${trainer.name} ${trainer.lastName}?`
-        : `¿Está seguro que desea activar a ${trainer.name} ${trainer.lastName}?`,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#000000",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: trainer.isActive ? "Sí, desactivar" : "Sí, activar",
-      cancelButtonText: "Cancelar"
-    })
-
-    if (result.isConfirmed) {
-      await onToggleStatus(trainer)
-    }
-  }
+  const hasActions = permissions.canUpdateTrainers || permissions.canDeleteTrainers || permissions.canChangeStatus;
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
-      </div>
-    )
+    return <TableSkeleton columns={6} rows={pagination.limit} />;
   }
+
+  if (trainers.length === 0) {
+    return (
+      <EmptyState
+        Icon={User}
+        title="No se encontraron entrenadores"
+        description="Parece que no hay entrenadores que coincidan con tu búsqueda."
+        actionText={onAddNewTrainer ? "Crear Nuevo Entrenador" : undefined}
+        onAction={onAddNewTrainer}
+      />
+    );
+  }
+
+  const getStatusBadge = (estado: boolean) => {
+    return estado
+      ? {
+          label: "Activo",
+          color: "bg-green-100 text-green-800",
+          icon: <CheckCircle className="h-3.5 w-3.5 mr-1" />,
+        }
+      : {
+          label: "Inactivo",
+          color: "bg-red-100 text-red-800",
+          icon: <AlertTriangle className="h-3.5 w-3.5 mr-1" />,
+        };
+  };
 
   return (
     <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Código</TableHead>
-            <TableHead>Nombre</TableHead>
-            <TableHead>Especialidad</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Documento</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {trainers.length === 0 ? (
+      <div className="overflow-x-auto rounded-lg border">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8">
-                <div className="flex flex-col items-center gap-2">
-                  <Dumbbell className="h-8 w-8 text-gray-400" />
-                  <p className="text-gray-500">No se encontraron entrenadores</p>
-                </div>
-              </TableCell>
+              <TableHead>Código</TableHead>
+              <TableHead>Nombre Completo</TableHead>
+              <TableHead>Documento</TableHead>
+              <TableHead>Contacto</TableHead>
+              <TableHead>Especialidad</TableHead>
+              <TableHead>Estado</TableHead>
+              {hasActions && <TableHead className="text-right">Acciones</TableHead>}
             </TableRow>
-          ) : (
-            trainers.map((trainer) => (
-              <TableRow key={trainer.id}>
-                <TableCell className="font-medium">{trainer.codigo || "N/A"}</TableCell>
-                <TableCell className="font-medium">
-                  {trainer.name} {trainer.lastName}
-                </TableCell>
-                <TableCell>{trainer.specialty || "N/A"}</TableCell>
-                <TableCell>{trainer.email || "N/A"}</TableCell>
-                <TableCell className="font-medium">
-                  {trainer.documentType} {trainer.documentNumber}
-                </TableCell>
-                <TableCell>
-                  {trainer.isActive ? (
-                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Activo</Badge>
-                  ) : (
-                    <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Inactivo</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleViewTrainer(trainer)}>
-                        <Eye className="w-4 h-4 mr-2" />
-                        Ver detalles
-                      </DropdownMenuItem>
-                      {canUpdate && (
-                        <DropdownMenuItem onClick={() => handleEditTrainer(trainer)}>
-                          <Edit className="w-4 h-4 mr-2" />
-                          Editar
-                        </DropdownMenuItem>
-                      )}
-                      {canUpdate && (
-                        <DropdownMenuItem onClick={() => handleToggleStatus(trainer)}>
-                          {trainer.isActive ? (
-                            <Power className="w-4 h-4 mr-2" />
-                          ) : (
-                            <RotateCcw className="w-4 h-4 mr-2" />
+          </TableHeader>
+          <TableBody>
+            {trainers.map((trainer) => {
+              const status = getStatusBadge(trainer.estado);
+              return (
+                <TableRow key={trainer.id} className="hover:bg-gray-50">
+                  <TableCell className="font-medium">{trainer.codigo}</TableCell>
+                  <TableCell>{trainer.usuario?.nombre} {trainer.usuario?.apellido}</TableCell>
+                  <TableCell>
+                    {trainer.usuario?.tipo_documento} - {trainer.usuario?.numero_documento}
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{trainer.usuario?.correo}</div>
+                    <div className="text-xs text-gray-500">{trainer.usuario?.telefono || 'N/A'}</div>
+                  </TableCell>
+                  <TableCell>{trainer.especialidad}</TableCell>
+                  <TableCell>
+                    <Badge className={cn("flex items-center w-fit", status.color)}>
+                        {status.icon}
+                        <span>{status.label}</span>
+                    </Badge>
+                  </TableCell>
+                  {hasActions && (
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Abrir menú</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => onViewDetails(trainer)}>
+                            <Eye className="mr-2 h-4 w-4" /> Ver detalles
+                          </DropdownMenuItem>
+                          {permissions.canUpdateTrainers && (
+                            <DropdownMenuItem onClick={() => onEdit(trainer)}>
+                              <Edit className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
                           )}
-                          {trainer.isActive ? "Desactivar" : "Activar"}
-                        </DropdownMenuItem>
-                      )}
-                      {canDelete && (
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(trainer)}
-                          className="text-red-600 focus:text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Eliminar
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-
-      {selectedTrainer && (
-        <TrainerDetailModal
-          trainer={selectedTrainer}
-          isOpen={isViewModalOpen}
-          onClose={handleCloseViewModal}
-          onEdit={handleEditTrainer}
-          onDelete={handleDelete}
-        />
-      )}
-      
-      {selectedTrainer && isEditModalOpen && (
-        <TrainerModal
-          trainer={selectedTrainer}
-          isOpen={isEditModalOpen}
-          onClose={handleCloseEditModal}
-          onSave={handleSaveTrainer}
-          title="Editar Entrenador"
-        />
-      )}
+                          {permissions.canChangeStatus && (
+                            <DropdownMenuItem onClick={() => onToggleStatus(trainer)}>
+                                {trainer.estado ? <Power className="mr-2 h-4 w-4" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+                                {trainer.estado ? "Desactivar" : "Activar"}
+                            </DropdownMenuItem>
+                          )}
+                          {permissions.canDeleteTrainers && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => onDelete(trainer.id)} className="text-red-600">
+                                <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+      <div className="mt-4 flex items-center justify-between">
+          <div className="text-sm text-gray-500">
+            Página {pagination.page} de {pagination.totalPages}. Total: {pagination.total} entrenadores.
+          </div>
+          <div className="flex space-x-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(pagination.page - 1)}
+              disabled={pagination.page <= 1}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(pagination.page + 1)}
+              disabled={pagination.page >= pagination.totalPages}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
     </>
-  )
-}
+  );
+} 

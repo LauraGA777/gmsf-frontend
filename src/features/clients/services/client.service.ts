@@ -88,8 +88,8 @@ export const clientService = {
   checkUserByDocument: async (tipo_documento: string, numero_documento: string) => {
     clientService.checkAuth();
     // La URL ahora incluye los parámetros directamente
-    const response = await api.get(`/clients/check-user/${tipo_documento}/${numero_documento}`);
-    return response.data;
+    const response = await api.get<{ data: any }>(`/clients/check-user/${tipo_documento}/${numero_documento}`);
+    return response.data.data;
   },
 
   // Get client emergency contacts

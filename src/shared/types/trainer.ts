@@ -1,51 +1,39 @@
-// Tipos que coinciden con el backend
-export interface User {
-  id: number
-  nombre: string
-  apellido: string
-  correo: string
-  telefono: string
-  direccion?: string
-  genero?: string
-  tipo_documento?: string
-  numero_documento: string
-  fecha_nacimiento?: string | Date
-}
+import type { User, UserFormData } from './user';
 
+// La estructura principal de un Entrenador, tal como viene de la API
 export interface Trainer {
-  id: number
-  codigo: string
-  id_usuario: number
-  fecha_registro: string | Date
-  especialidad: string
-  estado: boolean
-  createdAt?: string | Date
-  updatedAt?: string | Date
-  usuario?: User
+    id: number;
+    codigo: string;
+    id_usuario: number;
+    especialidad: string;
+    estado: boolean;
+    fecha_registro: string | Date;
+    createdAt: string | Date;
+    updatedAt: string | Date;
+    usuario?: User; // El objeto User está anidado
 }
 
-// Para el formulario del frontend
+// Para el formulario de creación/edición, anidamos los datos del usuario
 export interface TrainerFormData {
-  numero_documento: string
-  especialidad: string
-  estado?: boolean
+    usuario: UserFormData;
+    especialidad: string;
+    estado?: boolean;
 }
 
-// Para mapear los datos del usuario al formulario
-export interface TrainerDisplayData {
-  id?: number
-  codigo?: string
-  name: string
-  lastName: string
-  email: string
-  phone: string
-  address: string
-  gender: string
-  documentType: string
-  documentNumber: string
-  birthDate: Date | string
-  specialty: string
-  hireDate: Date | string
-  isActive: boolean
-  services: string[]
+// Respuesta de la API para un solo entrenador
+export interface SingleTrainerResponse {
+    trainer: Trainer;
+    message?: string;
+}
+
+// Respuesta de la API para una lista paginada de entrenadores
+export interface PaginatedTrainersResponse {
+    data: Trainer[];
+    pagination: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    };
+    message?: string;
 }

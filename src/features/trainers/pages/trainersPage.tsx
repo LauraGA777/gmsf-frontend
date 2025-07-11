@@ -1,331 +1,189 @@
-import { useState, useEffect } from "react"
-import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table"
-import { Badge } from "@/shared/components/ui/badge"
-import { 
-  Plus, 
-  Search, 
-  RefreshCw,
-  Users,
-  ChevronLeft,
-  ChevronRight,
-  Edit,
-  Trash2,
-  Power,
-  PowerOff,
-  MoreHorizontal
-} from "lucide-react"
-import { trainerService } from "../services/trainerService"
-import type { TrainerDisplayData } from "@/shared/types/trainer"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
-import { TrainerModal } from "../components/trainerModal"
-import { useToast } from "@/shared/components/ui/use-toast"
-import { usePermissions } from "@/shared/hooks/usePermissions"
-import Swal from "sweetalert2"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/shared/components/ui/dropdown-menu"
+import { useState, useEffect, useCallback } from "react";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { Plus, Search, Users, RefreshCw } from "lucide-react";
+import { useToast } from "@/shared/components/ui/use-toast";
+import { usePermissions } from "@/shared/hooks/usePermissions";
+import { PERMISSIONS, PRIVILEGES } from "@/shared/services/permissionService";
+import { trainerService } from "../services/trainer.service";
+import type { Trainer } from "@/shared/types/trainer";
+import { TrainersTable } from "../components/trainersTable";
+import { NewTrainerForm, CreateTrainerFormValues } from "../components/newTrainerForm";
+import { EditTrainerModal, UpdateTrainerFormValues } from "../components/editTrainerModal";
+import { TrainerDetails } from "../components/trainerDetails";
+import Swal from "sweetalert2";
 
 export function TrainersPage() {
-  const [trainers, setTrainers] = useState<TrainerDisplayData[]>([])
-  const [filteredTrainers, setFilteredTrainers] = useState<TrainerDisplayData[]>([])
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [editingTrainer, setEditingTrainer] = useState<TrainerDisplayData | undefined>(undefined)
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
-  const { toast } = useToast()
-  const { hasPrivilege } = usePermissions()
+  const { toast } = useToast();
+  const { hasPrivilege } = usePermissions();
 
-  const canCreate = hasPrivilege('ENTRENADORES', 'TRAINER_CREATE')
-  const canUpdate = hasPrivilege('ENTRENADORES', 'TRAINER_UPDATE')
-  const canDelete = hasPrivilege('ENTRENADORES', 'TRAINER_DELETE')
+  const [trainers, setTrainers] = useState<Trainer[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadTrainers()
-  }, [])
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
 
-  useEffect(() => {
-    filterTrainers()
-  }, [trainers, searchTerm, statusFilter])
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const loadTrainers = async () => {
+  const [isNewTrainerModalOpen, setIsNewTrainerModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedTrainer, setSelectedTrainer] = useState<Trainer | null>(null);
+
+  // Permisos
+  const canViewTrainers = hasPrivilege(PERMISSIONS.ENTRENADORES, PRIVILEGES.TRAINER_READ);
+  const canCreateTrainers = hasPrivilege(PERMISSIONS.ENTRENADORES, PRIVILEGES.TRAINER_CREATE);
+  const canUpdateTrainers = hasPrivilege(PERMISSIONS.ENTRENADORES, PRIVILEGES.TRAINER_UPDATE);
+  const canDeleteTrainers = hasPrivilege(PERMISSIONS.ENTRENADORES, PRIVILEGES.TRAINER_DELETE);
+  const canChangeStatus = hasPrivilege(PERMISSIONS.ENTRENADORES, PRIVILEGES.TRAINER_ACTIVATE) || hasPrivilege(PERMISSIONS.ENTRENADORES, PRIVILEGES.TRAINER_DEACTIVATE);
+
+  const fetchTrainers = useCallback(async (page = 1, limit = 10) => {
+    if (!canViewTrainers) return;
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true)
-      setError(null)
-
-      const response = await trainerService.getTrainersWithCompleteUserInfo()
+      const params: any = {
+        pagina: page,
+        limite: limit,
+        orden: 'nombre',
+        direccion: 'ASC',
+      };
+      if (searchTerm) params.q = searchTerm;
+      if (statusFilter !== "all") params.estado = statusFilter === 'true';
       
-      if (Array.isArray(response)) {
-        setTrainers(response)
-      } else {
-        console.error("Unexpected response format:", response)
-        setTrainers([])
-        setError("Formato de respuesta inesperado del servidor")
-      }
-    } catch (error) {
-      console.error("Error loading trainers:", error)
-      setTrainers([])
-      setError((error as Error)?.message || "Error al cargar los entrenadores")
+      const response = await trainerService.getTrainers(params);
+      setTrainers(response.data);
+      setPagination({
+        page: response.pagination.page,
+        limit: response.pagination.limit,
+        total: response.pagination.total,
+        totalPages: response.pagination.totalPages,
+      });
+    } catch (err) {
+      setError("Error al cargar los entrenadores.");
+      toast({ title: "Error", description: "No se pudieron cargar los entrenadores.", variant: "destructive" });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  }, [canViewTrainers, searchTerm, statusFilter, toast]);
 
-  const filterTrainers = () => {
-    let filtered = [...trainers]
+  useEffect(() => {
+    fetchTrainers(pagination.page, pagination.limit);
+  }, [fetchTrainers, pagination.page, pagination.limit]);
 
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        (trainer) =>
-          trainer.name?.toLowerCase().includes(term) ||
-          trainer.lastName?.toLowerCase().includes(term) ||
-          trainer.email?.toLowerCase().includes(term) ||
-          trainer.documentNumber?.toLowerCase().includes(term) ||
-          trainer.specialty?.toLowerCase().includes(term),
-      )
-    }
-
-    if (statusFilter !== "all") {
-      const isActive = statusFilter === "active"
-      filtered = filtered.filter((trainer) => trainer.isActive === isActive)
-    }
-
-    // Ordenar por código de entrenador (ascendente)
-    filtered.sort((a, b) => {
-      const codeA = a.codigo || ""
-      const codeB = b.codigo || ""
-      return codeA.localeCompare(codeB, undefined, { numeric: true })
-    })
-
-    setFilteredTrainers(filtered)
-    setCurrentPage(1) // Reset page when filters change
-  }
-
-  const handleSaveTrainer = async (trainerData: Omit<TrainerDisplayData, "id" | "codigo">) => {
+  const handleCreateTrainer = async (data: CreateTrainerFormValues) => {
     try {
-      if (editingTrainer) {
-        if (!canUpdate) {
-          toast({
-            title: "Error",
-            description: "No tienes permisos para actualizar entrenadores",
-            variant: "destructive",
-          })
-          return
-        }
-        const updatedTrainer: TrainerDisplayData = {
-          ...editingTrainer,
-          ...trainerData,
-        }
-        await trainerService.updateTrainer(updatedTrainer)
-        toast({
-          title: "¡Éxito!",
-          description: "Entrenador actualizado correctamente",
-        })
-      } else {
-        if (!canCreate) {
-          toast({
-            title: "Error",
-            description: "No tienes permisos para crear entrenadores",
-            variant: "destructive",
-          })
-          return
-        }
-        await trainerService.createTrainer(trainerData)
-        toast({
-          title: "¡Éxito!",
-          description: "Entrenador creado correctamente",
-        })
-      }
-
-      await loadTrainers()
-      setIsModalOpen(false)
-      setEditingTrainer(undefined)
-    } catch (error) {
-      console.error("Error saving trainer:", error)
-      toast({
-        title: "Error",
-        description: (error as Error)?.message || "Error al guardar el entrenador",
-        variant: "destructive",
-      })
-      throw error
+      await trainerService.createTrainer(data);
+      toast({ title: "¡Éxito!", description: "Entrenador creado correctamente." });
+      fetchTrainers(); // Recargar la lista
+      setIsNewTrainerModalOpen(false);
+    } catch (error: any) {
+      console.error("Error al crear entrenador:", error);
+      toast({ title: "Error", description: error.response?.data?.message || "No se pudo crear el entrenador.", variant: "destructive" });
+      throw error;
     }
-  }
+  };
 
-  const handleEditTrainer = (trainer: TrainerDisplayData) => {
-    if (!canUpdate) {
-      toast({
-        title: "Error",
-        description: "No tienes permisos para actualizar entrenadores",
-        variant: "destructive",
-      })
-      return
+  const handleUpdateTrainer = async (id: number, data: UpdateTrainerFormValues) => {
+    try {
+      await trainerService.updateTrainer(id, data);
+      toast({ title: "¡Éxito!", description: "Entrenador actualizado correctamente." });
+      fetchTrainers();
+      setIsEditModalOpen(false);
+      setSelectedTrainer(null);
+    } catch (error: any) {
+      console.error("Error al actualizar entrenador:", error);
+      toast({ title: "Error", description: error.response?.data?.message || "No se pudo actualizar el entrenador.", variant: "destructive" });
+      throw error;
     }
-    setEditingTrainer(trainer)
-    setIsModalOpen(true)
-  }
-
-  const handleDeleteTrainer = async (trainer: TrainerDisplayData) => {
-    if (!canDelete) {
-      toast({
-        title: "Error",
-        description: "No tienes permisos para eliminar entrenadores",
-        variant: "destructive",
-      })
-      return
-    }
-    
+  };
+  
+  const handleToggleStatus = async (trainer: Trainer) => {
+    const actionText = trainer.estado ? "desactivar" : "activar";
     const result = await Swal.fire({
-      title: "¿Eliminar entrenador?",
-      text: `¿Estás seguro de que deseas eliminar a ${trainer.name} ${trainer.lastName}? Esta acción no se puede deshacer.`,
+      title: `¿${actionText.charAt(0).toUpperCase() + actionText.slice(1)} entrenador?`,
+      text: `¿Estás seguro de que deseas ${actionText} a ${trainer.usuario?.nombre} ${trainer.usuario?.apellido}?`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#dc2626",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: "Sí, eliminar",
-      cancelButtonText: "Cancelar",
-    })
+      confirmButtonText: `Sí, ${actionText}`,
+      cancelButtonText: "No, cancelar",
+    });
 
     if (result.isConfirmed) {
       try {
-        await trainerService.deleteTrainer(trainer.id?.toString() || "")
-        await loadTrainers()
-        toast({
-          title: "¡Éxito!",
-          description: "Entrenador eliminado correctamente",
-        })
-      } catch (error) {
-        console.error("Error deleting trainer:", error)
-        toast({
-          title: "Error",
-          description: "No se pudo eliminar el entrenador",
-          variant: "destructive",
-        })
+        if (trainer.estado) {
+          await trainerService.deactivateTrainer(trainer.id);
+        } else {
+          await trainerService.activateTrainer(trainer.id);
+        }
+        toast({ title: "¡Éxito!", description: `Entrenador ${actionText}do correctamente.` });
+        fetchTrainers();
+      } catch (error: any) {
+        toast({ title: "Error", description: error.response?.data?.message || `No se pudo ${actionText} el entrenador.`, variant: "destructive" });
       }
     }
-  }
+  };
 
-  const handleToggleStatus = async (trainer: TrainerDisplayData) => {
-    if (!canUpdate) {
-      toast({
-        title: "Error",
-        description: "No tienes permisos para actualizar entrenadores",
-        variant: "destructive",
-      })
-      return
+  const handleDeleteTrainer = async (id: number) => {
+    const result = await Swal.fire({
+        title: '¿Estás seguro?',
+        text: "Esta acción es permanente y eliminará al usuario asociado. No se puede deshacer.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminarlo',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            await trainerService.deleteTrainer(id);
+            toast({ title: '¡Éxito!', description: 'Entrenador eliminado permanentemente.' });
+            fetchTrainers();
+        } catch (error: any) {
+            toast({ title: 'Error', description: error.response?.data?.message || 'No se pudo eliminar el entrenador.', variant: 'destructive' });
+        }
     }
-    
-    try {
-      const updatedTrainer = { ...trainer, isActive: !trainer.isActive }
-      await trainerService.updateTrainer(updatedTrainer)
-      await loadTrainers()
-      toast({
-        title: "¡Éxito!",
-        description: `Entrenador ${trainer.isActive ? "desactivado" : "activado"} correctamente`,
-      })
-    } catch (error) {
-      console.error("Error toggling trainer status:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo cambiar el estado del entrenador",
-        variant: "destructive",
-      })
-    }
-  }
+  };
 
-  const handleNewTrainer = () => {
-    if (!canCreate) {
-      toast({
-        title: "Error",
-        description: "No tienes permisos para crear entrenadores",
-        variant: "destructive",
-      })
-      return
-    }
-    setEditingTrainer(undefined)
-    setIsModalOpen(true)
-  }
 
-  const getStatusBadge = (isActive: boolean) => {
-    return isActive ? (
-      <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Activo</Badge>
-    ) : (
-      <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Inactivo</Badge>
-    )
-  }
-
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredTrainers.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const paginatedTrainers = filteredTrainers.slice(startIndex, endIndex)
-
-  if (trainers.length === 0 && !isLoading) {
-    return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <Card className="w-full max-w-md">
-            <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-              <Users className="h-16 w-16 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No hay entrenadores registrados</h3>
-              <p className="text-gray-500 mb-4">Comience agregando el primer entrenador al sistema</p>
-              {canCreate && (
-                <Button onClick={handleNewTrainer} className="bg-black hover:bg-gray-800">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Agregar Entrenador
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
-  }
+  const handlePageChange = (newPage: number) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  };
+  
+  const openDetailsModal = (trainer: Trainer) => {
+    setSelectedTrainer(trainer);
+    setIsDetailsModalOpen(true);
+  };
+  
+  const openEditModal = (trainer: Trainer) => {
+    setSelectedTrainer(trainer);
+    setIsEditModalOpen(true);
+  };
 
   return (
     <div className="container mx-auto px-4 py-6">
-      {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-          <p>{error}</p>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setError(null)
-              loadTrainers()
-            }}
-            className="mt-2"
-          >
-            Reintentar
-          </Button>
-        </div>
-      )}
-
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold">Entrenadores</h1>
-          <p className="text-gray-600">Gestión de entrenadores del sistema</p>
+          <p className="text-gray-600">Gestión de entrenadores del gimnasio.</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={loadTrainers}
-            disabled={isLoading}
-          >
+          <Button variant="outline" onClick={() => fetchTrainers()} disabled={isLoading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
-          {canCreate && (
-            <Button onClick={handleNewTrainer} className="bg-black hover:bg-gray-800">
+          {canCreateTrainers && (
+            <Button onClick={() => setIsNewTrainerModalOpen(true)} className="bg-black hover:bg-gray-800 text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Entrenador
             </Button>
@@ -333,182 +191,76 @@ export function TrainersPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <Card className="mb-6">
+      <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Buscar por nombre, correo, documento o especialidad..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Buscar por nombre, documento, especialidad..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Filtrar por estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="active">Activos</SelectItem>
-                <SelectItem value="inactive">Inactivos</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="true">Activos</SelectItem>
+                <SelectItem value="false">Inactivos</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </CardContent>
       </Card>
+      
+      <div className="mt-6">
+        <TrainersTable
+            trainers={trainers}
+            isLoading={isLoading}
+            onViewDetails={openDetailsModal}
+            onEdit={openEditModal}
+            onToggleStatus={handleToggleStatus}
+            onDelete={handleDeleteTrainer}
+            pagination={pagination}
+            onPageChange={handlePageChange}
+            permissions={{ canUpdateTrainers, canDeleteTrainers, canChangeStatus }}
+        />
+      </div>
 
-      {/* Trainers Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Lista de Entrenadores ({filteredTrainers.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Correo</TableHead>
-                  <TableHead>Documento</TableHead>
-                  <TableHead>Especialidad</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTrainers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <div className="flex flex-col items-center gap-2">
-                        <Users className="h-8 w-8 text-gray-400" />
-                        <p className="text-gray-500">No se encontraron entrenadores</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedTrainers.map((trainer) => (
-                    <TableRow key={trainer.id}>
-                      <TableCell className="font-medium">{trainer.codigo || 'N/A'}</TableCell>
-                      <TableCell>{trainer.name} {trainer.lastName}</TableCell>
-                      <TableCell>{trainer.email}</TableCell>
-                      <TableCell>{trainer.documentNumber}</TableCell>
-                      <TableCell>{trainer.specialty}</TableCell>
-                      <TableCell>
-                        {getStatusBadge(trainer.isActive)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Abrir menú</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEditTrainer(trainer)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleStatus(trainer)}>
-                              {trainer.isActive ? (
-                                <>
-                                  <PowerOff className="mr-2 h-4 w-4" />
-                                  Desactivar
-                                </>
-                              ) : (
-                                <>
-                                  <Power className="mr-2 h-4 w-4" />
-                                  Activar
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                            {canDelete && (
-                              <DropdownMenuItem 
-                                onClick={() => handleDeleteTrainer(trainer)}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6">
-          <p className="text-sm text-gray-700">
-            Mostrando {startIndex + 1} a {Math.min(endIndex, filteredTrainers.length)} de{" "}
-            {filteredTrainers.length} entrenadores
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Anterior
-            </Button>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <Button
-                  key={page}
-                  variant={currentPage === page ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentPage(page)}
-                  className="w-10"
-                >
-                  {page}
-                </Button>
-              ))}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-            >
-              Siguiente
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+      {isNewTrainerModalOpen && (
+        <NewTrainerForm
+          isOpen={isNewTrainerModalOpen}
+          onClose={() => setIsNewTrainerModalOpen(false)}
+          onCreateTrainer={handleCreateTrainer}
+        />
       )}
 
-      <TrainerModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false)
-          setEditingTrainer(undefined)
-        }}
-        onSave={handleSaveTrainer}
-        trainer={editingTrainer}
-        title={editingTrainer ? "Editar Entrenador" : "Nuevo Entrenador"}
-      />
+      {isEditModalOpen && selectedTrainer && (
+        <EditTrainerModal
+          trainer={selectedTrainer}
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedTrainer(null);
+          }}
+          onUpdateTrainer={handleUpdateTrainer}
+        />
+      )}
+
+      {isDetailsModalOpen && selectedTrainer && (
+        <TrainerDetails
+          trainer={selectedTrainer}
+          isOpen={isDetailsModalOpen}
+          onClose={() => {
+            setIsDetailsModalOpen(false);
+            setSelectedTrainer(null);
+          }}
+        />
+      )}
     </div>
-  )
-}
+  );
+} 

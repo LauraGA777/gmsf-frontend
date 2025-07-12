@@ -210,37 +210,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const redirectBasedOnRole = (roleId: number) => {
     try {
-      // Mapeo rápido basado en IDs conocidos
-      const quickRouteMap: { [key: number]: string } = {
-        1: "/dashboard", // Administrador
-        2: "/dashboard", // Entrenador
-        3: "/my-contract",    // Cliente
-        4: "/my-contract",    // Beneficiario
+      let path = "/dashboard";
+      if (roleId === 3 || roleId === 4) {
+        path = "/my-contract"; // O la ruta principal del cliente
+      } else if (roleId === 2) {
+        path = "/calendar"; // O la ruta principal del entrenador
       }
-
-      // Redirección rápida si el ID es conocido
-      if (quickRouteMap[roleId]) {
-        console.log(`🚀 Redirección rápida a ${quickRouteMap[roleId]} para rol ID ${roleId}`)
-        navigate(quickRouteMap[roleId])
-        return
-      }
-
-      // Buscar en roles cargados como fallback
-      const role = roles.find((r) => r.id === roleId)
-      if (role) {
-        const targetRoute = (role as any).ruta || "/dashboard"
-        console.log(`🚀 Redirección desde BD a ${targetRoute} para rol ${role.nombre}`)
-        navigate(targetRoute)
-        return
-      }
-
-      // Fallback final
-      console.warn(`⚠️ Rol ${roleId} no encontrado, usando dashboard por defecto`)
-      navigate("/dashboard")
-
+      navigate(path);
     } catch (error) {
-      console.error("❌ Error en redirección:", error)
-      navigate("/dashboard")
+      console.error("❌ Error en redirección:", error);
+      navigate("/dashboard");
     }
   }
 
@@ -501,25 +480,25 @@ export const DEFAULT_ROLES = {
   ADMIN: {
     id: 1,
     nombre: "Administrador",
-    ruta: "/dashboard",
+    ruta: "/landing",
     permisos: ["ver_usuarios", "editar_usuarios", "ver_estadisticas"],
   },
   ENTRENADOR: {
     id: 2,
     nombre: "Entrenador",
-    ruta: "/dashboard", // Cambiar a dashboard
+    ruta: "/landing",
     permisos: ["ver_clientes", "editar_rutinas", "ver_horarios"],
   },
   CLIENTE: {
     id: 3,
     nombre: "Cliente",
-    ruta: "/my-contract",
+    ruta: "/landing",
     permisos: ["ver_perfil", "ver_rutinas", "ver_membresia"],
   },
   BENEFICIARIO: {
     id: 4,
     nombre: "Benenficiario",
-    ruta: "/my-contract",
+    ruta: "/landing",
     permisos: ["ver_perfil", "ver_rutinas", "ver_membresia"],
   },
 } as const

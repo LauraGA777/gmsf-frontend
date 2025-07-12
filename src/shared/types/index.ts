@@ -208,25 +208,25 @@ export const DEFAULT_ROLES: Record<string, LegacyRole> = {
   ADMIN: {
     id: 1,
     nombre: "admin",
-    ruta: "/dashboard",
+    ruta: "/landing",
     permisos: ["ver_usuarios", "editar_usuarios", "ver_estadisticas"],
   },
   ENTRENADOR: {
     id: 2,
     nombre: "entrenador",
-    ruta: "/dashboard",
+    ruta: "/landing",
     permisos: ["ver_clientes", "editar_rutinas", "ver_horarios"],
   },
   CLIENTE: {
     id: 3,
     nombre: "cliente",
-    ruta: "/client",
+    ruta: "/landing",
     permisos: ["ver_perfil", "ver_rutinas", "ver_membresia"],
   },
   BENEFICIARIO: {
     id: 4,
     nombre: "beneficiario",
-    ruta: "/client",
+    ruta: "/landing",
     permisos: ["ver_perfil", "ver_rutinas", "ver_membresia"],
   },
 } as const;

@@ -69,6 +69,7 @@ export function AppLayout() {
     else if (path.includes("/contracts")) setCurrentSection("Contratos")
     else if (path.includes("/memberships")) setCurrentSection("Membresías")
     else if (path.includes("/attendance")) setCurrentSection("Control de Asistencia")
+    else if (path.includes("/my-attendance")) setCurrentSection("Mis Asistencias")
     else if (path.includes("/surveys")) setCurrentSection("Encuestas de Satisfacción")
   }, [location.pathname, isMobile, isSidebarOpen, user])
 

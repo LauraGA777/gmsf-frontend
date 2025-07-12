@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "build": "vite build",
+    "serve": "vite preview",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.17",

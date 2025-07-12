@@ -14,27 +14,14 @@ export default function AppRoutes() {
     const getRedirectPath = () => {
         if (!user) return "/login";
         
-        // Si hay error en la inicialización, ir al dashboard por defecto
+        // Si hay error en la inicialización, ir a landing por defecto
         if (error) {
-            console.warn("⚠️ Error en inicialización, redirigiendo a dashboard:", error);
-            return "/dashboard";
+            console.warn("⚠️ Error en inicialización, redirigiendo a landing:", error);
+            return "/landing";
         }
         
-        // Permitir que el authContext maneje la redirección automáticamente
-        // Solo proporcionar fallback básico aquí
-        switch (user.id_rol) {
-            case 1: // admin
-                return "/dashboard";
-            case 2: // entrenador
-                return "/dashboard"; // Cambiado para usar dashboard unificado
-            case 3: // cliente
-                return "/my-contract";
-            case 4: // beneficiario
-                return "/my-contract";
-            default:
-                console.warn("⚠️ Rol no reconocido en AppRoutes:", user.id_rol);
-                return "/dashboard";
-        }
+        // Todos los roles redirigen a la landing page
+        return "/landing";
     };
 
     // ✅ CONFIGURACIÓN CORREGIDA: Ruta raíz siempre redirije a landing si no está autenticado

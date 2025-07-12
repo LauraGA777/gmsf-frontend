@@ -137,6 +137,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     } else if (path.includes("/my-contract")) {
       setActiveItem("my-contract")
       setActiveGroup(null)
+    } else if (path.includes("/my-attendance")) {
+      setActiveItem("my-attendance")
+      setActiveGroup(null)
     } else if (path.includes("/clients")) {
       setActiveItem("clients.list")
       setActiveGroup("clients")
@@ -297,6 +300,19 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     to="/my-contract"
                     onClose={onClose}
                     id="nav-my-contract"
+                  />
+                )}
+
+                {/* Mis Asistencias - Solo para clientes */}
+                {hasModuleAccess(PERMISSIONS.ASISTENCIAS) && (
+                  <NavItem
+                    icon={<BarChart4 className="h-5 w-5" aria-hidden="true" />}
+                    label="Mis Asistencias"
+                    active={activeItem === "my-attendance"}
+                    onClick={() => handleItemClick("my-attendance")}
+                    to="/my-attendance"
+                    onClose={onClose}
+                    id="nav-my-attendance"
                   />
                 )}
 

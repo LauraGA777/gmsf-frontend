@@ -3,7 +3,6 @@ import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/shared/components/ui/dropdown-menu";
 import { Eye, Edit, Trash2, MoreHorizontal, CheckCircle, AlertTriangle, Power, RotateCcw, User } from "lucide-react";
-import { format } from "date-fns";
 import type { Trainer } from "@/shared/types/trainer";
 import { TableSkeleton } from "@/shared/components/ui/table-skeleton";
 import { EmptyState } from "@/shared/components/ui/empty-state";

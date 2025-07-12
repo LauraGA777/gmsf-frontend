@@ -127,7 +127,8 @@ export function NewContractForm({
   };
 
   const handleMembershipChange = (value: string) => {
-    setValue("id_membresia", parseInt(value, 10) || 0, { shouldValidate: true });
+    const membershipId = parseInt(value, 10) || 0;
+    setValue("id_membresia", membershipId, { shouldValidate: true });
   };
 
   const onSubmit = async (data: ContractFormValues) => {

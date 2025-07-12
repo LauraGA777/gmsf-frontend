@@ -94,7 +94,7 @@ class MembershipService {
   private mapApiResponseToMembership(data: any): Membership {
     const membershipData = data.membership || data;
     return {
-      id: membershipData.id?.toString() || '',
+      id: Number(membershipData.id) || 0,
       codigo: membershipData.codigo || `M${membershipData.id?.toString().padStart(3, "0")}`,
       nombre: membershipData.nombre || '',
       descripcion: membershipData.descripcion || '',

@@ -2,16 +2,12 @@ import { useCallback, useState, useRef } from "react"
 import FullCalendar from "@fullcalendar/react"
 import dayGridPlugin from "@fullcalendar/daygrid"
 import timeGridPlugin from "@fullcalendar/timegrid"
-import interactionPlugin, { DateClickArg, EventResizeArg } from "@fullcalendar/interaction"
+import interactionPlugin, { DateClickArg, EventResizeDoneArg } from "@fullcalendar/interaction"
 import esLocale from "@fullcalendar/core/locales/es"
 import { EventDropArg, EventClickArg, EventContentArg, SlotLabelContentArg, MoreLinkArg, DateSelectArg } from "@fullcalendar/core"
 import type { Training } from "@/shared/types/training"
-import { Button } from "@/shared/components/ui/button"
 import { cn } from "@/shared/lib/utils"
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
-import { format, isPast } from "date-fns"
-import { es } from "date-fns/locale"
-import type { Calendar } from '@fullcalendar/core';
+import { isPast } from "date-fns"
 
 interface ScheduleComponentProps {
   onTrainingClick: (training: Training) => void
@@ -62,7 +58,7 @@ export function ScheduleComponent({
     }
   }
 
-  const handleEventResize = (resizeInfo: EventResizeArg) => {
+  const handleEventResize = (resizeInfo: EventResizeDoneArg) => {
     const { event } = resizeInfo;
     if (event.start && event.end) {
         onUpdateTrainingDate(Number(event.id), event.start, event.end);

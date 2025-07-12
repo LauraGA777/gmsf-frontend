@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { User } from "lucide-react";
 import { format, parseISO } from 'date-fns';
 import type { Trainer } from "@/shared/types/trainer";
-import { useToast } from "@/shared/components/ui/use-toast";
 
 // Schema for updating user data (some fields are optional)
 const updateUserDataSchema = z.object({
@@ -21,6 +20,8 @@ const updateUserDataSchema = z.object({
   direccion: z.string().optional(),
   genero: z.enum(['M', 'F', 'O']).optional(),
   fecha_nacimiento: z.string().optional(),
+  tipo_documento: z.enum(['CC', 'CE', 'TI', 'PP', 'DIE']).optional(),
+  numero_documento: z.string().min(5, "El número de documento debe tener al menos 5 caracteres").optional(),
 });
 
 // Schema for updating a trainer
@@ -40,8 +41,6 @@ interface EditTrainerModalProps {
 }
 
 export function EditTrainerModal({ trainer, isOpen, onUpdateTrainer, onClose }: EditTrainerModalProps) {
-  const { toast } = useToast();
-
   const {
     register,
     handleSubmit,

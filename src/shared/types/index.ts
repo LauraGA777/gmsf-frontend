@@ -257,7 +257,10 @@ export interface Client {
     tipo_documento: 'CC' | 'CE' | 'TI' | 'PP' | 'DIE';
     numero_documento: string;
     fecha_nacimiento: Date;
+    fecha_actualizacion?: Date;
     asistencias_totales: number;
+    estado: boolean;
+    id_rol?: number;
   };
   titular?: {
     id_persona: number;
@@ -281,6 +284,19 @@ export interface Client {
       tipo_documento: string;
       numero_documento: string;
     };
+    persona_beneficiaria?: {
+      id_persona: number;
+      usuario?: {
+        id: number;
+        nombre: string;
+        apellido: string;
+        correo: string;
+        telefono?: string;
+        tipo_documento: 'CC' | 'CE' | 'TI' | 'PP' | 'DIE';
+        numero_documento: string;
+        fecha_nacimiento: Date;
+      };
+    };
   }>;
   contactos_emergencia?: Array<{
     id: number;
@@ -296,15 +312,15 @@ export interface Training {
   id: number;
   titulo: string;
   descripcion?: string;
-  fecha_inicio: string;
-  fecha_fin: string;
+  fecha_inicio: Date;
+  fecha_fin: Date;
   id_entrenador: number;
   id_cliente: number;
   estado: 'Programado' | 'En proceso' | 'Completado' | 'Cancelado';
   notas?: string;
-  fecha_creacion: string;
-  created_at: string;
-  updated_at: string;
+  fecha_creacion: Date;
+  created_at: Date;
+  updated_at: Date;
   entrenador?: {
     id: number;
     nombre: string;
@@ -339,6 +355,7 @@ export interface Contract {
   fecha_actualizacion?: Date; // Cambiado a opcional
   usuario_registro?: number;
   usuario_actualizacion?: number;
+  motivo?: string;
   // Relaciones populadas
   persona?: {
     id_persona: number;

@@ -23,6 +23,20 @@ export function MembershipDistributionChart({
   loading,
   total
 }: MembershipDistributionChartProps) {
+  console.log('🎯 MembershipDistributionChart - Props received:', {
+    data,
+    title,
+    loading,
+    total,
+    dataLength: data?.length,
+    dataStructure: data?.map(item => ({
+      name: item?.name,
+      value: item?.value,
+      percentage: item?.percentage,
+      color: item?.color
+    }))
+  });
+
   if (loading) {
     return (
       <div className="h-[400px] flex items-center justify-center">
@@ -36,6 +50,7 @@ export function MembershipDistributionChart({
   }
 
   if (!data || data.length === 0) {
+    console.log('⚠️ MembershipDistributionChart - No data provided or empty array');
     return (
       <div className="h-[400px] flex items-center justify-center">
         <div className="text-center text-gray-500">
@@ -58,7 +73,14 @@ export function MembershipDistributionChart({
     typeof item.color === 'string'
   );
 
+  console.log('✅ MembershipDistributionChart - Valid data after filtering:', {
+    originalLength: data?.length,
+    validLength: validData?.length,
+    validData: validData
+  });
+
   if (validData.length === 0) {
+    console.log('⚠️ MembershipDistributionChart - No valid data after filtering');
     return (
       <div className="h-[400px] flex items-center justify-center">
         <div className="text-center text-gray-500">

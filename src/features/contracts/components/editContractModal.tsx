@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from "react"
+import { useMemo, useEffect, useState } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Label } from "@/shared/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
@@ -14,6 +14,8 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useAuth } from "@/shared/contexts/authContext"
 import { Card, CardHeader, CardTitle, CardContent } from "@/shared/components/ui/card"
+import { membershipService } from "@/features/memberships/services/membership.service"
+import { useToast } from "@/shared/components/ui/use-toast"
 
 const updateContractFormSchema = z.object({
   id_membresia: z.number({ required_error: "Debe seleccionar una membresía" }),
@@ -32,6 +34,17 @@ interface EditContractModalProps {
 
 export function EditContractModal({ contract, memberships, onUpdateContract, onClose }: EditContractModalProps) {
   const { user } = useAuth()
+  const { toast } = useToast()
+  const [localMemberships, setLocalMemberships] = useState<Membership[]>(memberships)
+  const [loadingMemberships, setLoadingMemberships] = useState(false)
+
+  // Debug: Log memberships data
+  console.log('🔍 EditContractModal - Memberships received:', {
+    totalMemberships: memberships.length,
+    localMemberships: localMemberships.length,
+    memberships: memberships.map(m => ({ id: m.id, nombre: m.nombre, estado: m.estado, tipo: typeof m.estado })),
+    activeMembershipsCount: memberships.filter(m => m.estado).length
+  });
 
   const {
     handleSubmit,
@@ -52,15 +65,58 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
   const watchStartDate = watch("fecha_inicio")
   const watchStatus = watch("estado")
 
-  const activeMemberships = useMemo(() => memberships.filter(m => m.estado), [memberships]);
+  // Load memberships if empty
+  useEffect(() => {
+    const loadMemberships = async () => {
+      if (localMemberships.length === 0 && !loadingMemberships) {
+        console.log('🔄 EditContractModal - Loading memberships because they are empty');
+        setLoadingMemberships(true);
+        try {
+          const response = await membershipService.getMemberships({ estado: true });
+          if (response.data) {
+            console.log('✅ EditContractModal - Loaded memberships:', response.data);
+            setLocalMemberships(response.data);
+          }
+        } catch (error) {
+          console.error('❌ EditContractModal - Error loading memberships:', error);
+          toast({
+            title: 'Error',
+            description: 'Error al cargar las membresías.',
+            variant: 'destructive',
+          });
+        } finally {
+          setLoadingMemberships(false);
+        }
+      }
+    };
+
+    loadMemberships();
+  }, [localMemberships.length, loadingMemberships, toast]);
+
+  // Update local memberships when prop changes
+  useEffect(() => {
+    if (memberships.length > 0) {
+      setLocalMemberships(memberships);
+    }
+  }, [memberships]);
+
+  const activeMemberships = useMemo(() => {
+    const filtered = localMemberships.filter(m => m.estado);
+    console.log('🔍 EditContractModal - Active memberships filtered:', {
+      originalCount: localMemberships.length,
+      filteredCount: filtered.length,
+      filtered: filtered.map(m => ({ id: m.id, nombre: m.nombre, estado: m.estado }))
+    });
+    return filtered;
+  }, [localMemberships]);
 
 
   const summaryData = useMemo(() => {
-    const membership = memberships.find(m => m.id === watchMembershipId);
+    const membership = localMemberships.find(m => m.id === watchMembershipId);
     const startDate = watchStartDate;
 
     if (!membership || !startDate) {
-        const originalMembership = memberships.find(m => m.id === contract.id_membresia);
+        const originalMembership = localMemberships.find(m => m.id === contract.id_membresia);
         return {
             endDate: new Date(contract.fecha_fin),
             price: contract.membresia_precio,
@@ -79,7 +135,7 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
         vigencia: membership.vigencia_dias,
         diasAcceso: membership.dias_acceso,
     };
-  }, [watchMembershipId, watchStartDate, memberships, contract]);
+  }, [watchMembershipId, watchStartDate, localMemberships, contract]);
 
   useEffect(() => {
     reset({
@@ -174,10 +230,16 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
                 <Select
                   onValueChange={(value) => field.onChange(Number(value))}
                   defaultValue={String(field.value)}
-                  disabled={activeMemberships.length === 0}
+                  disabled={activeMemberships.length === 0 || loadingMemberships}
                 >
                   <SelectTrigger id="id_membresia">
-                    <SelectValue placeholder={activeMemberships.length === 0 ? "No hay membresías activas" : "Seleccionar"}/>
+                    <SelectValue placeholder={
+                      loadingMemberships 
+                        ? "Cargando membresías..." 
+                        : activeMemberships.length === 0 
+                          ? "No hay membresías activas" 
+                          : "Seleccionar"
+                    }/>
                   </SelectTrigger>
                   <SelectContent>
                     {activeMemberships.map((m) => (
@@ -188,8 +250,11 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
               )}
             />
             {errors.id_membresia && <p className="text-red-500 text-sm">{errors.id_membresia.message}</p>}
-             {activeMemberships.length === 0 && (
+             {!loadingMemberships && activeMemberships.length === 0 && (
                 <p className="text-xs text-yellow-600 flex items-center gap-1 mt-1"><Info className="h-3 w-3"/> No hay otras membresías activas para seleccionar.</p>
+            )}
+            {loadingMemberships && (
+                <p className="text-xs text-blue-600 flex items-center gap-1 mt-1"><Info className="h-3 w-3"/> Cargando membresías...</p>
             )}
           </div>
         </div>

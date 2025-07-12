@@ -17,7 +17,7 @@ import { ClientDetails } from "./clientDetails"
 import { EditClientModal, type UpdateClientFormValues } from "./editClientModal"
 import { usePermissions } from "@/shared/hooks/usePermissions"
 import { PERMISSIONS, PRIVILEGES } from "@/shared/services/permissionService"
-import type { Client } from "@/shared/types/client"
+import type { Client } from "@/shared/types/client";
 import Swal from "sweetalert2"
 import { cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
@@ -163,7 +163,8 @@ export function ClientsTable({
               const beneficiaryInfo = client.beneficiarios && client.beneficiarios.length > 0
                 ? client.beneficiarios[0].persona_beneficiaria?.usuario
                 : client.usuario
-              const activeContracts = client.contratos?.filter((c: any) => c.estado === 'Activo').length || 0
+              // Aseguramos el tipado correcto para contratos
+              const activeContracts = (client.contratos as { estado: string }[] | undefined)?.filter((c) => c.estado === 'Activo').length || 0
 
               return (
                 <TableRow key={client.id_persona} className="hover:bg-gray-50">
@@ -286,9 +287,9 @@ export function ClientsTable({
         />
       )}
       
-      {selectedClient && isEditModalOpen && (
+      {selectedClient && selectedClient.usuario && isEditModalOpen && (
         <EditClientModal
-          client={selectedClient}
+          client={selectedClient as Client & { usuario: NonNullable<Client['usuario']> }}
           onUpdateClient={handleUpdateClient}
           onClose={handleCloseEditModal}
         />

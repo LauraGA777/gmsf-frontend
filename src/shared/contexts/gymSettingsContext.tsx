@@ -285,7 +285,7 @@ export const GymSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setError(null);
       
       // Intentar cargar desde API pública
-      const response = await fetch('/api/gym-settings/public');
+      const response = await fetch('http://localhost:4000/gym-settings/public');
       if (response.ok) {
         const data = await response.json();
         setSettings(data.data);
@@ -323,8 +323,8 @@ export const GymSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const updatedSettings = { ...settings, ...newSettings };
       
       // Intentar actualizar en el backend
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/gym-settings', {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch('http://localhost:4000/gym-settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -372,12 +372,12 @@ export const GymSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setError(null);
 
       // Intentar subir al backend
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const formData = new FormData();
       formData.append('image', file);
       formData.append('type', type);
 
-      const response = await fetch('/api/gym-settings/upload', {
+      const response = await fetch('http://localhost:4000/gym-settings/upload', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -457,8 +457,8 @@ export const GymSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setError(null);
 
         // Intentar resetear en el backend
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/gym-settings/reset', {
+        const token = localStorage.getItem('accessToken');
+        const response = await fetch('http://localhost:4000/gym-settings/reset', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`

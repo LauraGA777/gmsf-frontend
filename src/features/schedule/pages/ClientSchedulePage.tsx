@@ -29,7 +29,6 @@ import { TrainingForm } from "@/features/schedule/components/TrainingForm";
 import { TrainingDetailsForm } from "@/features/schedule/components/TrainingDetailsForm";
 import { scheduleService } from "@/features/schedule/services/schedule.service";
 import { useToast } from "@/shared/components/ui/use-toast";
-import { Trainer } from "@/shared/types";
 
 interface Option {
   id: number;
@@ -38,8 +37,29 @@ interface Option {
 
 interface ActiveClient {
   id: number;
-  nombre: string;
-  apellido: string;
+  codigo: string;
+  estado: boolean;
+  usuario: {
+    id: number;
+    nombre: string;
+    apellido: string;
+    correo: string;
+    telefono?: string;
+  };
+}
+
+interface ActiveTrainer {
+  id: number;
+  codigo: string;
+  especialidad: string;
+  estado: boolean;
+  usuario: {
+    id: number;
+    nombre: string;
+    apellido: string;
+    correo: string;
+    telefono?: string;
+  };
 }
 
 export function ClientSchedulePage() {
@@ -82,7 +102,7 @@ export function ClientSchedulePage() {
       ]);
 
       if (trainersResponse.data) {
-        const mappedTrainers = trainersResponse.data.map((t: Trainer) => ({
+        const mappedTrainers = trainersResponse.data.map((t: ActiveTrainer) => ({
           id: t.id,
           name: `${t.usuario?.nombre || ''} ${t.usuario?.apellido || ''}`.trim(),
         }));
@@ -96,7 +116,7 @@ export function ClientSchedulePage() {
       if (clientsResponse.data) {
         const mappedClients = clientsResponse.data.map((c: ActiveClient) => ({
           id: c.id,
-          name: `${c.nombre} ${c.apellido}`
+          name: `${c.usuario.nombre} ${c.usuario.apellido}`
         }));
         setClientsWithActiveContracts(mappedClients)
       }
@@ -131,8 +151,8 @@ export function ClientSchedulePage() {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(t =>
         t.titulo?.toLowerCase().includes(term) ||
-        t.entrenador?.usuario?.nombre?.toLowerCase().includes(term) ||
-        t.entrenador?.usuario?.apellido?.toLowerCase().includes(term) ||
+        t.entrenador?.nombre?.toLowerCase().includes(term) ||
+        t.entrenador?.apellido?.toLowerCase().includes(term) ||
         t.estado?.toLowerCase().includes(term)
       );
     }
@@ -152,9 +172,7 @@ export function ClientSchedulePage() {
     return hours;
   }, [displayedTrainings]);
 
-  const handleSelectDate = (date: Date) => {
-    setSelectedDate(date);
-  };
+
 
   const handleSubmitTraining = async (data: Partial<Training>) => {
     try {
@@ -162,7 +180,7 @@ export function ClientSchedulePage() {
       if (selectedTraining) {
         await scheduleService.updateTraining(selectedTraining.id, data);
       } else {
-        await scheduleService.createTraining({ ...data, id_cliente: user?.personId ? parseInt(user.personId, 10) : 0 });
+        await scheduleService.createTraining({ ...data, id_cliente: user?.personId ? parseInt(user.personId, 10) : undefined });
       }
       setIsFormOpen(false);
       setIsEditFormOpen(false);
@@ -172,12 +190,12 @@ export function ClientSchedulePage() {
       toast({
         title: selectedTraining ? "¡Actualizado!" : "¡Agendado!",
         description: `Tu entrenamiento ha sido ${selectedTraining ? "actualizado" : "agendado"} correctamente.`,
-        type: "success",
+        variant: "default",
       });
 
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || "Hubo un problema al guardar el entrenamiento.";
-      toast({ title: "Error", description: errorMessage, type: "error" });
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -189,7 +207,7 @@ export function ClientSchedulePage() {
       toast({
         title: "Contrato Requerido",
         description: "Necesitas un contrato activo o por vencer para agendar nuevos entrenamientos.",
-        type: "info",
+        variant: "default",
       });
       return;
     }
@@ -219,9 +237,9 @@ export function ClientSchedulePage() {
           try {
             await scheduleService.deleteTraining(id);
             await fetchData();
-            toast({ title: "Cancelado", description: "El entrenamiento ha sido cancelado.", type: "success" });
+            toast({ title: "Cancelado", description: "El entrenamiento ha sido cancelado.", variant: "default" });
           } catch (error) {
-            toast({ title: "Error", description: "No se pudo cancelar el entrenamiento.", type: "error" });
+            toast({ title: "Error", description: "No se pudo cancelar el entrenamiento.", variant: "destructive" });
           }
         }
       });
@@ -299,7 +317,7 @@ export function ClientSchedulePage() {
                             <h3 className="font-medium">{training.titulo}</h3>
                             <div className="flex items-center text-sm text-gray-500 mt-1">
                               <Dumbbell className="h-3.5 w-3.5 mr-1" />
-                              <span>{training.entrenador?.usuario?.nombre} {training.entrenador?.usuario?.apellido}</span>
+                              <span>{training.entrenador?.nombre} {training.entrenador?.apellido}</span>
                             </div>
                           </div>
                           {getStatusBadge(training.estado as any)}

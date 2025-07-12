@@ -14,6 +14,7 @@ import { es } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { CalendarIcon, Clock, User, Dumbbell, FileText, Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/shared/lib/utils";
+import type { Training } from "@/shared/types/training";
 
 const trainingSchema = z.object({
   titulo: z.string().min(1, "El título es requerido"),
@@ -23,6 +24,21 @@ const trainingSchema = z.object({
   id_cliente: z.number().min(1, "El cliente es requerido"),
   id_entrenador: z.number().min(1, "El entrenador es requerido"),
   estado: z.enum(["Programado", "En proceso", "Completado", "Cancelado"]),
+}).refine((data) => {
+  if (data.fecha_inicio && data.fecha_fin) {
+    const startDate = new Date(data.fecha_inicio);
+    const endDate = new Date(data.fecha_fin);
+    const durationMinutes = differenceInMinutes(endDate, startDate);
+    const durationHours = durationMinutes / 60;
+    
+    if (durationHours > 2) {
+      return false;
+    }
+  }
+  return true;
+}, {
+  message: "La duración del entrenamiento no puede exceder 2 horas",
+  path: ["fecha_fin"],
 });
 
 type TrainingFormData = z.infer<typeof trainingSchema>;
@@ -67,8 +83,23 @@ export function TrainingForm({ onSubmit, onCancel, initialStartDate, initialEndD
     const endDate = watchFields.fecha_fin ? new Date(watchFields.fecha_fin) : null;
     
     let duration = null;
+    let durationText = '...';
+    
     if (startDate && endDate) {
-        duration = differenceInMinutes(endDate, startDate);
+        const durationMinutes = differenceInMinutes(endDate, startDate);
+        if (durationMinutes >= 0) {
+            duration = durationMinutes;
+            const hours = Math.floor(durationMinutes / 60);
+            const minutes = durationMinutes % 60;
+            
+            if (hours > 0) {
+                durationText = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+            } else {
+                durationText = `${minutes}m`;
+            }
+        } else {
+            durationText = 'Duración inválida';
+        }
     }
 
     return {
@@ -77,6 +108,7 @@ export function TrainingForm({ onSubmit, onCancel, initialStartDate, initialEndD
         startDate,
         endDate,
         duration,
+        durationText,
     }
   }, [watchFields, clients, trainers]);
 
@@ -142,8 +174,13 @@ export function TrainingForm({ onSubmit, onCancel, initialStartDate, initialEndD
                       <div className="flex items-center gap-2 font-medium">
                           <Clock className="h-4 w-4" /> Duración
                       </div>
-                      <p className="text-gray-600 text-sm">
-                          {summaryData.duration !== null ? `${summaryData.duration} minutos` : "..."}
+                      <p className={cn("text-sm", 
+                          summaryData.duration !== null && summaryData.duration > 120 
+                            ? "text-red-600 font-medium" 
+                            : "text-gray-600")}>
+                          {summaryData.durationText}
+                          {summaryData.duration !== null && summaryData.duration > 120 && 
+                            " (excede 2 horas)"}
                       </p>
                   </div>
               </CardContent>
@@ -293,10 +330,26 @@ export function TrainingForm({ onSubmit, onCancel, initialStartDate, initialEndD
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isLoading} className="bg-black hover:bg-gray-800">
+          <Button 
+            type="submit" 
+            disabled={isLoading || (summaryData.duration !== null && summaryData.duration > 120)} 
+            className={cn(
+              "bg-black hover:bg-gray-800",
+              summaryData.duration !== null && summaryData.duration > 120 && 
+              "bg-gray-400 cursor-not-allowed"
+            )}
+          >
             {isLoading ? "Guardando..." : "Guardar"}
           </Button>
         </div>
+        
+        {summaryData.duration !== null && summaryData.duration > 120 && (
+          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-600 font-medium">
+              ⚠️ La duración excede las 2 horas permitidas. Por favor, ajuste las fechas para poder guardar el entrenamiento.
+            </p>
+          </div>
+        )}
       </div>
     </form>
   );

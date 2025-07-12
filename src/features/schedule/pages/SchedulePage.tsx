@@ -8,12 +8,14 @@ import Swal from "sweetalert2"
 import { Card, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { ScheduleComponent } from "@/features/schedule/components/ScheduleComponent"
 import { scheduleService } from "@/features/schedule/services/schedule.service"
-import { Training, Trainer } from "@/shared/types"
+import { Training as TrainingIndex } from "@/shared/types"
+import { Training } from "@/shared/types/training"
 import { useToast } from "@/shared/components/ui/use-toast"
 import { ScheduleSkeleton } from "@/shared/components/ui/schedule-skeleton"
 import { EmptyState } from "@/shared/components/ui/empty-state"
 import { Calendar, Plus } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { ConfirmDialog } from "@/shared/components/ui/confirm-dialog"
 
 interface Option {
     id: number;
@@ -22,8 +24,29 @@ interface Option {
 
 interface ActiveClient {
     id: number;
-    nombre: string;
-    apellido: string;
+    codigo: string;
+    estado: boolean;
+    usuario: {
+        id: number;
+        nombre: string;
+        apellido: string;
+        correo: string;
+        telefono?: string;
+    };
+}
+
+interface ActiveTrainer {
+    id: number;
+    codigo: string;
+    especialidad: string;
+    estado: boolean;
+    usuario: {
+        id: number;
+        nombre: string;
+        apellido: string;
+        correo: string;
+        telefono?: string;
+    };
 }
 
 export function SchedulePage() {
@@ -38,6 +61,8 @@ export function SchedulePage() {
     const [error, setError] = useState<string | null>(null)
     const [trainers, setTrainers] = useState<Option[]>([])
     const [clientsWithActiveContracts, setClientsWithActiveContracts] = useState<Option[]>([])
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+    const [trainingToDelete, setTrainingToDelete] = useState<number | null>(null)
 
     const fetchData = useCallback(async () => {
         try {
@@ -56,10 +81,10 @@ export function SchedulePage() {
 
             if (clientsResponse.data) {
                 const mappedClients = clientsResponse.data
-                    .filter((c: ActiveClient) => c && c.id)
+                    .filter((c: ActiveClient) => c && c.id && c.usuario)
                     .map((c: ActiveClient) => ({
                         id: c.id,
-                        name: `${c.nombre} ${c.apellido}`
+                        name: `${c.usuario.nombre} ${c.usuario.apellido}`
                     }));
                 setClientsWithActiveContracts(mappedClients)
             }
@@ -68,8 +93,8 @@ export function SchedulePage() {
                 console.log('🔍 DEBUG: Datos de entrenadores recibidos:', trainersResponse.data);
                 
                 const mappedTrainers = trainersResponse.data
-                    .filter((t: Trainer) => t && t.id && t.usuario?.nombre)
-                    .map((t: Trainer) => ({
+                    .filter((t: ActiveTrainer) => t && t.id && t.usuario?.nombre)
+                    .map((t: ActiveTrainer) => ({
                         id: t.id,
                         name: `${t.usuario?.nombre || ''} ${t.usuario?.apellido || ''}`.trim(),
                     }));
@@ -83,19 +108,19 @@ export function SchedulePage() {
             if (trainingsResponse.data) {
                 // Filter trainings based on user role on the client side
                 let filtered: Training[] = trainingsResponse.data;
-                if (user?.role === "CLIENTE" && user.personId) {
+                if (user?.role?.codigo === "CLIENTE" && user.personId) {
                     const personId = parseInt(user.personId, 10);
                     if (!isNaN(personId)) {
                         filtered = filtered.filter((training) => training.id_cliente === personId)
                     }
                 }
-                else if (user?.role === "ENTRENADOR" && user.trainerId) {
+                else if (user?.role?.codigo === "ENTRENADOR" && user.trainerId) {
                     const trainerId = parseInt(user.trainerId, 10);
                     if (!isNaN(trainerId)) {
                         filtered = filtered.filter((training) => training.id_entrenador === trainerId)
                     }
                 }
-                setFetchedTrainings(filtered.map(t => ({...t, fecha_inicio: new Date(t.fecha_inicio), fecha_fin: new Date(t.fecha_fin)})));
+                setFetchedTrainings(filtered);
             }
 
             setError(null)
@@ -115,7 +140,7 @@ export function SchedulePage() {
     }, [fetchData])
 
 
-    const handleSubmitTraining = async (data: Partial<Training>) => {
+    const handleSubmitTraining = async (data: Partial<TrainingIndex>) => {
         const isUpdating = "id" in data
         try {
             if (isUpdating) {
@@ -128,12 +153,27 @@ export function SchedulePage() {
             fetchData()
             handleCloseForm()
             return Promise.resolve()
-        } catch (error) {
-            const description = isUpdating ? "No se pudo actualizar" : "No se pudo crear"
-            console.error(`${description} el entrenamiento:`, error)
+        } catch (error: any) {
+            const action = isUpdating ? "actualizar" : "crear"
+            let errorMessage = `No se pudo ${action} el entrenamiento. Inténtelo de nuevo.`
+            
+            // Verificar si es un error de validación de duración
+            if (error?.response?.data?.message?.includes("exceder 2 horas")) {
+                errorMessage = "La duración del entrenamiento no puede exceder 2 horas. Por favor, ajuste las fechas."
+            } else if (error?.response?.data?.message?.includes("conflicto") || error?.response?.data?.message?.includes("Conflicto")) {
+                errorMessage = "Ya existe un entrenamiento programado en ese horario. Por favor, seleccione otro horario."
+            } else if (error?.response?.data?.message?.includes("contrato")) {
+                errorMessage = "El cliente no tiene un contrato activo para agendar entrenamientos."
+            } else if (error?.response?.data?.message?.includes("entrenador")) {
+                errorMessage = "El entrenador seleccionado no está disponible."
+            } else if (error?.response?.data?.message?.includes("fecha pasada")) {
+                errorMessage = "No se puede agendar un entrenamiento en una fecha pasada."
+            }
+            
+            console.error(`Error al ${action} el entrenamiento:`, error)
             toast({
                 title: "Error",
-                description: `${description} el entrenamiento. Inténtelo de nuevo.`,
+                description: errorMessage,
                 variant: "destructive",
             })
             throw error
@@ -161,28 +201,51 @@ export function SchedulePage() {
         setIsEditFormOpen(true)
     }
 
-    const handleDeleteTraining = async (id: number) => {
-        const result = await Swal.fire({
-            title: "¿Estás seguro?",
-            text: "Esta acción no se puede deshacer.",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#d33",
-            cancelButtonColor: "#6b7280",
-            confirmButtonText: "Sí, cancelar",
-            cancelButtonText: "No",
-        })
+    // Función auxiliar para realizar la eliminación real
+    const performDeleteTraining = async (id: number) => {
+        try {
+            await scheduleService.deleteTraining(id)
+            toast({ title: "Éxito", description: "El entrenamiento ha sido cancelado." })
+            fetchData()
+            handleCloseForm()
+        } catch (error) {
+            console.error("Error al cancelar el entrenamiento:", error)
+            toast({ title: "Error", description: "No se pudo cancelar el entrenamiento.", variant: "destructive" })
+        }
+    }
 
-        if (result.isConfirmed) {
-            try {
-                await scheduleService.deleteTraining(id)
-                toast({ title: "Éxito", description: "El entrenamiento ha sido cancelado." })
-                fetchData()
-                handleCloseForm()
-            } catch (error) {
-                console.error("Error al cancelar el entrenamiento:", error)
-                toast({ title: "Error", description: "No se pudo cancelar el entrenamiento.", variant: "destructive" })
-            }
+    // Método principal usando SweetAlert2 (mejorado)
+    // Ventaja: Diseño más atractivo y familiar
+    // Desventaja: Posibles conflictos de enfoque (corregido con setTimeout)
+    const handleDeleteTraining = async (id: number) => {
+        // Cerrar el diálogo de edición primero para evitar conflictos de enfoque
+        setIsEditFormOpen(false)
+        
+        // Usar setTimeout para permitir que el diálogo se cierre completamente
+        setTimeout(() => {
+            Swal.fire({
+                title: "¿Estás seguro?",
+                text: "Esta acción no se puede deshacer.",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#d33",
+                cancelButtonColor: "#6b7280",
+                confirmButtonText: "Sí, cancelar",
+                cancelButtonText: "No",
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await performDeleteTraining(id)
+                }
+            })
+        }, 300)
+    }
+
+
+
+    const handleConfirmDelete = async () => {
+        if (trainingToDelete) {
+            await performDeleteTraining(trainingToDelete)
+            setTrainingToDelete(null)
         }
     }
 
@@ -208,7 +271,7 @@ export function SchedulePage() {
                             <Calendar className="h-6 w-6" />
                             Agenda de Entrenamientos
                         </CardTitle>
-                        {user?.role !== 'CLIENTE' && (
+                        {user?.role?.codigo !== 'CLIENTE' && (
                             <Button onClick={() => handleAddTraining()}>
                                 <Plus className="mr-2 h-4 w-4" />
                                 Agendar
@@ -244,14 +307,16 @@ export function SchedulePage() {
                         <TrainingDetailsForm
                             training={selectedTraining}
                             onDelete={() => handleDeleteTraining(selectedTraining.id)}
+                            // Alternativa: usar diálogo nativo en lugar de SweetAlert2
+                            // onDelete={() => handleDeleteTrainingNative(selectedTraining.id)}
                             onClose={handleCloseForm}
-                            onUpdate={(data) => handleSubmitTraining({ id: selectedTraining.id, ...data })}
+                            onUpdate={(data) => handleSubmitTraining({ id: selectedTraining.id, ...data } as Partial<TrainingIndex>)}
                             trainers={trainers}
                             clients={clientsWithActiveContracts}
                         />
                     ) : (
                         <TrainingForm
-                            onSubmit={handleSubmitTraining}
+                            onSubmit={(data) => handleSubmitTraining(data as Partial<TrainingIndex>)}
                             onCancel={handleCloseForm}
                             trainers={trainers.map(t => ({...t, id: t.id.toString()}))}
                             clients={clientsWithActiveContracts.map(c => ({...c, id: c.id.toString()}))}
@@ -261,6 +326,18 @@ export function SchedulePage() {
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Diálogo de confirmación nativo alternativo */}
+            <ConfirmDialog
+                isOpen={deleteConfirmOpen}
+                onClose={() => setDeleteConfirmOpen(false)}
+                onConfirm={handleConfirmDelete}
+                title="¿Estás seguro?"
+                description="Esta acción no se puede deshacer. El entrenamiento será cancelado permanentemente."
+                confirmText="Sí, cancelar"
+                cancelText="No"
+                variant="destructive"
+            />
         </ProtectedRoute>
     )
 }

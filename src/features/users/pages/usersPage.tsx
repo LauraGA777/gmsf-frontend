@@ -34,7 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+
 import { roleService } from '@/features/roles/services/roleService';
 import { useDebounce } from "@/shared/hooks/useDebounce";
 
@@ -42,7 +42,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [isNewUserOpen, setIsNewUserOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -67,15 +67,8 @@ export default function UsersPage() {
         setUsers(response.data);
         setFilteredUsers(response.data); // Inicialmente, los usuarios filtrados son todos los usuarios.
         
-        // FIX: Verificar las propiedades correctas de paginación
-        if (response.total !== undefined && response.totalPages !== undefined) {
-          setTotalPages(response.totalPages || 1);
-        } else if ((response as any).pagination) {
-          // Fallback para estructura anterior
-          setTotalPages((response as any).pagination.totalPages || 1);
-        } else {
-          setTotalPages(1);
-        }
+        // Configurar paginación desde la respuesta del servidor
+        setTotalPages(response.totalPages || 1);
       } else {
         setUsers([]);
         setFilteredUsers([]);
@@ -95,16 +88,10 @@ export default function UsersPage() {
   }, [currentPage, debouncedSearchQuery, loadUsers]);
   
   useEffect(() => {
-    let currentlyFiltered = users;
-
-    if (statusFilter !== "all") {
-      const isActive = statusFilter === "active";
-      currentlyFiltered = currentlyFiltered.filter(user => user?.estado === isActive);
-    }
-    
-    setFilteredUsers(currentlyFiltered);
-
-  }, [statusFilter, users]);
+    // Por ahora, mostramos todos los usuarios sin filtrar localmente
+    // para que funcione correctamente con la paginación del servidor
+    setFilteredUsers(users);
+  }, [users]);
 
   const [roles, setRoles] = useState<{ id: number; nombre: string }[]>([]);
 
@@ -309,7 +296,7 @@ export default function UsersPage() {
     }
   };
 
-  const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // No necesitamos paginación local porque los datos ya vienen paginados del servidor
 
   if (users.length === 0 && !isLoading) {
     return (
@@ -385,7 +372,8 @@ export default function UsersPage() {
                 />
               </div>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            {/* Filtro por estado temporalmente deshabilitado para corregir problemas de paginación */}
+            {/* <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Filtrar por estado" />
               </SelectTrigger>
@@ -394,7 +382,7 @@ export default function UsersPage() {
                 <SelectItem value="active">Activos</SelectItem>
                 <SelectItem value="inactive">Inactivos</SelectItem>
               </SelectContent>
-            </Select>
+            </Select> */}
           </div>
         </CardContent>
       </Card>
@@ -436,7 +424,7 @@ export default function UsersPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedUsers.map((user) => (
+                  filteredUsers.map((user) => (
                     <TableRow key={user?.id || Math.random()}>
                       <TableCell className="font-medium">{user?.codigo || 'N/A'}</TableCell>
                       <TableCell>

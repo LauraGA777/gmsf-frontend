@@ -82,3 +82,6 @@ export interface ClientResponse {
   data: Client;
   message: string;
 }
+
+// Re-export from contract.ts for compatibility
+export type { Contract } from './contract';

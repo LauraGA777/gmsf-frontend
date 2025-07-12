@@ -2,7 +2,7 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Badge } from "@/shared/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog"
-import type { Client } from "@/shared/types/client"
+import type { Client } from "@/shared/types"
 import {
   User,
   Mail,

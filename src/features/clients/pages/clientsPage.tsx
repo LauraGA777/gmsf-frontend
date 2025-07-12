@@ -21,9 +21,9 @@ import { useGym } from "@/shared/contexts/gymContext";
 import { usePermissions } from "@/shared/hooks/usePermissions";
 import { PERMISSIONS, PRIVILEGES } from "@/shared/services/permissionService";
 import { NewClientForm, type CreateClientFormValues } from "@/features/clients/components/newClientForm";
-import { EditClientModal, EditClientFormValues } from "@/features/clients/components/editClientModal";
+import { EditClientModal, UpdateClientFormValues } from "@/features/clients/components/editClientModal";
 import { ClientDetails } from "../components/clientDetails";
-import type { Client, Contract } from "@/shared/types/client";
+import type { Client, Contract } from "@/shared/types";
 import Swal from "sweetalert2";
 import {
   DropdownMenu,
@@ -160,7 +160,7 @@ export function ClientsPage() {
     setIsEditClientOpen(true);
   };
 
-  const handleUpdateClient = async (clientId: number, updates: EditClientFormValues) => {
+  const handleUpdateClient = async (clientId: number, updates: UpdateClientFormValues) => {
     try {
       await updateClient(clientId, updates);
       setEditingClient(null);

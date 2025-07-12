@@ -15,12 +15,34 @@ interface PaginatedResponse<T> {
   data: T[];
 }
 
+interface ApiSuccessResponse<T> {
+  success: boolean;
+  message?: string;
+  data: T;
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+interface SearchResponse {
+  success: boolean;
+  message?: string;
+  usuarios: User[];
+  total: number;
+  pagina: number;
+  limite: number;
+  total_paginas: number;
+}
+
 export const userService = {
   // Obtener todos los usuarios
   getUsers: async (page = 1, limit = 10): Promise<PaginatedResponse<User>> => {
     try {
       console.log(`🔍 Fetching users: page=${page}, limit=${limit}`);
-      const response = await apiClient.get<PaginatedResponse<User>>(`/users?page=${page}&limit=${limit}`);
+      const response = await apiClient.get<ApiSuccessResponse<User[]>>(`/users?page=${page}&limit=${limit}`);
       
       console.log('📡 Raw API response:', response);
       console.log('📦 Response data:', response.data);
@@ -32,7 +54,19 @@ export const userService = {
         throw new Error('No se recibieron datos del servidor');
       }
       
-      // Si la respuesta es directamente un array (sin paginación)
+      // El backend envía: { success: true, message: "", data: [], pagination: {} }
+      // Necesitamos extraer data y pagination
+      if (response.data.success && response.data.data && response.data.pagination) {
+        return {
+          total: response.data.pagination.total,
+          page: response.data.pagination.page,
+          limit: response.data.pagination.limit,
+          totalPages: response.data.pagination.totalPages,
+          data: response.data.data
+        };
+      }
+      
+      // Si la respuesta es directamente un array (sin paginación) - fallback
       if (Array.isArray(response.data)) {
         console.log('📋 Response is direct array, creating pagination wrapper');
         return {
@@ -42,11 +76,6 @@ export const userService = {
           totalPages: Math.ceil(response.data.length / limit),
           data: response.data
         };
-      }
-      
-      // Si la respuesta tiene la estructura esperada
-      if (response.data && typeof response.data === 'object') {
-        return response.data;
       }
       
       console.error('❌ Unexpected response structure:', response.data);
@@ -103,10 +132,22 @@ export const userService = {
 
   // Buscar usuarios
   searchUsers: async (query: string, page = 1, limit = 10): Promise<PaginatedResponse<User>> => {
-    const response = await apiClient.get<PaginatedResponse<User>>(
+    const response = await apiClient.get<SearchResponse>(
       `/users/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
     );
-    return response.data;
+    
+    // El backend envía: { success: true, message: "", usuarios: [], total: X, pagina: X, limite: X, total_paginas: X }
+    if (response.data.success && response.data.usuarios !== undefined) {
+      return {
+        total: response.data.total,
+        page: response.data.pagina,
+        limit: response.data.limite,
+        totalPages: response.data.total_paginas,
+        data: response.data.usuarios
+      };
+    }
+    
+    throw new Error('Estructura de respuesta inesperada del servidor');
   },
 
   // Verificar si un número de documento ya existe

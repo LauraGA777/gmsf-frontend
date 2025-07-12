@@ -51,7 +51,7 @@ export function MyContractPage() {
       setError(null);
       
       const response = await contractService.getContracts({
-        id_persona: user.personId,
+        id_persona: parseInt(user.personId, 10),
         limit: 10
       });
       

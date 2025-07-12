@@ -13,9 +13,9 @@ import {
 } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
-import { Card, CardHeader, CardTitle, CardContent } from "@/shared/components/ui/card"
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
-import { formatCOP } from "@/shared/lib/utils"
+import { formatCOP } from "@/shared/lib/formatCop"
 import { Separator } from "@/shared/components/ui/separator"
 
 interface ContractDetailsProps {
@@ -78,6 +78,32 @@ export function ContractDetails({ contract, isOpen, onClose }: ContractDetailsPr
                 {getStatusBadge(contract.estado)}
                 <Badge variant="outline" className="font-mono">{contract.codigo}</Badge>
               </div>
+              {contract.estado === 'Congelado' && (
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-900">Motivo de congelamiento:</p>
+                      <p className="text-sm text-blue-800 mt-1">
+                        {contract.motivo || 'No se especificó un motivo para el congelamiento'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {contract.estado === 'Cancelado' && (
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-red-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-red-900">Motivo de cancelación:</p>
+                      <p className="text-sm text-red-800 mt-1">
+                        {contract.motivo || 'No se especificó un motivo para la cancelación'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

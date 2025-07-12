@@ -6,7 +6,7 @@ import { Input } from "@/shared/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
-import { Plus, Search, RefreshCw, FileSignature, MoreHorizontal, Edit, Eye, Trash2 } from "lucide-react"
+import { Plus, Search, RefreshCw, FileSignature, MoreHorizontal, Edit, Eye, Trash2, Power } from "lucide-react"
 import { useGym } from "@/shared/contexts/gymContext"
 import type { Contract } from "@/shared/types"
 import { NewContractForm } from "@/features/contracts/components/newContractForm"
@@ -46,7 +46,7 @@ export function ContractsPage() {
     contractsLoading,
     contractsPagination,
     refreshContracts,
-    createContract,
+
     updateContract,
     deleteContract,
   } = useGym()
@@ -89,26 +89,7 @@ export function ContractsPage() {
     }
   }
 
-  const handleAddContract = async (newContract: Omit<Contract, "id">) => {
-    if (!canCreateContract) {
-      toast({ 
-        title: "Sin permisos", 
-        description: "No tienes permisos para crear contratos.", 
-        variant: "destructive" 
-      })
-      return
-    }
 
-    try {
-      await createContract(newContract)
-      toast({ title: "¡Éxito!", description: "Contrato agregado correctamente." })
-      setIsAddModalOpen(false)
-      const estado = statusFilter === "all" ? undefined : statusFilter
-      refreshContracts({ page, limit, search: debouncedSearchTerm, estado })
-    } catch (error) {
-      toast({ title: "Error", description: "No se pudo agregar el contrato.", variant: "destructive" })
-    }
-  }
 
   const handleViewContract = (contract: Contract) => {
     if (!canViewDetails) {
@@ -132,6 +113,14 @@ export function ContractsPage() {
       })
       return
     }
+    
+    // Debug: Log memberships when opening edit modal
+    console.log('🔍 Opening EditContract Modal - Memberships state:', {
+      totalMemberships: memberships.length,
+      memberships: memberships.map(m => ({ id: m.id, nombre: m.nombre, estado: m.estado })),
+      contract: { id: contract.id, codigo: contract.codigo, id_membresia: contract.id_membresia }
+    });
+    
     setEditingContract(contract)
     setIsEditModalOpen(true)
   }
@@ -376,7 +365,7 @@ export function ContractsPage() {
                               )}
                               {canUpdateContract && (
                                 <DropdownMenuItem onClick={() => handleToggleContractStatus(contract)}>
-                                  <Edit className="w-4 h-4 mr-2" />
+                                  <Power className="w-4 h-4 mr-2" />
                                   Cambiar estado
                                 </DropdownMenuItem>
                               )}

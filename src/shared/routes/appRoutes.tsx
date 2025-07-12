@@ -10,18 +10,6 @@ import { ProtectedRoute } from "@/features/auth/components/protectedRoute";
 export default function AppRoutes() {
     const { isAuthenticated, user, isLoading, isInitialized, error } = useAuth();
 
-    if (isLoading || !isInitialized) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50">
-                <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
-                    <p className="text-lg font-semibold text-gray-700">Cargando sistema...</p>
-                    <p className="text-sm text-gray-500">Por favor, espere un momento.</p>
-                </div>
-            </div>
-        );
-    }
-    
     // Función de redirección dinámica basada en authContext mejorado
     const getRedirectPath = () => {
         if (!user) return "/login";
@@ -92,5 +80,20 @@ export default function AppRoutes() {
         }
     ];
 
-    return useRoutes(routes);
+    const routing = useRoutes(routes);
+
+    // Early return después de todos los hooks
+    if (isLoading || !isInitialized) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+                <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+                    <p className="text-lg font-semibold text-gray-700">Cargando sistema...</p>
+                    <p className="text-sm text-gray-500">Por favor, espere un momento.</p>
+                </div>
+            </div>
+        );
+    }
+
+    return routing;
 }

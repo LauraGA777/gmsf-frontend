@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
@@ -86,6 +85,10 @@ export default function DashboardOptimizedPage({ className }: DashboardPageProps
       console.log('🚀 Loading optimized dashboard data...');
       
       const data = await optimizedDashboardService.getDashboardData(config);
+      console.log('📊 Dashboard data received:', data);
+      console.log('📈 Charts data:', data.charts);
+      console.log('🏷️ Membership distribution:', data.charts?.membershipDistribution);
+      
       setDashboardData(data);
       setLastUpdate(new Date());
       
@@ -296,7 +299,7 @@ export default function DashboardOptimizedPage({ className }: DashboardPageProps
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Dashboard Optimizado ⚡
+              Panel de rendimiento
             </h1>
             <p className="text-sm text-gray-600">
               Análisis de rendimiento con carga súper rápida
@@ -304,10 +307,6 @@ export default function DashboardOptimizedPage({ className }: DashboardPageProps
           </div>
           
           <div className="flex items-center gap-3">
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              {dashboardData ? '1 petición HTTP' : 'Cargando...'}
-            </Badge>
             <DateRangeFilter
               selectedRange={selectedDateRange}
               onRangeChange={handleDateRangeChange}
@@ -553,10 +552,6 @@ export default function DashboardOptimizedPage({ className }: DashboardPageProps
               <span>Optimizado - 1 petición HTTP</span>
             </div>
             <div className="flex items-center gap-1">
-              <Badge variant="outline" className="text-green-600 border-green-200">
-                <div className="w-1 h-1 bg-green-500 rounded-full mr-1"></div>
-                Caché activo
-              </Badge>
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm, useFieldArray, Controller, FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -144,7 +144,7 @@ export function EditClientModal({ client, onUpdateClient, onClose }: EditClientM
       toast({
         title: '¡Éxito!',
         description: 'Cliente actualizado correctamente',
-        type: 'success',
+        variant: 'default',
       });
       onClose();
     } catch (error: any) {
@@ -153,7 +153,7 @@ export function EditClientModal({ client, onUpdateClient, onClose }: EditClientM
       toast({
         title: 'Error',
         description: error.response?.data?.message || 'Error al actualizar el cliente.',
-        type: 'error',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -196,7 +196,7 @@ export function EditClientModal({ client, onUpdateClient, onClose }: EditClientM
           }
 
           toast({
-            type: 'error',
+            variant: 'destructive',
             title: 'Formulario inválido',
             description: errorMessage,
           });

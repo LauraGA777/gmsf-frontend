@@ -94,7 +94,7 @@ class MembershipService {
   private mapApiResponseToMembership(data: any): Membership {
     const membershipData = data.membership || data;
     return {
-      id: membershipData.id?.toString() || '',
+      id: Number(membershipData.id) || 0,
       codigo: membershipData.codigo || `M${membershipData.id?.toString().padStart(3, "0")}`,
       nombre: membershipData.nombre || '',
       descripcion: membershipData.descripcion || '',
@@ -225,7 +225,7 @@ class MembershipService {
         }
         // Si no hay datos pero la operación fue exitosa, devolvemos la membresía con estado false
         return {
-          id,
+          id: Number(id),
           codigo: '',
           nombre: '',
           descripcion: '',
@@ -265,7 +265,8 @@ class MembershipService {
   async getActiveMemberships(): Promise<Membership[]> {
     try {
       this.checkAuth();
-      const response = await this.getMemberships({ estado: true, limit: 1000 });
+      // Usar un límite más razonable o paginación
+      const response = await this.getMemberships({ estado: true, limit: 50 });
       return response.data.filter(m => m.estado);
     } catch (error) {
       console.error('Error fetching active memberships:', error);

@@ -87,10 +87,9 @@ export const clientService = {
   // Check if a user exists by document
   checkUserByDocument: async (tipo_documento: string, numero_documento: string) => {
     clientService.checkAuth();
-    const response = await api.get(`/clients/check-user`, {
-      params: { tipo_documento, numero_documento },
-    });
-    return response.data;
+    // La URL ahora incluye los parámetros directamente
+    const response = await api.get<{ data: any }>(`/clients/check-user/${tipo_documento}/${numero_documento}`);
+    return response.data.data;
   },
 
   // Get client emergency contacts

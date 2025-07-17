@@ -1,6 +1,4 @@
-"use client"
-
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
@@ -21,10 +19,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
 import { RoleModal } from "../components/roleModal"
 import { RoleDetailModal } from "../components/roleDetailModal"
+import { usePermissions } from "@/shared/hooks/usePermissions"
 
 export function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([])
-  const [filteredRoles, setFilteredRoles] = useState<Role[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -36,13 +34,43 @@ export function RolesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
+  // Hook de permisos
+  const { hasPrivilege } = usePermissions()
+
+  // Verificar permisos específicos (usando strings genéricos para evitar errores de tipado)
+  const canCreate = hasPrivilege("SISTEMA", "SYSTEM_CREATE_ROLES")
+  const canEdit = hasPrivilege("SISTEMA", "SYSTEM_UPDATE_ROLES")
+  const canDelete = hasPrivilege("SISTEMA", "SYSTEM_DELETE_ROLES")
+  const canView = hasPrivilege("SISTEMA", "SYSTEM_VIEW_ROLES")
+
+  // Filtrar y paginar roles usando useMemo para optimización
+  const filteredRoles = useMemo(() => {
+    let filtered = [...roles]
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase()
+      filtered = filtered.filter(
+        (role) => role.name.toLowerCase().includes(term) || role.description.toLowerCase().includes(term),
+      )
+    }
+
+    if (statusFilter !== "all") {
+      const isActive = statusFilter === "active"
+      filtered = filtered.filter((role) => role.status === "Activo" === isActive)
+    }
+
+    return filtered.sort((a, b) => a.codigo?.localeCompare(b.codigo || "") || 0)
+  }, [roles, searchTerm, statusFilter])
+
+  const paginatedRoles = useMemo(() => {
+    return filteredRoles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  }, [filteredRoles, currentPage, itemsPerPage])
+
+  const totalPages = Math.ceil(filteredRoles.length / itemsPerPage)
+
   useEffect(() => {
     loadRoles()
   }, [])
-
-  useEffect(() => {
-    filterRoles()
-  }, [roles, searchTerm, statusFilter])
 
   const loadRoles = async () => {
     try {
@@ -57,25 +85,8 @@ export function RolesPage() {
     }
   }
 
-  const filterRoles = () => {
-    let filtered = [...roles]
-
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        (role) => role.name.toLowerCase().includes(term) || role.description.toLowerCase().includes(term),
-      )
-    }
-
-    if (statusFilter !== "all") {
-      const isActive = statusFilter === "active"
-      filtered = filtered.filter((role) => {
-        const roleStatus = role.status === "Activo"
-        return roleStatus === isActive
-      })
-    }
-
-    setFilteredRoles(filtered)
+  const resetCurrentPage = () => {
+    if (currentPage > 1) setCurrentPage(1)
   }
 
   const handleViewDetails = (role: Role) => {
@@ -88,23 +99,10 @@ export function RolesPage() {
     setIsModalOpen(true)
   }
 
-  const handleSaveRole = async (roleData: Omit<Role, "id">) => {
-    try {
-      if (editingRole) {
-        await roleService.updateRole({
-          ...roleData,
-          id: editingRole.id,
-        })
-      } else {
-        await roleService.createRole(roleData)
-      }
-      await loadRoles()
-      setIsModalOpen(false)
-      setEditingRole(null)
-    } catch (error) {
-      console.error("Error saving role:", error)
-      throw error
-    }
+  const handleSaveRole = async () => {
+    await loadRoles()
+    setIsModalOpen(false)
+    setEditingRole(null)
   }
 
   const handleDeleteRole = async (role: Role) => {
@@ -123,7 +121,6 @@ export function RolesPage() {
       try {
         await roleService.deleteRole(role.id)
         await loadRoles()
-
         Swal.fire({
           title: "¡Eliminado!",
           text: "El rol ha sido eliminado correctamente",
@@ -160,11 +157,7 @@ export function RolesPage() {
 
     if (result.isConfirmed) {
       try {
-        const updatedRole = {
-          ...role,
-          status: isActive ? "Inactivo" : "Activo",
-        }
-        await roleService.updateRole(updatedRole)
+        await roleService.toggleRoleStatus(role.id, !role.estado)
         await loadRoles()
 
         Swal.fire({
@@ -186,10 +179,6 @@ export function RolesPage() {
     }
   }
 
-  const paginatedRoles = filteredRoles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-
-  const totalPages = Math.ceil(filteredRoles.length / itemsPerPage)
-
   if (roles.length === 0 && !isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
@@ -198,10 +187,12 @@ export function RolesPage() {
             <Shield className="h-16 w-16 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No hay roles registrados</h3>
             <p className="text-gray-500 mb-4">Comience agregando el primer rol al sistema</p>
-            <Button onClick={() => setIsModalOpen(true)} className="bg-black hover:bg-gray-800">
-              <Plus className="h-4 w-4 mr-2" />
-              Agregar Rol
-            </Button>
+            {canCreate && (
+              <Button onClick={() => setIsModalOpen(true)} className="bg-black hover:bg-gray-800">
+                <Plus className="h-4 w-4 mr-2" />
+                Agregar Rol
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -236,16 +227,18 @@ export function RolesPage() {
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Actualizar
           </Button>
-          <Button
-            onClick={() => {
-              setEditingRole(null)
-              setIsModalOpen(true)
-            }}
-            className="bg-black hover:bg-gray-800"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Rol
-          </Button>
+          {canCreate && (
+            <Button
+              onClick={() => {
+                setEditingRole(null)
+                setIsModalOpen(true)
+              }}
+              className="bg-black hover:bg-gray-800"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Rol
+            </Button>
+          )}
         </div>
       </div>
       {/* Filters */}
@@ -258,12 +251,18 @@ export function RolesPage() {
                 <Input
                   placeholder="Buscar por nombre o descripción..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value)
+                    resetCurrentPage()
+                  }}
                   className="pl-10"
                 />
               </div>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(value) => {
+              setStatusFilter(value)
+              resetCurrentPage()
+            }}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Filtrar por estado" />
               </SelectTrigger>
@@ -297,10 +296,9 @@ export function RolesPage() {
                   <TableHead>Código</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Descripción</TableHead>
-                  <TableHead>Usuarios</TableHead>
+                  <TableHead>Permisos</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Fecha de Creación</TableHead>
-                  <TableHead>Última Actualización</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -321,7 +319,7 @@ export function RolesPage() {
                       <TableCell className="font-medium">{role.name}</TableCell>
                       <TableCell className="max-w-xs truncate">{role.description}</TableCell>
                       <TableCell>
-                        <Badge className="bg-blue-100 text-blue-800">{role.userCount || 0}</Badge>
+                        <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">{role.permisos?.length || 0} módulos</Badge>
                       </TableCell>
                       <TableCell>
                         {role.status === "Activo" ? (
@@ -333,9 +331,6 @@ export function RolesPage() {
                       <TableCell>
                         {role.createdAt ? format(new Date(role.createdAt), "dd/MM/yyyy", { locale: es }) : "N/A"}
                       </TableCell>
-                      <TableCell>
-                        {role.updatedAt ? format(new Date(role.updatedAt), "dd/MM/yyyy", { locale: es }) : "N/A"}
-                      </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -344,29 +339,37 @@ export function RolesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleViewDetails(role)}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              Ver detalles
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEditRole(role)}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleStatus(role)}>
-                              {role.status === "Activo" ? (
-                                <Power className="w-4 h-4 mr-2" />
-                              ) : (
-                                <RotateCcw className="w-4 h-4 mr-2" />
-                              )}
-                              {role.status === "Activo" ? "Desactivar" : "Activar"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteRole(role)}
-                              className="text-red-600 focus:text-red-600"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Eliminar
-                            </DropdownMenuItem>
+                            {canView && (
+                              <DropdownMenuItem onClick={() => handleViewDetails(role)}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                Ver detalles
+                              </DropdownMenuItem>
+                            )}
+                            {canEdit && (
+                              <DropdownMenuItem onClick={() => handleEditRole(role)}>
+                                <Edit className="w-4 h-4 mr-2" />
+                                Editar
+                              </DropdownMenuItem>
+                            )}
+                            {canEdit && (
+                              <DropdownMenuItem onClick={() => handleToggleStatus(role)}>
+                                {role.status === "Activo" ? (
+                                  <Power className="w-4 h-4 mr-2" />
+                                ) : (
+                                  <RotateCcw className="w-4 h-4 mr-2" />
+                                )}
+                                {role.status === "Activo" ? "Desactivar" : "Activar"}
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete && (
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteRole(role)}
+                                className="text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -417,14 +420,13 @@ export function RolesPage() {
 
       {/* New/Edit Role Modal */}
       <RoleModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false)
-          setEditingRole(null)
+        open={isModalOpen}
+        onOpenChange={(open: boolean) => {
+          setIsModalOpen(open)
+          if (!open) setEditingRole(null)
         }}
-        onSave={handleSaveRole}
-        role={editingRole}
-        title={editingRole ? "Editar Rol" : "Nuevo Rol"}
+        onSuccess={handleSaveRole}
+        role={editingRole || null}
       />
     </div>
   )

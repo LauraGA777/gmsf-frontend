@@ -5,68 +5,68 @@ import { cn } from '@/shared/lib/utils';
 
 // Componentes de UI
 const Card = ({ className, children }: { className?: string; children: React.ReactNode }) => (
-  <div className={cn("bg-white rounded-lg", className)}>{children}</div>
+    <div className={cn("bg-white rounded-lg", className)}>{children}</div>
 );
 
 const CardHeader = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-6 border-b">{children}</div>
+    <div className="p-6 border-b">{children}</div>
 );
 
 const CardTitle = ({ className, children }: { className?: string; children: React.ReactNode }) => (
-  <h3 className={cn("text-lg font-semibold", className)}>{children}</h3>
+    <h3 className={cn("text-lg font-semibold", className)}>{children}</h3>
 );
 
 const CardDescription = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm text-gray-500 mt-1">{children}</p>
+    <p className="text-sm text-gray-500 mt-1">{children}</p>
 );
 
 const CardContent = ({ className, children }: { className?: string; children: React.ReactNode }) => (
-  <div className={cn("p-6", className)}>{children}</div>
+    <div className={cn("p-6", className)}>{children}</div>
 );
 
 const Label = ({ htmlFor, className, children }: { htmlFor: string; className?: string; children: React.ReactNode }) => (
-  <label htmlFor={htmlFor} className={cn("block text-sm font-medium text-gray-700", className)}>
-    {children}
-  </label>
+    <label htmlFor={htmlFor} className={cn("block text-sm font-medium text-gray-700", className)}>
+        {children}
+    </label>
 );
 
 const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
-  <input
-    className={cn(
-      "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none",
-      className
-    )}
-    {...props}
-  />
+    <input
+        className={cn(
+            "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none",
+            className
+        )}
+        {...props}
+    />
 );
 
 const Button = ({ className, children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-  <button
-    className={cn(
-      "w-full bg-gray-900 hover:bg-gray-800 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200",
-      className
-    )}
-    {...props}
-  >
-    {children}
-  </button>
+    <button
+        className={cn(
+            "w-full bg-gray-900 hover:bg-gray-800 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200",
+            className
+        )}
+        {...props}
+    >
+        {children}
+    </button>
 );
 
 const Select = ({ value, onValueChange, children }: { value: string; onValueChange: (value: string) => void; children: React.ReactNode }) => (
-  <select
-    value={value}
-    onChange={(e) => onValueChange(e.target.value)}
-    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-  >
-    {children}
-  </select>
+    <select
+        value={value}
+        onChange={(e) => onValueChange(e.target.value)}
+        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    >
+        {children}
+    </select>
 );
 
 const SelectTrigger = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
 const SelectValue = ({ placeholder }: { placeholder: string }) => <div>{placeholder}</div>;
 const SelectContent = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
 const SelectItem = ({ value, children }: { value: string; children: React.ReactNode }) => (
-  <option value={value}>{children}</option>
+    <option value={value}>{children}</option>
 );
 
 export default function ProfileManagement() {
@@ -128,10 +128,10 @@ export default function ProfileManagement() {
             const datosPerfil = await authService.obtenerPerfil();
             if (datosPerfil) {
                 // Formatear la fecha si existe
-                const fechaNacimiento = datosPerfil.fecha_nacimiento 
+                const fechaNacimiento = datosPerfil.fecha_nacimiento
                     ? new Date(datosPerfil.fecha_nacimiento).toISOString().split('T')[0]
                     : '';
-                
+
                 setProfileData({
                     nombre: datosPerfil.nombre || '',
                     apellido: datosPerfil.apellido || '',
@@ -205,7 +205,7 @@ export default function ProfileManagement() {
 
     const handleProfileSave = async () => {
         if (!validarPerfil()) return;
-        
+
         setLoading(true);
         setError(null);
         setSuccess(null);
@@ -223,7 +223,7 @@ export default function ProfileManagement() {
 
     const handlePasswordSave = async () => {
         if (!validarContrasena()) return;
-        
+
         setLoading(true);
         setError(null);
         setSuccess(null);

@@ -5,8 +5,7 @@ import { contractsRoutes } from "@/features/contracts/routes/contractsRoutes";
 import { dashboardRoutes } from "@/features/dashboard/routes/dashboardRoutes";
 import { membershipsRoutes } from "@/features/memberships/routes/membershipsRoutes";
 import { rolesRoutes } from "@/features/roles/routes/rolesRoutes";
-import { servicesRoutes } from "@/features/services/routes/servicesRoutes";
-import { trainersRoutes } from "@/features/trainers/routes/trainersRoutes";
+import { trainersRoutes } from "@/features/trainers/routes/trainerRoutes";
 import { userRoutes } from "@/features/users/routes/userRoutes";
 
 export const privateRoutes = [
@@ -18,6 +17,5 @@ export const privateRoutes = [
     ...membershipsRoutes,
     ...rolesRoutes,
     ...trainersRoutes,
-    ...servicesRoutes,
     ...userRoutes,
 ];

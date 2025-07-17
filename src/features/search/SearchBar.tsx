@@ -1,39 +1,17 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Input } from "@/shared/components/input"
-import { Button } from "@/shared/components/button"
+import { Input } from "@/shared/components/ui/input"
+import { Button } from "@/shared/components/ui/button"
 import { Search, Filter, X, RefreshCw } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/select"
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/popover"
-import { format, isValid } from "date-fns"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
+import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { Badge } from "@/shared/components/badge"
-import { Calendar as CalendarComponent } from "@/shared/components/calendar"
+import { Badge } from "@/shared/components/ui/badge"
+import { Calendar as CalendarComponent } from "@/shared/components/ui/calendar"
 import type { SearchFilters } from "@/shared/types"
 
-// Add a safe date formatter function
-const formatSafeDate = (date: Date | null): string => {
-  if (!date) return ""
-
-  try {
-    return isValid(date) ? format(date, "dd/MM/yyyy") : ""
-  } catch (e) {
-    return ""
-  }
-}
-
-// Improve date range validation
-const isValidDateRange = (from: Date | null, to: Date | null): boolean => {
-  if (!from || !to) return true
-
-  try {
-    if (!isValid(from) || !isValid(to)) return false
-    return from <= to
-  } catch (e) {
-    return false
-  }
-}
 
 interface SearchBarProps {
   onSearch: (filters: SearchFilters) => void
@@ -49,7 +27,7 @@ export function SearchBar({ onSearch, trainers, services, includeContracts = fal
     client: "",
     trainer: "",
     service: "",
-    dateRange: { from: null, to: null },
+    dateRange: { from: undefined, to: undefined },
     status: "", // Added status field for estado column
   })
   const [activeFilters, setActiveFilters] = useState<string[]>([])
@@ -85,7 +63,7 @@ export function SearchBar({ onSearch, trainers, services, includeContracts = fal
       client: "",
       trainer: "",
       service: "",
-      dateRange: { from: null, to: null },
+      dateRange: { from: undefined, to: undefined },
       status: "", // Clear status field
     })
     setActiveFilters([])
@@ -93,7 +71,7 @@ export function SearchBar({ onSearch, trainers, services, includeContracts = fal
       client: "",
       trainer: "",
       service: "",
-      dateRange: { from: null, to: null },
+      dateRange: { from: undefined, to: undefined },
       status: "", // Clear status field
     })
   }
@@ -106,7 +84,7 @@ export function SearchBar({ onSearch, trainers, services, includeContracts = fal
     if (filterType === "Entrenador") newFilters.trainer = ""
     if (filterType === "Servicio") newFilters.service = ""
     if (filterType === "Estado") newFilters.status = ""
-    if (filterType === "Fechas") newFilters.dateRange = { from: null, to: null }
+    if (filterType === "Fechas") newFilters.dateRange = { from: undefined, to: undefined }
 
     setFilters(newFilters)
     onSearch(newFilters)

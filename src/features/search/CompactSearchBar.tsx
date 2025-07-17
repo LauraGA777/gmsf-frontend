@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Input } from "@/shared/components/ui/input"
 import { Button } from "@/shared/components/ui/button"
 import { Search, X } from "lucide-react"
@@ -20,6 +20,19 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings, incl
   const [showResults, setShowResults] = useState<boolean>(false)
   const [selectedFilter, setSelectedFilter] = useState<{ type: string; name: string } | null>(null)
 
+  const clientNames = useMemo(() => {
+    const names = new Set<string>()
+    trainings.forEach((training) => {
+      if (training.cliente?.usuario?.nombre) {
+        const fullName = `${training.cliente.usuario.nombre} ${
+          training.cliente.usuario.apellido || ""
+        }`.trim()
+        names.add(fullName)
+      }
+    })
+    return Array.from(names)
+  }, [trainings])
+
   // Función para buscar coincidencias
   const handleSearch = (term: string) => {
     if (!term.trim()) {
@@ -30,8 +43,6 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings, incl
 
     const results: { type: string; name: string }[] = []
 
-    // Buscar en clientes
-    const clientNames = [...new Set(trainings.map((t) => t.client))]
     clientNames.forEach((client) => {
       if (client.toLowerCase().includes(term.toLowerCase())) {
         results.push({ type: "client", name: client })
@@ -84,7 +95,7 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings, incl
       client: result.type === "client" ? result.name : "",
       trainer: result.type === "trainer" ? result.name : "",
       service: result.type === "service" ? result.name : "",
-      dateRange: { from: null, to: null },
+      dateRange: { from: undefined, to: undefined },
       status: result.type === "status" ? result.name : "",
     }
 
@@ -101,7 +112,7 @@ export function CompactSearchBar({ onSearch, trainers, services, trainings, incl
       client: "",
       trainer: "",
       service: "",
-      dateRange: { from: null, to: null },
+      dateRange: { from: undefined, to: undefined },
       status: "",
     })
   }

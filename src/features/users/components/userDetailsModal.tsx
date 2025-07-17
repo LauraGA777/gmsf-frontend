@@ -1,10 +1,12 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
 import { Badge } from "@/shared/components/ui/badge"
 import { Separator } from "@/shared/components/ui/separator"
-import { X, Mail, Phone, MapPin, Calendar, Shield, Activity, Users } from "lucide-react"
+import { Mail, Phone, MapPin, Calendar, Shield, Activity, Users } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import type { User } from "../types/user"
+import { useState, useEffect } from "react"
+import { roleService } from '@/features/roles/services/roleService';
 
 interface UserDetailsModalProps {
   isOpen: boolean
@@ -15,24 +17,34 @@ interface UserDetailsModalProps {
 export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProps) {
   if (!user) return null
 
-  const getRoleName = (idRol: number) => {
-    const roles = {
-      1: "Administrador",
-      2: "Entrenador",
-      3: "Cliente",
-      4: "Beneficiario"
+  const [roles, setRoles] = useState<{ id: number; nombre: string }[]>([]);
+
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        const roles = await roleService.getRolesForSelect();
+        setRoles(roles);
+      } catch (error) {
+        console.error('Error cargando roles:', error);
+      }
     };
-    return roles[idRol as keyof typeof roles] || "Desconocido";
+    loadRoles();
+  }, []);
+
+  const getRoleName = (id_rol: number | null | undefined) => {
+    if (!id_rol || !Array.isArray(roles) || roles.length === 0) {
+      return "Cargando...";
+    }
+    
+    const rol = roles.find(r => r?.id === id_rol);
+    if (!rol) {
+      return "Desconocido";
+    }
+    return rol.nombre || "Sin nombre";
   };
 
-  const getRoleBadge = (idRol: number) => {
-    const styles = {
-      1: "bg-purple-100 text-purple-800 hover:bg-purple-100",
-      2: "bg-blue-100 text-blue-800 hover:bg-blue-100",
-      3: "bg-green-100 text-green-800 hover:bg-green-100",
-      4: "bg-orange-100 text-orange-800 hover:bg-orange-100",
-    };
-    return styles[idRol as keyof typeof styles] || "bg-gray-100 text-gray-800 hover:bg-gray-100";
+  const getRoleBadge = () => {
+    return "bg-gray-100 text-gray-800 hover:bg-gray-200";
   };
 
   const getStatusBadge = (estado: boolean) => {
@@ -67,7 +79,7 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
               </h2>
               <p className="text-sm text-gray-500">ID: {user.id}</p>
               <div className="flex items-center space-x-2 mt-2">
-                <Badge className={getRoleBadge(user.id_rol)}>{getRoleName(user.id_rol)}</Badge>
+                <Badge className={getRoleBadge()}>{getRoleName(user.id_rol)}</Badge>
                 <Badge className={getStatusBadge(user.estado)}>{user.estado ? "Activo" : "Inactivo"}</Badge>
               </div>
             </div>

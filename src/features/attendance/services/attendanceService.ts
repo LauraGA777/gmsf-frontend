@@ -34,7 +34,7 @@ export const attendanceService = {
       ...(params.fecha_inicio && { fecha_inicio: params.fecha_inicio }),
       ...(params.fecha_fin && { fecha_fin: params.fecha_fin })
     });
-    
+
     const response = await apiClient.get<PaginatedResponse<AttendanceRecord>>(
       `/attendance?${queryParams}`
     );
@@ -116,17 +116,21 @@ export const attendanceService = {
     return response.data.data;
   },
 
-  // Actualizar asistencia
-  updateAttendance: async (id: number, data: Partial<AttendanceRecord>): Promise<AttendanceRecord> => {
-    const numericId = Number(id);
-    if (isNaN(numericId)) {
-      throw new Error("ID de asistencia inválido: debe ser un número");
-    }
-    
-    const response = await apiClient.put<ApiResponse<AttendanceRecord>>(
-      `/attendance/${numericId}`,
-      data
-    );
-    return response.data.data;
-  }
+  // Obtener historial de asistencia del cliente
+  getClientAttendanceHistory: async (personId: string, page: number = 1, limit: number = 20): Promise<any> => {
+    const response = await apiClient.get(`/my-attendances/${personId}?page=${page}&limit=${limit}`);
+    return response.data;
+  },
+
+  // Obtener estadísticas de asistencia por rango de fechas y personId
+  getClientAttendanceStats: async (personId: number, startDate: string, endDate: string): Promise<any> => {
+    const response = await apiClient.get(`/my-attendances/stats?personId=${personId}&startDate=${startDate}&endDate=${endDate}`);
+    return response.data;
+  },
+
+  // Obtener rango de fechas por período
+  getClientDateRangeByPeriod: async (period: string): Promise<any> => {
+    const response = await apiClient.get(`/my-attendances/date-range?period=${period}`);
+    return response.data;
+  },
 };

@@ -1,14 +1,18 @@
 import { RouteObject } from "react-router-dom";
 import { MembershipsPage } from "../pages/membershipsPage";
-import { ProtectedRoute } from "../../auth/components/protectedRoute";
+import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
 
 export const membershipsRoutes: RouteObject[] = [
     {
         path: "memberships",
         element: (
-            <ProtectedRoute allowedRoles={[1]}>
+            <PermissionProtectedRoute 
+                requiredModule="MEMBRESIAS" 
+                requiredPrivilege="MEMBERSHIP_READ"
+                // ✅ Solo permisos de BD - Sin fallbacks
+            >
                 <MembershipsPage />
-            </ProtectedRoute>
+            </PermissionProtectedRoute>
         )
     }
 ];

@@ -13,3 +13,6 @@ export function formatCOP(value: number): string {
     maximumFractionDigits: 0,
   }).format(value)
 }
+
+// Alias para compatibilidad con el dashboard
+export const formatCurrency = formatCOP;

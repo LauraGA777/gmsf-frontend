@@ -85,15 +85,58 @@ export const scheduleService = {
     return response.data;
   },
 
-  // Get active trainers
+  // Get active trainers - Using the dedicated active trainers endpoint
   getActiveTrainers: async () => {
-    const response = await api.get<{ data: any[] }>('/schedules/active-trainers');
-    return response.data;
+    try {
+      const response = await api.get<{data: any[], success: boolean, message: string}>('/schedules/active-trainers');
+      
+      // The data comes from response.data.data due to ApiResponse.success structure
+      const trainers = response.data.data || [];
+      const mappedTrainers = trainers.map((trainer: any) => ({
+        id: trainer.id,
+        codigo: trainer.codigo,
+        especialidad: trainer.especialidad,
+        estado: trainer.estado,
+        usuario: {
+          id: trainer.usuario.id,
+          nombre: trainer.usuario.nombre,
+          apellido: trainer.usuario.apellido,
+          correo: trainer.usuario.correo,
+          telefono: trainer.usuario.telefono || null
+        }
+      }));
+
+      return { data: mappedTrainers };
+    } catch (error) {
+      console.error('Error fetching active trainers:', error);
+      return { data: [] };
+    }
   },
 
-  // Get active clients
+  // Get active clients - Using the dedicated active clients endpoint
   getActiveClients: async () => {
-    const response = await api.get<{ data: any[] }>('/schedules/active-clients');
-    return response.data;
+    try {
+      const response = await api.get<{data: any[], success: boolean, message: string}>('/schedules/active-clients');
+      
+      // The data comes from response.data.data due to ApiResponse.success structure
+      const clients = response.data.data || [];
+      const mappedClients = clients.map((client: any) => ({
+        id: client.id,
+        codigo: client.codigo,
+        estado: client.estado,
+        usuario: {
+          id: client.usuario.id,
+          nombre: client.usuario.nombre,
+          apellido: client.usuario.apellido,
+          correo: client.usuario.correo,
+          telefono: client.usuario.telefono || null
+        }
+      }));
+
+      return { data: mappedClients };
+    } catch (error) {
+      console.error('Error fetching active clients:', error);
+      return { data: [] };
+    }
   }
 };

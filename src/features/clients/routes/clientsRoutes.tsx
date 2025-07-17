@@ -1,15 +1,31 @@
-import React from "react";
 import { ClientsPage } from "@/features/clients/pages/clientsPage";
-import { ProtectedRoute } from "../../auth/components/protectedRoute";
+import { MyContractPage } from "@/features/contracts/pages/myContractPage";
+import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
 
 // Rutas de clientes
 export const clientsRoutes = [
     {
         path: "/clients",
         element: (
-            <ProtectedRoute allowedRoles={[1, 2]}>
+            <PermissionProtectedRoute 
+                requiredModule="CLIENTES" 
+                requiredPrivilege="CLIENT_READ"
+                // ✅ Solo permisos de BD - Sin fallbacks
+            >
                 <ClientsPage />
-            </ProtectedRoute>
+            </PermissionProtectedRoute>
+        )
+    },
+    {
+        path: "/my-contract",
+        element: (
+            <PermissionProtectedRoute 
+                requiredModule="CONTRATOS" 
+                requiredPrivilege="CONTRACT_READ"
+                // ✅ Solo permisos de BD - Sin fallbacks
+            >
+                <MyContractPage />
+            </PermissionProtectedRoute>
         )
     }
 ];

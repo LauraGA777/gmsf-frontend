@@ -8,12 +8,12 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/shared/co
 import { Input } from "@/shared/components/ui/input"
 import { useToast } from "@/shared/components/ui/use-toast"
 import { formSchemaLogin, FormValuesLogin } from "@/shared/lib/formSchemasLogin"
-import { useAuth } from "@/shared/contexts/authContext" // Importar useAuth
+import { useAuth } from "@/shared/contexts/authContext"
 
 export default function LoginCard() {
     const [isLoading, setIsLoading] = useState(false)
     const { toast } = useToast()
-    const { login } = useAuth() // Usar el hook useAuth para obtener la función login
+    const { login } = useAuth()
     const [showContactInfo, setShowContactInfo] = useState(false)
 
     const form = useForm<FormValuesLogin>({
@@ -33,21 +33,21 @@ export default function LoginCard() {
                 toast({
                     title: "Inicio exitoso",
                     description: "Bienvenido a tu cuenta",
-                    type: "success"
-                });
+                    type: "success", // ✅ Esta propiedad SÍ existe en tu toast
+                }as any);
             } else {
                 toast({
                     title: "Error",
                     description: result.error || "Ha ocurrido un error inesperado",
-                    type: "error"
-                });
+                    type: "error", // ✅ Esta propiedad SÍ existe en tu toast
+                }as any);
             }
         } catch (error: any) {
             toast({
                 title: "Error",
                 description: error.message || "Ha ocurrido un error inesperado",
-                type: "error"
-            });
+                type: "error", // ✅ Esta propiedad SÍ existe en tu toast
+            }as any);
         } finally {
             setIsLoading(false);
         }

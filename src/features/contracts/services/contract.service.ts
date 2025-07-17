@@ -2,8 +2,6 @@ import api from '@/shared/services/api';
 import type { 
   Contract, 
   ContractFormData, 
-  ContractRenewalData, 
-  ContractFreezeData, 
   ContractHistory 
 } from '@/shared/types';
 
@@ -73,7 +71,7 @@ export const contractService = {
   },
 
   // Update contract
-  updateContract: async (id: number, data: Partial<Contract>) => {
+  updateContract: async (id: number, data: Partial<Contract & { motivo?: string }>) => {
     contractService.checkAuth();
     const response = await api.put<ContractResponse>(`/contracts/${id}`, data);
     return response.data;
@@ -115,14 +113,14 @@ export const contractService = {
     if (!data.fecha_inicio) {
       errors.push('Debe especificar una fecha de inicio');
     } else {
-      // Use string comparison for dates to avoid timezone issues.
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const todayString = `${year}-${month}-${day}`;
+      // Create date objects at midnight UTC to avoid timezone issues
+      const startDate = new Date(data.fecha_inicio);
+      startDate.setUTCHours(0, 0, 0, 0);
 
-      if (data.fecha_inicio < todayString) {
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+
+      if (startDate < today) {
         errors.push('La fecha de inicio no puede ser anterior a hoy');
       }
     }

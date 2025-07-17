@@ -1,20 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, useFieldArray, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog";
-import { User, Plus, Trash2, Users, Phone, Mail, FileText, Calendar, Search, ShieldCheck, Contact, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
+import { User, Plus, Trash2, Users, RefreshCw, CheckCircle, AlertTriangle, ShieldCheck, Info } from "lucide-react";
 import { format } from "date-fns";
 import { clientService } from "@/features/clients/services/client.service";
-import { Badge } from "@/shared/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { useToast } from "@/shared/components/ui/use-toast";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 
 const emergencyContactSchema = z.object({
   nombre_contacto: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -39,14 +38,15 @@ const userDataSchema = z.object({
     .email("Correo electrónico inválido")
     .min(5, "El correo es demasiado corto")
     .max(100, "El correo no puede tener más de 100 caracteres"),
-  contrasena: z.string().optional(), // La contraseña es opcional para clientes
+  contrasena: z.string().optional().or(z.literal("")), // La contraseña es opcional para clientes
   telefono: z.string()
     .refine(
       (val) => val === "" || /^\d{7,15}$/.test(val),
       "El teléfono debe tener entre 7 y 15 dígitos"
     )
     .optional()
-    .or(z.literal("")),
+    .or(z.literal(""))
+    .or(z.undefined()),
   direccion: z.string()
     .max(200, "La dirección no puede tener más de 200 caracteres")
     .optional(),
@@ -83,7 +83,7 @@ const createClientSchema = z.object({
   es_beneficiario_propio: z.boolean(),
 });
 
-type CreateClientFormValues = z.infer<typeof createClientSchema>;
+export type CreateClientFormValues = z.infer<typeof createClientSchema>;
 
 interface NewClientFormProps {
   isOpen: boolean;
@@ -93,13 +93,12 @@ interface NewClientFormProps {
 }
 
 export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: NewClientFormProps) {
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingUser, setIsCheckingUser] = useState(false);
   const [isUserFound, setIsUserFound] = useState(false);
   const [isAlreadyClient, setIsAlreadyClient] = useState(false);
   const [userNotFound, setUserNotFound] = useState(false);
-  const [userExists, setUserExists] = useState(false);
+
   const { toast } = useToast();
   
   const {
@@ -111,7 +110,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
     reset,
     formState: { errors },
   } = useForm<CreateClientFormValues>({
-    resolver: zodResolver(createClientSchema) as any,
+    resolver: zodResolver(createClientSchema),
     defaultValues: {
       usuario: {
         nombre: "",
@@ -133,8 +132,83 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
 
   const tipoDocumento = watch("usuario.tipo_documento");
   const numeroDocumento = watch("usuario.numero_documento");
-  const watchedGenero = watch("usuario.genero");
-  const watchedEsBeneficiarioPropio = watch("es_beneficiario_propio");
+  
+  const debouncedNumeroDocumento = useDebounce(numeroDocumento, 500);
+
+  useEffect(() => {
+    // Si el campo de documento está vacío, limpiamos todo y salimos.
+    if (!debouncedNumeroDocumento) {
+      setIsUserFound(false);
+      setUserNotFound(false);
+      setIsAlreadyClient(false);
+      // No limpiamos los campos aquí para evitar el problema de re-renderizado
+      return;
+    }
+    
+    const handleCheckUser = async () => {
+      if (debouncedNumeroDocumento.length < 5 || !tipoDocumento) {
+        return; // No hacer nada si el documento no es válido
+      }
+      
+      setIsCheckingUser(true);
+      // No reseteamos los estados aquí para evitar parpadeos
+      
+      try {
+        const response: any = await clientService.checkUserByDocument(tipoDocumento, debouncedNumeroDocumento);
+        
+        if (response.isAlreadyClient) {
+          setIsAlreadyClient(true);
+          setIsUserFound(true);
+          setUserNotFound(false); // Nos aseguramos que otros estados estén correctos
+          toast({ title: "Usuario ya registrado", description: "Este usuario ya figura como cliente.", variant: "destructive" });
+        } else {
+          // Usuario encontrado, pero no es cliente. Autocompletar.
+          setValue("usuario.id", response.id);
+          setValue("usuario.nombre", response.nombre);
+          setValue("usuario.apellido", response.apellido);
+          setValue("usuario.correo", response.correo);
+          setValue("usuario.telefono", response.telefono || "");
+          setValue("usuario.direccion", response.direccion || "");
+          setValue("usuario.genero", response.genero || undefined);
+          setValue("usuario.tipo_documento", response.tipo_documento);
+
+          const parsedDate = response.fecha_nacimiento ? new Date(response.fecha_nacimiento) : null;
+          if (parsedDate && !isNaN(parsedDate.getTime())) {
+            setValue("usuario.fecha_nacimiento", format(parsedDate, 'yyyy-MM-dd'));
+          } else {
+            setValue("usuario.fecha_nacimiento", "");
+          }
+          
+          setIsUserFound(true);
+          setUserNotFound(false);
+          setIsAlreadyClient(false);
+          toast({ title: "Usuario Encontrado", description: "Datos del usuario autocompletados.", variant: "success" });
+        }
+      } catch (error: any) {
+        if (error.response && error.response.status === 404) {
+          setUserNotFound(true);
+          setIsUserFound(false);
+          setIsAlreadyClient(false);
+          // Limpiamos los campos solo cuando confirmamos que el usuario NO existe
+          setValue("usuario.id", undefined);
+          setValue("usuario.nombre", "");
+          setValue("usuario.apellido", "");
+          setValue("usuario.correo", "");
+          setValue("usuario.telefono", "");
+          setValue("usuario.direccion", "");
+          setValue("usuario.fecha_nacimiento", "");
+          setValue("usuario.genero", undefined);
+          setValue("usuario.contrasena", debouncedNumeroDocumento);
+        } else {
+          toast({ title: "Error de red", description: "No se pudo conectar con el servidor.", variant: "destructive" });
+        }
+      } finally {
+        setIsCheckingUser(false);
+      }
+    };
+
+    handleCheckUser();
+  }, [debouncedNumeroDocumento, tipoDocumento, setValue, toast]);
 
   const { fields: emergencyContacts, append: appendEmergencyContact, remove: removeEmergencyContact } = useFieldArray({
     control,
@@ -146,45 +220,8 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
     name: "beneficiarios",
   });
 
-  const handleCheckUser = async () => {
-    setUserNotFound(false);
-    setIsUserFound(false);
-    setIsAlreadyClient(false);
-    if (!numeroDocumento || numeroDocumento.length < 5 || !tipoDocumento) {
-      return;
-    }
-    setIsCheckingUser(true);
-    try {
-      const { data: user } = await clientService.checkUserByDocument(tipoDocumento, numeroDocumento);
-      
-      if (user.isAlreadyClient) {
-        setIsAlreadyClient(true);
-        setIsUserFound(true);
-      } else {
-        setValue("usuario.id", user.id);
-        setValue("usuario.nombre", user.nombre);
-        setValue("usuario.apellido", user.apellido);
-        setValue("usuario.correo", user.correo);
-        setValue("usuario.telefono", user.telefono || "");
-        setValue("usuario.direccion", user.direccion || "");
-        setValue("usuario.genero", user.genero || null);
-        setValue("usuario.tipo_documento", user.tipo_documento);
-        setValue("usuario.fecha_nacimiento", format(new Date(user.fecha_nacimiento), 'yyyy-MM-dd'));
-        setIsUserFound(true);
-        setUserNotFound(false);
-      }
-    } catch (error) {
-      setIsUserFound(false);
-      setValue("usuario.id", undefined);
-      if (numeroDocumento) {
-        setValue("usuario.contrasena", numeroDocumento);
-      }
-      setUserNotFound(true);
-    } finally {
-      setIsCheckingUser(false);
-    }
-  };
-  
+  const watchedGenero = watch("usuario.genero");
+
   const onSubmit: SubmitHandler<CreateClientFormValues> = async (formData) => {
     console.log("Datos del formulario a enviar:", JSON.stringify(formData, null, 2));
     setIsLoading(true);
@@ -193,7 +230,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
       toast({
         title: '¡Éxito!',
         description: 'Cliente creado correctamente',
-        type: 'success',
+        variant: 'default',
       });
       reset();
       if (onSuccess) onSuccess();
@@ -204,7 +241,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
       toast({
         title: 'Error',
         description: error.response?.data?.message || 'Error al crear el cliente.',
-        type: 'error',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -225,24 +262,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
     setIsAlreadyClient(false);
   };
 
-  const handleDocumentChange = async () => {
-    if (tipoDocumento && numeroDocumento && numeroDocumento.length >= 5) {
-      try {
-        const response = await fetch(`/api/clients/check-document/${tipoDocumento}/${numeroDocumento}`);
-        const data = await response.json() as { exists: boolean };
-        setUserExists(data.exists);
-        if (data.exists) {
-          toast({
-            title: 'Usuario Existente',
-            description: 'Este documento ya está registrado en el sistema.',
-            type: 'info',
-          });
-        }
-      } catch (error) {
-        console.error('Error al verificar documento:', error);
-      }
-    }
-  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -258,7 +278,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit, (errors) => {
-          console.error("Errores de validación del formulario:", JSON.stringify(errors, null, 2));
+          console.error("Errores de validación del formulario:", errors);
           
           let errorMessage = 'Por favor, revisa los campos marcados en rojo.';
           
@@ -271,7 +291,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
           toast({
             title: 'Formulario inválido',
             description: errorMessage,
-            type: 'error',
+            variant: 'destructive',
           });
         })} className="space-y-4">
           <Tabs defaultValue="titular" className="w-full">
@@ -294,7 +314,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <Label htmlFor="tipo_documento">Tipo de Documento</Label>
-                        <Select onValueChange={(value) => setValue("usuario.tipo_documento", value as any)} defaultValue="CC">
+                        <Select onValueChange={(value) => setValue("usuario.tipo_documento", value as 'CC' | 'CE' | 'TI' | 'PP' | 'DIE')} defaultValue="CC">
                           <SelectTrigger><SelectValue/></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="CC">Cédula de Ciudadanía</SelectItem>
@@ -307,7 +327,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                       </div>
                       <div className="space-y-1 relative">
                         <Label htmlFor="numero_documento">Número de Documento</Label>
-                        <Input id="numero_documento" {...register("usuario.numero_documento")} onBlur={handleCheckUser} onFocus={handleDocumentFocus} />
+                        <Input id="numero_documento" {...register("usuario.numero_documento")} onFocus={handleDocumentFocus} />
                         {isCheckingUser && (
                           <RefreshCw className="absolute right-3 top-8 h-4 w-4 animate-spin text-gray-400" />
                         )}
@@ -316,27 +336,31 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                   </div>
 
                   {isUserFound && !isAlreadyClient && (
-                    <Badge variant="outline" className="border-green-600 bg-green-50 text-green-700">
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Usuario encontrado. Datos auto-completados.
-                    </Badge>
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800">
+                      <div className="flex justify-center items-center">
+                        <CheckCircle className="h-5 w-5 mr-2" />
+                        Usuario encontrado. Datos auto-completados.
+                      </div>
+                    </div>
                   )}
                   
                   {isAlreadyClient && (
-                     <Badge variant="destructive" className="border-red-600 bg-red-50 text-red-700">
-                       <AlertTriangle className="h-4 w-4 mr-2" />
-                       Este usuario ya está registrado como cliente.
-                     </Badge>
+                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800">
+                       <div className="flex justify-center items-center">
+                         <AlertTriangle className="h-5 w-5 mr-2" />
+                         Este usuario ya está registrado como cliente.
+                       </div>
+                     </div>
                   )}
 
                   {userNotFound && (
-                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center my-2">
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center my-2">
                       <div className="flex justify-center items-center">
-                        <AlertTriangle className="h-5 w-5 text-yellow-500 mr-2"/>
-                        <p className="font-semibold text-yellow-800">Usuario no encontrado</p>
+                        <Info className="h-5 w-5 text-blue-500 mr-2"/>
+                        <p className="font-semibold text-blue-800">Usuario no encontrado</p>
                       </div>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        El número de documento no está registrado. Debe crear el usuario primero antes de registrarlo como cliente.
+                      <p className="text-sm text-blue-700 mt-1">
+                        Complete el formulario para registrar al nuevo usuario y cliente. La contraseña por defecto será su número de documento.
                       </p>
                     </div>
                   )}
@@ -421,7 +445,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                       <Label>Género</Label>
                       <Select 
                         value={watchedGenero || ''} 
-                        onValueChange={(value) => setValue("usuario.genero", value as any)}
+                        onValueChange={(value) => setValue("usuario.genero", value as 'M' | 'F' | 'O')}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccione género" />
@@ -619,7 +643,7 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                         <div className="space-y-1">
                           <Label>Tipo de Documento *</Label>
                           <Select 
-                            onValueChange={(v) => setValue(`beneficiarios.${index}.usuario.tipo_documento`, v as any)}
+                            onValueChange={(v) => setValue(`beneficiarios.${index}.usuario.tipo_documento`, v as 'CC' | 'CE' | 'TI' | 'PP' | 'DIE')}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Seleccione tipo" />

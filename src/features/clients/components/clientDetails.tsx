@@ -1,10 +1,8 @@
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { Button } from "@/shared/components/ui/button"
 import { Badge } from "@/shared/components/ui/badge"
-import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog"
-import type { Client } from "@/shared/types/client"
+import type { Client } from "@/shared/types"
 import {
   User,
   Mail,
@@ -25,7 +23,12 @@ interface ClientDetailsProps {
 }
 
 export function ClientDetails({ client, isOpen, onClose }: ClientDetailsProps) {
-  if (!client) return null
+  console.log("ClientDetails props:", { client, isOpen, onClose });
+  
+  if (!client) {
+    console.log("ClientDetails: No client provided");
+    return null;
+  }
 
   const getStatusBadge = (estado: boolean) => {
     return estado

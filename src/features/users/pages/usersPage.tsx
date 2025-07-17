@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
@@ -17,8 +17,6 @@ import {
   RotateCcw,
   Power
 } from "lucide-react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { userService } from "../services/userService";
 import type { User, UserFormData } from "../types/user";
 import Swal from "sweetalert2";
@@ -36,84 +34,114 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+
+import { roleService } from '@/features/roles/services/roleService';
+import { useDebounce } from "@/shared/hooks/useDebounce";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [isNewUserOpen, setIsNewUserOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const itemsPerPage = 10;
 
+  const loadUsers = useCallback(async (page: number, query = "") => {
+  setIsLoading(true);
+  setError(null);
+  try {
+    const response = query 
+      ? await userService.searchUsers(query, page, itemsPerPage)
+      : await userService.getUsers(page, itemsPerPage);
+
+    // Agregar logs para debuggear
+    console.log('Response completa:', response);
+    console.log('Response.data:', response?.data);
+    console.log('Es array response.data?', Array.isArray(response?.data));
+
+    if (response?.data && Array.isArray(response.data)) {
+      setUsers(response.data);
+      setFilteredUsers(response.data);
+      setTotalPages(response.totalPages || 1);
+    } else {
+      // Agregar más información sobre por qué falla
+      console.log('La respuesta no tiene la estructura esperada');
+      console.log('Tipo de response:', typeof response);
+      console.log('Tipo de response.data:', typeof response?.data);
+      
+      setUsers([]);
+      setFilteredUsers([]);
+      setTotalPages(1);
+    }
+  } catch (err: any) {
+    console.error('Error completo:', err);
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
+  
   useEffect(() => {
-    loadUsers();
+    loadUsers(currentPage, debouncedSearchQuery);
+  }, [currentPage, debouncedSearchQuery, loadUsers]);
+  
+  useEffect(() => {
+    // Por ahora, mostramos todos los usuarios sin filtrar localmente
+    // para que funcione correctamente con la paginación del servidor
+    setFilteredUsers(users);
+  }, [users]);
+
+  const [roles, setRoles] = useState<{ id: number; nombre: string }[]>([]);
+
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        console.log('Iniciando carga de roles...');
+        const roles = await roleService.getRolesForSelect();
+        console.log('Roles cargados:', roles);
+        setRoles(roles);
+      } catch (error) {
+        console.error('Error cargando roles:', error);
+      }
+    };
+    loadRoles();
   }, []);
 
-  useEffect(() => {
-    filterUsers();
-  }, [users, searchTerm, statusFilter]);
-
-  const loadUsers = async () => {
-    try {
-      setIsLoading(true);
-      const response = await userService.getUsers(currentPage, itemsPerPage);
-      setUsers(response.data);
-    } catch (error) {
-      console.error('Error loading users:', error);
-      setError('Error al cargar los usuarios');
-    } finally {
-      setIsLoading(false);
+  const getRoleName = (id_rol: number | null | undefined) => {
+    console.log('Buscando rol con ID:', id_rol);
+    console.log('Roles disponibles:', roles);
+    
+    if (!id_rol || !Array.isArray(roles) || roles.length === 0) {
+      console.log('ID de rol inválido o roles no cargados');
+      return "Cargando...";
     }
+    
+    const rol = roles.find(r => r?.id === id_rol);
+    if (!rol) {
+      console.log('Rol no encontrado para ID:', id_rol);
+      return "Desconocido";
+    }
+    return rol.nombre || "Sin nombre";
   };
 
-  const filterUsers = () => {
-    let filtered = [...users];
-
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(user => 
-        user.nombre.toLowerCase().includes(term) ||
-        user.apellido.toLowerCase().includes(term) ||
-        user.correo.toLowerCase().includes(term) ||
-        user.numero_documento.toLowerCase().includes(term)
-      );
-    }
-
-    if (statusFilter !== "all") {
-      const isActive = statusFilter === "active";
-      filtered = filtered.filter(user => user.estado === isActive);
-    }
-
-    setFilteredUsers(filtered);
-  };
-
-  const getRoleName = (idRol: number) => {
-    const roles = {
-      1: "Administrador",
-      2: "Entrenador",
-      3: "Cliente",
-      4: "Beneficiario"
-    };
-    return roles[idRol as keyof typeof roles] || "Desconocido";
-  };
-
-  const getRoleBadge = (idRol: number) => {
-    const styles = {
-      1: "bg-purple-100 text-purple-800 hover:bg-purple-100",
-      2: "bg-blue-100 text-blue-800 hover:bg-blue-100",
-      3: "bg-green-100 text-green-800 hover:bg-green-100",
-      4: "bg-orange-100 text-orange-800 hover:bg-orange-100",
-    };
-    return <Badge className={styles[idRol as keyof typeof styles] || "bg-gray-100 text-gray-800 hover:bg-gray-100"}>
-      {getRoleName(idRol)}
-    </Badge>;
+  const getRoleBadge = (id_rol: number | null | undefined) => {
+    console.log('ID del rol recibido:', id_rol); // Para debugging
+    const roleName = getRoleName(id_rol);
+    const isLoading = roleName === "Cargando...";
+    
+    return (
+      <Badge className={`${isLoading ? 'bg-gray-50 text-gray-400' : 'bg-gray-100 text-gray-800'} hover:bg-gray-100`}>
+        {roleName}
+      </Badge>
+    );
   };
 
   const getStatusBadge = (estado: boolean) => {
@@ -133,20 +161,18 @@ export default function UsersPage() {
     setEditingUser(user);
     setIsNewUserOpen(true);
   };
+  
+  const handleSaveUser = async () => {
+    await loadUsers(currentPage, debouncedSearchQuery);
+    setIsNewUserOpen(false);
+    setEditingUser(null);
+  }
 
   const handleCreateUser = async (data: UserFormData) => {
     try {
       await userService.createUser(data);
-      await loadUsers();
-      setIsNewUserOpen(false);
-      setEditingUser(null);
-      
-      Swal.fire({
-        title: '¡Éxito!',
-        text: 'Usuario creado correctamente',
-        icon: 'success',
-        confirmButtonColor: '#000',
-      });
+      await handleSaveUser();
+      Swal.fire('¡Éxito!', 'Usuario creado correctamente', 'success');
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
@@ -155,26 +181,22 @@ export default function UsersPage() {
 
   const handleUpdateUser = async (data: Partial<UserFormData>) => {
     if (!editingUser) return;
-    
     try {
       await userService.updateUser(editingUser.id, data);
-      await loadUsers();
-      setIsNewUserOpen(false);
-      setEditingUser(null);
-      
-      Swal.fire({
-        title: '¡Éxito!',
-        text: 'Usuario actualizado correctamente',
-        icon: 'success',
-        confirmButtonColor: '#000',
-      });
+      await handleSaveUser();
+      Swal.fire('¡Éxito!', 'Usuario actualizado correctamente', 'success');
     } catch (error) {
       console.error('Error updating user:', error);
       throw error;
     }
   };
 
-  const handleToggleUserStatus = async (id: number, currentStatus: boolean, user: User) => {
+  const handleToggleUserStatus = async (id: number, currentStatus: boolean) => {
+    if (!id || id <= 0) {
+      console.error('ID de usuario inválido:', id);
+      return;
+    }
+
     const result = await Swal.fire({
       title: currentStatus ? "¿Desactivar usuario?" : "¿Activar usuario?",
       text: currentStatus ? "¿Está seguro que desea desactivar este usuario?" : "¿Está seguro que desea activar este usuario?",
@@ -193,14 +215,12 @@ export default function UsersPage() {
         } else {
           await userService.activateUser(id);
         }
-        await loadUsers();
+        await handleSaveUser(); // Recargar y refrescar
         
         Swal.fire({
           title: currentStatus ? "¡Desactivado!" : "¡Activado!",
           text: `El usuario ha sido ${currentStatus ? "desactivado" : "activado"} correctamente`,
           icon: "success",
-          timer: 1500,
-          showConfirmButton: false,
         });
       } catch (error: any) {
         console.error('Error toggling user status:', error);
@@ -215,6 +235,16 @@ export default function UsersPage() {
   };
   
   const handleDeleteUserPermanently = async (id: number, user: User) => {
+    if (!id || id <= 0) {
+      console.error('ID de usuario inválido:', id);
+      return;
+    }
+
+    if (!user) {
+      console.error('Datos de usuario inválidos');
+      return;
+    }
+
     if (user.estado) {
       await Swal.fire({
         title: "¡Operación bloqueada!",
@@ -253,14 +283,12 @@ export default function UsersPage() {
     if (motivo) {
       try {
         await userService.deleteUserPermanently(id, motivo);
-        await loadUsers();
+        await handleSaveUser(); // Recargar y refrescar
         
         Swal.fire({
           title: "¡Eliminado permanentemente!",
           text: "El usuario ha sido eliminado de forma permanente",
           icon: "success",
-          timer: 1500,
-          showConfirmButton: false,
         });
       } catch (error: any) {
         console.error('Error deleting user permanently:', error);
@@ -274,13 +302,8 @@ export default function UsersPage() {
     }
   };
 
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-
+  // No necesitamos paginación local porque los datos ya vienen paginados del servidor
+/* 
   if (users.length === 0 && !isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
@@ -296,8 +319,8 @@ export default function UsersPage() {
           </CardContent>
         </Card>
       </div>
-    );
-  }
+    ); 
+  }*/
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -308,7 +331,7 @@ export default function UsersPage() {
             variant="outline"
             onClick={() => {
               setError(null);
-              loadUsers();
+              loadUsers(currentPage, debouncedSearchQuery);
             }}
             className="mt-2"
           >
@@ -325,7 +348,7 @@ export default function UsersPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={loadUsers}
+            onClick={() => loadUsers(currentPage, debouncedSearchQuery)}
             disabled={isLoading}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -349,13 +372,14 @@ export default function UsersPage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   placeholder="Buscar por nombre, correo o documento..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
               </div>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            {/* Filtro por estado temporalmente deshabilitado para corregir problemas de paginación */}
+            {/* <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Filtrar por estado" />
               </SelectTrigger>
@@ -364,7 +388,7 @@ export default function UsersPage() {
                 <SelectItem value="active">Activos</SelectItem>
                 <SelectItem value="inactive">Inactivos</SelectItem>
               </SelectContent>
-            </Select>
+            </Select> */}
           </div>
         </CardContent>
       </Card>
@@ -391,16 +415,14 @@ export default function UsersPage() {
                   <TableHead>Correo</TableHead>
                   <TableHead>Documento</TableHead>
                   <TableHead>Rol</TableHead>
-                  <TableHead>Asistencias</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Última Actualización</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <div className="flex flex-col items-center gap-2">
                         <Users className="h-8 w-8 text-gray-400" />
                         <p className="text-gray-500">No se encontraron usuarios</p>
@@ -408,27 +430,17 @@ export default function UsersPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.codigo}</TableCell>
+                  filteredUsers.map((user) => (
+                    <TableRow key={user?.id || Math.random()}>
+                      <TableCell className="font-medium">{user?.codigo || 'N/A'}</TableCell>
                       <TableCell>
-                        {user.nombre} {user.apellido}
+                        {(user?.nombre || '') + ' ' + (user?.apellido || '')}
                       </TableCell>
-                      <TableCell>{user.correo}</TableCell>
-                      <TableCell>{user.numero_documento}</TableCell>
-                      <TableCell>{getRoleBadge(user.id_rol)}</TableCell>
+                      <TableCell>{user?.correo || 'N/A'}</TableCell>
+                      <TableCell>{user?.numero_documento || 'N/A'}</TableCell>
+                      <TableCell>{getRoleBadge(user?.id_rol)}</TableCell>
                       <TableCell>
-                        <Badge className="bg-blue-100 text-blue-800">
-                          {user.asistencias_totales || 0}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(user.estado)}
-                      </TableCell>
-                      <TableCell>
-                        {user.fecha_actualizacion
-                          ? format(new Date(user.fecha_actualizacion), "dd/MM/yyyy HH:mm", { locale: es })
-                          : "N/A"}
+                        {getStatusBadge(user?.estado ?? false)}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -446,18 +458,18 @@ export default function UsersPage() {
                               <Edit className="w-4 h-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleUserStatus(user.id, user.estado, user)}>
-                              {user.estado ? (
+                            <DropdownMenuItem onClick={() => handleToggleUserStatus(user?.id || 0, user?.estado ?? false)}>
+                              {user?.estado ? (
                                 <Power className="w-4 h-4 mr-2" />
                               ) : (
                                 <RotateCcw className="w-4 h-4 mr-2" />
                               )}
-                              {user.estado ? "Desactivar" : "Activar"}
+                              {user?.estado ? "Desactivar" : "Activar"}
                             </DropdownMenuItem>
-                            {!user.estado && (
+                            {!user?.estado && (
                               <>
                                 <DropdownMenuItem
-                                  onClick={() => handleDeleteUserPermanently(user.id, user)}
+                                  onClick={() => handleDeleteUserPermanently(user?.id || 0, user)}
                                   className="text-red-600 focus:text-red-600"
                                 >
                                   <Trash2 className="w-4 h-4 mr-2" />
@@ -518,12 +530,7 @@ export default function UsersPage() {
         }}
         onSave={editingUser ? handleUpdateUser : handleCreateUser}
         user={editingUser}
-        existingUsers={users}
       />
     </div>
   );
 }
-
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <label className={className}>{children}</label>;
-} 

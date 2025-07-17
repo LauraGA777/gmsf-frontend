@@ -5,98 +5,101 @@ import {
   Calendar as CalendarIcon,
   Clock,
   Search,
-  Filter,
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
   AlertCircle,
   Clock3,
   XCircle,
-  User,
   Dumbbell,
   CalendarDays,
   Plus,
 } from "lucide-react";
 import Swal from "sweetalert2";
-import { Training, TrainingsResponse, AvailabilityResponse } from "@/shared/types/training";
-import { format, isSameDay, addDays, subDays, isToday, startOfDay, endOfDay } from "date-fns";
+import { Training } from "@/shared/types/training";
+import { format, isSameDay, addDays, subDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
 import { Input } from "@/shared/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { ScheduleComponent } from "@/features/schedule/components/ScheduleComponent";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { TrainingForm } from "@/features/schedule/components/TrainingForm";
 import { TrainingDetailsForm } from "@/features/schedule/components/TrainingDetailsForm";
 import { scheduleService } from "@/features/schedule/services/schedule.service";
-import { cn } from "@/shared/lib/utils";
 import { useToast } from "@/shared/components/ui/use-toast";
+
+interface Option {
+  id: number;
+  name: string;
+}
+
+interface ActiveClient {
+  id: number;
+  codigo: string;
+  estado: boolean;
+  usuario: {
+    id: number;
+    nombre: string;
+    apellido: string;
+    correo: string;
+    telefono?: string;
+  };
+}
+
+interface ActiveTrainer {
+  id: number;
+  codigo: string;
+  especialidad: string;
+  estado: boolean;
+  usuario: {
+    id: number;
+    nombre: string;
+    apellido: string;
+    correo: string;
+    telefono?: string;
+  };
+}
 
 export function ClientSchedulePage() {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [selectedTraining, setSelectedTraining] = useState<Training | null>(null);
   const [viewMode, setViewMode] = useState<"calendar" | "daily">("daily");
   const [searchTerm, setSearchTerm] = useState("");
   const [fetchedTrainings, setFetchedTrainings] = useState<Training[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentMonth, setCurrentMonth] = useState<string>(format(new Date(), "yyyy-MM-dd"));
-  const [trainers, setTrainers] = useState<Array<{ id: string; name: string }>>([]);
-  const [clientsWithActiveContracts, setClientsWithActiveContracts] = useState<{ id: string; name: string }[]>([]);
+  const [currentMonth, _setCurrentMonth] = useState<string>(format(new Date(), "yyyy-MM-dd"));
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
-    if (!user?.personId) return;
+    if (!user?.personId) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
       setIsLoading(true);
       
-      const trainersPromise = scheduleService.getActiveTrainers();
-      
-      let trainingsPromise;
-      if (viewMode === 'calendar') {
-        trainingsPromise = scheduleService.getMonthlySchedule(new Date(currentMonth).getFullYear(), new Date(currentMonth).getMonth() + 1);
-      } else {
-        trainingsPromise = scheduleService.getClientSchedule(user.personId);
-      }
-      
-      const clientsPromise = scheduleService.getActiveClients();
+      // Siempre obtener solo los entrenamientos del cliente
+      const trainingsResponse = await scheduleService.getClientSchedule(parseInt(user.personId, 10));
 
-      const [trainersResponse, trainingsResponse, clientsResponse] = await Promise.all([
-        trainersPromise,
-        trainingsPromise,
-        clientsPromise
-      ]);
-
-      if (trainersResponse.data) {
-        const mappedTrainers = trainersResponse.data.map((t: any) => ({
-          id: t.id.toString(),
-          name: `${t.name}`,
-        }));
-        setTrainers(mappedTrainers);
-      }
-
-      if (trainingsResponse.data) {
+      // Si no hay datos, establecer array vacío en lugar de error
+      if (trainingsResponse.data && Array.isArray(trainingsResponse.data)) {
         setFetchedTrainings(trainingsResponse.data);
-      }
-
-      if (clientsResponse.data) {
-        const mappedClients = clientsResponse.data.map((c: any) => ({
-          id: c.id.toString(),
-          name: `${c.nombre} ${c.apellido}`
-        }));
-        setClientsWithActiveContracts(mappedClients)
+      } else {
+        // Si no hay datos, establecer array vacío
+        setFetchedTrainings([]);
       }
 
       setError(null)
     } catch (err) {
-      setError("Error al cargar los datos de la agenda.")
-      console.error("Error fetching data:", err)
+      console.error("Error fetching data:", err);
+      // En caso de error, establecer array vacío para mostrar el mensaje informativo
+      setFetchedTrainings([]);
+      setError("No se pudieron cargar los datos de la agenda.")
     } finally {
       setIsLoading(false)
     }
@@ -111,7 +114,8 @@ export function ClientSchedulePage() {
 
     // For clients, filter to show only their own trainings
     if (user?.personId) {
-      filtered = filtered.filter(t => t.id_cliente === user.personId);
+      const personId = parseInt(user.personId, 10);
+      filtered = filtered.filter(t => t.id_cliente === personId);
     }
 
     if (viewMode === "daily") {
@@ -128,6 +132,11 @@ export function ClientSchedulePage() {
       );
     }
 
+    // Refuerzo: solo mostrar entrenamientos del cliente
+    if ((user?.id_rol === 3 || user?.id_rol === 4) && user?.personId) {
+      const personId = parseInt(user.personId, 10);
+      filtered = filtered.filter(t => t.id_cliente === personId);
+    }
     return filtered;
   }, [user, fetchedTrainings, selectedDate, viewMode, searchTerm]);
 
@@ -143,80 +152,44 @@ export function ClientSchedulePage() {
     return hours;
   }, [displayedTrainings]);
 
-  const handleSelectDate = (date: Date) => {
-    setSelectedDate(date);
-  };
 
-  const handleSubmitTraining = async (data: Partial<Training>) => {
-    try {
-      setIsLoading(true);
-      if (selectedTraining) {
-        await scheduleService.updateTraining(selectedTraining.id, data);
-      } else {
-        await scheduleService.createTraining({ ...data, id_cliente: user?.personId });
-      }
-      setIsFormOpen(false);
-      setIsEditFormOpen(false);
-      
-      await fetchData();
 
-      toast({
-        title: selectedTraining ? "¡Actualizado!" : "¡Agendado!",
-        description: `Tu entrenamiento ha sido ${selectedTraining ? "actualizado" : "agendado"} correctamente.`,
-        type: "success",
-      });
-
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || "Hubo un problema al guardar el entrenamiento.";
-      toast({ title: "Error", description: errorMessage, type: "error" });
-    } finally {
-      setIsLoading(false);
-    }
+  // Los clientes no pueden crear, editar o eliminar entrenamientos
+  const handleSubmitTraining = async () => {
+    toast({
+      title: "Acceso Denegado",
+      description: "Los clientes no pueden modificar entrenamientos. Contacta a tu entrenador.",
+      variant: "destructive",
+    });
   }
 
+  // Los clientes no pueden agregar entrenamientos
   const handleAddTraining = () => {
-    const hasActiveContract = clientsWithActiveContracts.some(c => c.id === user?.personId.toString());
-    if (!hasActiveContract) {
-      toast({
-        title: "Contrato Requerido",
-        description: "Necesitas un contrato activo o por vencer para agendar nuevos entrenamientos.",
-        type: "info",
-      });
-      return;
-    }
-    setSelectedTraining(null);
-    setIsFormOpen(true);
+    toast({
+      title: "Acceso Denegado",
+      description: "Los clientes no pueden agendar entrenamientos. Contacta a tu entrenador.",
+      variant: "destructive",
+    });
   };
 
+  // Los clientes solo pueden ver detalles, no editar
   const handleTrainingClick = (training: Training) => {
     setSelectedTraining(training);
-    setIsEditFormOpen(true);
+    // Mostrar solo información de lectura
+    toast({
+      title: "Información del Entrenamiento",
+      description: `${training.titulo} - ${training.entrenador?.nombre} ${training.entrenador?.apellido}`,
+      variant: "default",
+    });
   };
 
+  // Los clientes no pueden eliminar entrenamientos
   const handleDeleteTraining = async (id: number) => {
-    setIsEditFormOpen(false);
-    setTimeout(() => {
-      Swal.fire({
-        title: "¿Estás seguro?",
-        text: "Esta acción cancelará el entrenamiento.",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonColor: "#d33",
-        cancelButtonColor: "#6b7280",
-        confirmButtonText: "Sí, cancelar",
-        cancelButtonText: "No",
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-          try {
-            await scheduleService.deleteTraining(id);
-            await fetchData();
-            toast({ title: "Cancelado", description: "El entrenamiento ha sido cancelado.", type: "success" });
-          } catch (error) {
-            toast({ title: "Error", description: "No se pudo cancelar el entrenamiento.", type: "error" });
-          }
-        }
-      });
-    }, 300);
+    toast({
+      title: "Acceso Denegado",
+      description: "Los clientes no pueden cancelar entrenamientos. Contacta a tu entrenador.",
+      variant: "destructive",
+    });
   }
 
   const getStatusBadge = (estado: "Programado" | "Completado" | "Cancelado" | "En proceso") => {
@@ -257,9 +230,12 @@ export function ClientSchedulePage() {
               <TabsTrigger value="calendar"><CalendarDays className="h-4 w-4 mr-2" />Calendario</TabsTrigger>
             </TabsList>
           </Tabs>
-          <Button onClick={handleAddTraining} className="flex items-center gap-1 whitespace-nowrap">
-            <Plus className="h-4 w-4" />Agendar
-          </Button>
+          {/* Solo mostrar el botón Agendar si NO es cliente o beneficiario */}
+          {user?.id_rol !== 3 && user?.id_rol !== 4 && (
+            <Button onClick={handleAddTraining} className="flex items-center gap-1 whitespace-nowrap">
+              <Plus className="h-4 w-4" />Agendar
+            </Button>
+          )}
         </div>
       </div>
 
@@ -302,9 +278,26 @@ export function ClientSchedulePage() {
               ))
             ) : (
               <div className="text-center py-12">
-                <CalendarIcon className="h-12 w-12 mx-auto text-gray-400" />
-                <h3 className="mt-4 text-lg font-medium">No tienes nada agendado</h3>
-                <p className="mt-2 text-gray-500">No hay entrenamientos programados para este día.</p>
+                <div className="max-w-md mx-auto">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CalendarIcon className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    No tienes entrenamientos agendados
+                  </h3>
+                  <p className="text-gray-500 mb-4">
+                    {viewMode === "daily" 
+                      ? "No hay entrenamientos programados para este día."
+                      : "No tienes entrenamientos programados en tu agenda."
+                    }
+                  </p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-800">
+                      Los entrenamientos serán agendados por tu entrenador. 
+                      Contacta con él para programar tus sesiones.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -312,45 +305,46 @@ export function ClientSchedulePage() {
       )}
 
       {viewMode === "calendar" && (
-        <ScheduleComponent
-          trainings={displayedTrainings}
-          onSelectDate={handleSelectDate}
-          selectedDate={selectedDate}
-          onTrainingClick={handleTrainingClick}
-          currentMonth={currentMonth}
-          setCurrentMonth={setCurrentMonth}
-          onAddTraining={handleAddTraining}
-        />
-      )}
-
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-[800px]">
-          <DialogHeader><DialogTitle>Agendar Entrenamiento</DialogTitle></DialogHeader>
-          <TrainingForm
-            onSubmit={handleSubmitTraining}
-            onCancel={() => setIsFormOpen(false)}
-            initialDate={selectedDate}
-            clients={clientsWithActiveContracts.filter(c => c.id === user?.personId.toString())}
-            trainers={trainers}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {selectedTraining && (
-        <Dialog open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
-          <DialogContent className="sm:max-w-[800px]">
-            <DialogHeader><DialogTitle>Detalles del Entrenamiento</DialogTitle></DialogHeader>
-            <TrainingDetailsForm
-              training={selectedTraining}
-              onUpdate={handleSubmitTraining}
-              onDelete={() => handleDeleteTraining(selectedTraining.id)}
-              onClose={() => setIsEditFormOpen(false)}
-              trainers={trainers}
-              clients={clientsWithActiveContracts}
+        <>
+          {displayedTrainings.length > 0 ? (
+            <ScheduleComponent
+              trainings={displayedTrainings}
+              onTrainingClick={handleTrainingClick}
+              onAddTraining={handleAddTraining}
+              onUpdateTrainingDate={() => {
+                toast({
+                  title: "Acceso Denegado",
+                  description: "Los clientes no pueden modificar fechas de entrenamientos.",
+                  variant: "destructive",
+                });
+              }}
             />
-          </DialogContent>
-        </Dialog>
+          ) : (
+            <div className="text-center py-12">
+              <div className="max-w-md mx-auto">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CalendarDays className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No tienes entrenamientos agendados
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  No tienes entrenamientos programados en tu agenda.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-800">
+                    Los entrenamientos serán agendados por tu entrenador. 
+                    Contacta con él para programar tus sesiones.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
+
+      {/* Los clientes no pueden crear, editar o eliminar entrenamientos */}
+      {/* Los diálogos han sido removidos para evitar modificaciones */}
     </div>
   );
 }

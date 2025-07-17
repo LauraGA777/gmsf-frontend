@@ -33,5 +33,5 @@ export interface UserFormData {
 }
 
 export interface UpdateUserFormData extends Partial<UserFormData> {
-    id: number
+    codigo: string
 }

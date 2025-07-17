@@ -42,7 +42,7 @@ export function ThemeProvider({
 
   const value = {
     theme,
-    setTheme: (theme: string) => {
+    setTheme: () => {
       // Asegurarse de que siempre se mantenga en light
       const finalTheme = "light"
       localStorage.setItem(storageKey, finalTheme)

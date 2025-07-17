@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -9,12 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog";
 import { Calendar, DollarSign, User, Clock, AlertCircle } from "lucide-react";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { clientService } from "@/features/clients/services/client.service";
 import { membershipService } from "@/features/memberships/services/membership.service";
 import { contractService } from "@/features/contracts/services/contract.service";
-import type { Client as DbClient, Membership, ContractFormData, UIClient } from "@/shared/types";
+import type { Membership, ContractFormData, UIClient } from "@/shared/types";
 import { mapDbClientToUiClient } from "@/shared/types";
 import { useToast } from "@/shared/components/ui/use-toast";
 
@@ -63,34 +63,26 @@ export function NewContractForm({
   const watchedIdMembresia = watch("id_membresia");
   const watchedFechaInicio = watch("fecha_inicio");
 
-  const selectedMembership = memberships.find(
-    (m) => Number(m.id) === watchedIdMembresia
+  const selectedMembership = useMemo(() => 
+    memberships.find((m) => m.id === watchedIdMembresia),
+    [memberships, watchedIdMembresia]
   );
 
-  // Load clients and memberships on component mount
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoadingData(true);
-        
         const [clientsResponse, membershipsResponse] = await Promise.all([
           clientService.getActiveClients(),
-          membershipService.getMemberships()
+          membershipService.getMemberships({ estado: true })
         ]);
 
-        // Map clients safely
-        const clientsData = clientsResponse?.data || [];
-        if (Array.isArray(clientsData)) {
-          const validClients = clientsData.filter(
-            (client): client is DbClient =>
-              client && (client.id_persona || (client as any).id)
-          );
-          const mappedClients = validClients
-            .map((client) => {
+        if (clientsResponse.data) {
+          const mappedClients = clientsResponse.data
+            .map(client => {
               try {
                 return mapDbClientToUiClient(client);
               } catch (err) {
-                console.warn("Error mapping client:", client, err);
                 return null;
               }
             })
@@ -98,21 +90,15 @@ export function NewContractForm({
           setClients(mappedClients);
         }
 
-        // Set memberships
-        const membershipsData = membershipsResponse?.data || [];
-        console.log("--- DEBUG: Raw memberships from API ---", membershipsData);
-        if (Array.isArray(membershipsData)) {
-          setMemberships(
-            membershipsData.filter((membership) => membership && membership.estado)
-          );
+        if (membershipsResponse.data) {
+          setMemberships(membershipsResponse.data);
         }
 
       } catch (error) {
-        console.error("Error loading data:", error);
         toast({
           title: 'Error',
-          description: 'Error al cargar los datos necesarios',
-          type: 'error',
+          description: 'Error al cargar los datos necesarios para el formulario.',
+          variant: 'destructive',
         });
       } finally {
         setLoadingData(false);
@@ -121,60 +107,36 @@ export function NewContractForm({
 
     if (isOpen) {
       loadData();
-      reset();
+      reset(); // Reset form when modal opens
     }
-  }, [isOpen, reset]);
+  }, [isOpen, reset, toast]);
 
-  // Calculate end date and price based on selected membership and start date
-  const calculatedEndDate =
-    selectedMembership && watchedFechaInicio
-      ? contractService.calculateEndDate(
-          new Date(watchedFechaInicio),
-          selectedMembership.vigencia_dias
-        )
-      : null;
-
-  const calculatedPrice = selectedMembership?.precio || 0;
+  const { calculatedEndDate, calculatedPrice } = useMemo(() => {
+    if (selectedMembership && watchedFechaInicio) {
+      const endDate = addDays(new Date(watchedFechaInicio), selectedMembership.vigencia_dias);
+      return {
+        calculatedEndDate: endDate,
+        calculatedPrice: selectedMembership.precio,
+      };
+    }
+    return { calculatedEndDate: null, calculatedPrice: 0 };
+  }, [selectedMembership, watchedFechaInicio]);
 
   const handleClientChange = (value: string) => {
-    setValue("id_persona", parseInt(value), { shouldValidate: true });
+    setValue("id_persona", parseInt(value, 10) || 0, { shouldValidate: true });
   };
 
   const handleMembershipChange = (value: string) => {
-    setValue("id_membresia", parseInt(value), { shouldValidate: true });
+    const membershipId = parseInt(value, 10) || 0;
+    setValue("id_membresia", membershipId, { shouldValidate: true });
   };
 
   const onSubmit = async (data: ContractFormValues) => {
-    console.log("--- DEBUG: onSubmit triggered ---");
-    console.log("Form data:", data);
-    console.log("Available memberships in state:", memberships);
-
-    const finalSelectedMembership = memberships.find(
-      (m) => Number(m.id) === data.id_membresia
-    );
-
-    console.log("Found membership on submit:", finalSelectedMembership);
-
-    if (!finalSelectedMembership) {
+    if (!selectedMembership) {
       toast({
-        title: "Error",
-        description: "Debe seleccionar una membresía",
-        type: "error",
-      });
-      return;
-    }
-
-    // Validate data
-    const validation = contractService.validateContractData({
-      ...data,
-      membresia_precio: calculatedPrice,
-    });
-
-    if (!validation.isValid) {
-      toast({
-        title: "Datos inválidos",
-        description: validation.errors.join("\\n"),
-        type: "error",
+        title: "Error de validación",
+        description: "Debe seleccionar una membresía válida.",
+        variant: "destructive",
       });
       return;
     }
@@ -189,13 +151,12 @@ export function NewContractForm({
         membresia_precio: calculatedPrice,
       };
 
-      console.log("--- DEBUG: Sending this object to API ---", contractData);
       await contractService.createContract(contractData);
 
       toast({
         title: "¡Éxito!",
-        description: "Contrato creado correctamente",
-        type: "success",
+        description: "Contrato creado correctamente.",
+        variant: "default",
       });
 
       reset();
@@ -203,15 +164,13 @@ export function NewContractForm({
       onClose();
 
     } catch (error: any) {
-      console.error("Error creating contract:", error);
       const errorMessage =
-        error.response?.data?.message ||
-        "Error al crear el contrato. Verifique que el cliente no tenga un contrato activo.";
+        error.response?.data?.message || "Ocurrió un error al crear el contrato.";
       
       toast({
-        title: "Error",
+        title: "Error en la creación",
         description: errorMessage,
-        type: "error",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);

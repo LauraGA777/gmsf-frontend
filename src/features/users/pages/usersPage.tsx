@@ -56,32 +56,38 @@ export default function UsersPage() {
   const itemsPerPage = 10;
 
   const loadUsers = useCallback(async (page: number, query = "") => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = query 
-        ? await userService.searchUsers(query, page, itemsPerPage)
-        : await userService.getUsers(page, itemsPerPage);
+  setIsLoading(true);
+  setError(null);
+  try {
+    const response = query 
+      ? await userService.searchUsers(query, page, itemsPerPage)
+      : await userService.getUsers(page, itemsPerPage);
 
-      if (response?.data && Array.isArray(response.data)) {
-        setUsers(response.data);
-        setFilteredUsers(response.data); // Inicialmente, los usuarios filtrados son todos los usuarios.
-        
-        // Configurar paginación desde la respuesta del servidor
-        setTotalPages(response.totalPages || 1);
-      } else {
-        setUsers([]);
-        setFilteredUsers([]);
-        setTotalPages(1);
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al cargar los usuarios');
+    // Agregar logs para debuggear
+    console.log('Response completa:', response);
+    console.log('Response.data:', response?.data);
+    console.log('Es array response.data?', Array.isArray(response?.data));
+
+    if (response?.data && Array.isArray(response.data)) {
+      setUsers(response.data);
+      setFilteredUsers(response.data);
+      setTotalPages(response.totalPages || 1);
+    } else {
+      // Agregar más información sobre por qué falla
+      console.log('La respuesta no tiene la estructura esperada');
+      console.log('Tipo de response:', typeof response);
+      console.log('Tipo de response.data:', typeof response?.data);
+      
       setUsers([]);
       setFilteredUsers([]);
-    } finally {
-      setIsLoading(false);
+      setTotalPages(1);
     }
-  }, []);
+  } catch (err: any) {
+    console.error('Error completo:', err);
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
   
   useEffect(() => {
     loadUsers(currentPage, debouncedSearchQuery);
@@ -297,7 +303,7 @@ export default function UsersPage() {
   };
 
   // No necesitamos paginación local porque los datos ya vienen paginados del servidor
-
+/* 
   if (users.length === 0 && !isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
@@ -313,8 +319,8 @@ export default function UsersPage() {
           </CardContent>
         </Card>
       </div>
-    );
-  }
+    ); 
+  }*/
 
   return (
     <div className="container mx-auto px-4 py-6">

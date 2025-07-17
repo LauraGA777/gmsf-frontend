@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import type { User } from "../types/index" // Asegúrate de importar el tipo User correct
+import type { Client, User } from "../types/index" // Asegúrate de importar el tipo User correct
 import type { Role } from "../types/role" // Importar el tipo Role
 import { authService } from "@/features/auth/services/authService"
 import { permissionService } from "@/shared/services/permissionService"
@@ -9,6 +9,7 @@ import { installRoleDebugger } from "@/shared/utils/roleDebugger"
 // Tipos
 interface AuthContextType {
   user: User | null
+  client: Client | null;
   isAuthenticated: boolean
   isLoading: boolean
   accessToken: string | null
@@ -37,6 +38,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [client, setClient] = useState<Client | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [refreshToken, setRefreshToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -224,152 +226,152 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const login = async (correo: string, contrasena: string) => {
-    try {
-      setError(null)
-      setIsLoading(true)
+  try {
+    setError(null);
+    setIsLoading(true);
 
-      // Validaciones básicas
-      if (!correo || !contrasena) {
-        throw new Error("Email y contraseña son requeridos")
-      }
-
-      if (!import.meta.env.VITE_API_URL) {
-        throw new Error("URL de API no configurada")
-      }
-
-      console.log("🔐 Intentando login para:", correo)
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ correo, contrasena }),
-      })
-
-      const data = await response.json()
-      console.log("🔍 Respuesta del servidor:", { status: response.status, ok: response.ok })
-
-      if (!response.ok) {
-        const errorMessage = data.message || data.error || "Credenciales incorrectas"
-        throw new Error(errorMessage)
-      }
-
-      // Validar estructura de respuesta
-      if (!data || typeof data !== 'object') {
-        throw new Error("Respuesta del servidor inválida")
-      }
-
-      const authData = data
-
-      // Extraer datos del usuario with multiple possible formats
-      const userData = authData.data?.user || authData.user || authData.data || {}
-      console.log("👤 Datos del usuario extraídos:", userData)
-
-      // Extraer tokens with multiple possible formats
-      const tokens = {
-        accessToken: authData.data?.accessToken || authData.accessToken || authData.token,
-        refreshToken: authData.data?.refreshToken || authData.refreshToken,
-      }
-
-      // Validar tokens requeridos
-      if (!tokens.accessToken) {
-        console.error("❌ Token de acceso no encontrado:", authData)
-        throw new Error("Token de acceso no recibido del servidor")
-      }
-
-      // Validar datos mínimos del usuario
-      if (!userData || typeof userData !== "object" || !userData.id) {
-        console.error("❌ Datos de usuario inválidos:", userData)
-        throw new Error("Datos de usuario inválidos recibidos del servidor")
-      }
-
-      // Normalizar datos del usuario
-      const normalizedUser: NormalizedUser = {
-        id: userData.id,
-        nombre: userData.nombre || userData.nombre_usuario || userData.name || "",
-        correo: userData.correo || userData.email || correo,
-        id_rol: userData.id_rol || userData.rol_id || userData.roleId || null,
-        id_persona: userData.id_persona || null,
-      }
-
-      console.log("🎭 Usuario normalizado:", normalizedUser)
-
-      // Validar campos críticos
-      const requiredFields = ["id", "id_rol"] as const
-      const missingFields = requiredFields.filter(
-        (field) => normalizedUser[field] === undefined || normalizedUser[field] === null,
-      )
-
-      if (missingFields.length > 0) {
-        console.error("❌ Campos requeridos faltantes:", {
-          missingFields,
-          userData: normalizedUser,
-          originalData: authData,
-        })
-        throw new Error(`Campos requeridos faltantes: ${missingFields.join(", ")}`)
-      }
-
-      // ✅ CONFIGURAR USUARIO INMEDIATAMENTE PARA UI REACTIVA
-      const basicUser: User = {
-        id: normalizedUser.id.toString(),
-        nombre: normalizedUser.nombre,
-        correo: normalizedUser.correo,
-        id_rol: normalizedUser.id_rol!,
-        roleCode: "usuario",
-        roleName: "Usuario",
-        clientId: [3, 4].includes(normalizedUser.id_rol!) && normalizedUser.id_persona 
-          ? normalizedUser.id_persona.toString() 
-          : [3, 4].includes(normalizedUser.id_rol!) 
-            ? normalizedUser.id.toString() 
-            : undefined,
-      }
-
-      // ✅ ACTUALIZAR ESTADO INMEDIATAMENTE
-      setUser(basicUser)
-      setAccessToken(tokens.accessToken)
-      setRefreshToken(tokens.refreshToken)
-
-      // ✅ GUARDAR EN LOCALSTORAGE INMEDIATAMENTE
-      localStorage.setItem("user", JSON.stringify(basicUser))
-      localStorage.setItem("accessToken", tokens.accessToken)
-      if (tokens.refreshToken) {
-        localStorage.setItem("refreshToken", tokens.refreshToken)
-      }
-
-      // ✅ CARGAR PERMISOS ANTES DE REDIRIGIR (CON AWAIT)
-      console.log("🔄 Inicializando permisos para usuario ANTES de redirigir:", normalizedUser.id_rol)
-
-      try {
-        await permissionService.initializeWithUserId(normalizedUser.id_rol!)
-        console.log("✅ Permisos inicializados correctamente ANTES de redirección")
-        setIsInitialized(true)
-      } catch (permissionError) {
-        console.error("❌ Error inicializando permisos:", permissionError)
-        // Continuar con el login aunque fallen los permisos
-        setIsInitialized(true)
-      }
-
-      // ✅ REDIRIGIR SOLO DESPUÉS DE CARGAR PERMISOS
-      console.log("🚀 Redirigiendo con permisos ya cargados...")
-      redirectBasedOnRole(normalizedUser.id_rol!)
-
-      return { success: true }
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido en el login"
-      console.error("❌ Error durante login:", {
-        mensaje: errorMessage,
-        tipo: error instanceof Error ? error.name : typeof error,
-        error: error,
-      })
-
-      setError(errorMessage)
-      return { success: false, error: errorMessage }
-    } finally {
-      setIsLoading(false) // ✅ SIEMPRE TERMINAR LOADING
+    // Validaciones básicas
+    if (!correo || !contrasena) {
+      throw new Error("Email y contraseña son requeridos");
     }
+
+    if (!import.meta.env.VITE_API_URL) {
+      throw new Error("URL de API no configurada");
+    }
+
+    console.log("🔐 Intentando login para:", correo);
+
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ correo, contrasena }),
+    });
+
+    const data = await response.json();
+    console.log("🔍 Respuesta del servidor:", { status: response.status, ok: response.ok });
+
+    if (!response.ok) {
+      const errorMessage = data.message || data.error || "Credenciales incorrectas";
+      throw new Error(errorMessage);
+    }
+
+    // Validar estructura de respuesta
+    if (!data || typeof data !== 'object') {
+      throw new Error("Respuesta del servidor inválida");
+    }
+
+    const authData = data;
+
+    // Extraer datos del usuario with multiple possible formats
+    const userData = authData.data?.user || authData.user || authData.data || {};
+    console.log("👤 Datos del usuario extraídos:", userData);
+
+    // Extraer tokens with multiple possible formats
+    const tokens = {
+      accessToken: authData.data?.accessToken || authData.accessToken || authData.token,
+      refreshToken: authData.data?.refreshToken || authData.refreshToken,
+    };
+
+    // Validar tokens requeridos
+    if (!tokens.accessToken) {
+      console.error("❌ Token de acceso no encontrado:", authData);
+      throw new Error("Token de acceso no recibido del servidor");
+    }
+
+    // Validar datos mínimos del usuario
+    if (!userData || typeof userData !== "object" || !userData.id) {
+      console.error("❌ Datos de usuario inválidos:", userData);
+      throw new Error("Datos de usuario inválidos recibidos del servidor");
+    }
+
+    // Normalizar datos del usuario
+    const normalizedUser: NormalizedUser = {
+      id: userData.id,
+      nombre: userData.nombre || userData.nombre_usuario || userData.name || "",
+      correo: userData.correo || userData.email || correo,
+      id_rol: userData.id_rol || userData.rol_id || userData.roleId || null,
+      id_persona: userData.id_persona || null,
+    };
+
+    console.log("🎭 Usuario normalizado:", normalizedUser);
+
+    // Validar campos críticos
+    const requiredFields = ["id", "id_rol"] as const;
+    const missingFields = requiredFields.filter(
+      (field) => normalizedUser[field] === undefined || normalizedUser[field] === null,
+    );
+
+    if (missingFields.length > 0) {
+      console.error("❌ Campos requeridos faltantes:", {
+        missingFields,
+        userData: normalizedUser,
+        originalData: authData,
+      });
+      throw new Error(`Campos requeridos faltantes: ${missingFields.join(", ")}`);
+    }
+
+    // ✅ CONFIGURAR USUARIO INMEDIATAMENTE PARA UI REACTIVA
+    const basicUser: User = {
+      id: normalizedUser.id.toString(),
+      nombre: normalizedUser.nombre,
+      correo: normalizedUser.correo,
+      id_rol: normalizedUser.id_rol!,
+      roleCode: "usuario",
+      roleName: "Usuario",
+      clientId: [3, 4].includes(normalizedUser.id_rol!) && normalizedUser.id_persona
+        ? normalizedUser.id_persona.toString()
+        : [3, 4].includes(normalizedUser.id_rol!)
+          ? normalizedUser.id.toString()
+          : undefined,
+    };
+
+    // ✅ ACTUALIZAR ESTADO INMEDIATAMENTE
+    setUser(basicUser);
+    setAccessToken(tokens.accessToken);
+    setRefreshToken(tokens.refreshToken);
+
+    // ✅ GUARDAR EN LOCALSTORAGE INMEDIATAMENTE
+    localStorage.setItem("user", JSON.stringify(basicUser));
+    localStorage.setItem("accessToken", tokens.accessToken);
+    if (tokens.refreshToken) {
+      localStorage.setItem("refreshToken", tokens.refreshToken);
+    }
+
+    // ✅ CARGAR PERMISOS ANTES DE REDIRIGIR (CON AWAIT)
+    console.log("🔄 Inicializando permisos para usuario ANTES de redirigir:", normalizedUser.id_rol);
+
+    try {
+      await permissionService.initializeWithUserId(normalizedUser.id_rol!);
+      console.log("✅ Permisos inicializados correctamente ANTES de redirección");
+      setIsInitialized(true);
+    } catch (permissionError) {
+      console.error("❌ Error inicializando permisos:", permissionError);
+      // Continuar con el login aunque fallen los permisos
+      setIsInitialized(true);
+    }
+
+    // ✅ REDIRIGIR SOLO DESPUÉS DE CARGAR PERMISOS
+    console.log("🚀 Redirigiendo con permisos ya cargados...");
+    redirectBasedOnRole(normalizedUser.id_rol!);
+
+    return { success: true };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Error desconocido en el login";
+    console.error("❌ Error durante login:", {
+      mensaje: errorMessage,
+      tipo: error instanceof Error ? error.name : typeof error,
+      error: error,
+    });
+
+    setError(errorMessage);
+    return { success: false, error: errorMessage };
+  } finally {
+    setIsLoading(false); // ✅ SIEMPRE TERMINAR LOADING
   }
+};
 
   const logout = async () => {
     try {
@@ -387,6 +389,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem("accessToken")
       localStorage.removeItem("refreshToken")
       setUser(null)
+      setClient(null)
       setAccessToken(null)
       setRefreshToken(null)
       // 4. Redirigir al login
@@ -447,6 +450,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        client,
         isAuthenticated: !!user,
         isLoading,
         accessToken,

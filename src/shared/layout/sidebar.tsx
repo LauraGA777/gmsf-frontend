@@ -104,7 +104,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
   const [activeItem, setActiveItem] = useState<string | null>(null)
   const [activeGroup, setActiveGroup] = useState<string | null>(null)
-  const { logout, user } = useAuth()
+  const { logout, user, client } = useAuth()
   const [shouldRender, setShouldRender] = useState(false)
   const { hasModuleAccess, isLoading } = usePermissions()
 
@@ -178,9 +178,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
   )
 
-  // Verificar acceso a diferentes grupos de módulos
-  const hasVentasAccess = hasModuleAccess(PERMISSIONS.CONTRATOS) || hasModuleAccess(PERMISSIONS.CLIENTES)
+  // ✅ VERIFICACIONES DE ACCESO USANDO GRUPOS DE PERMISOS
+  // Para clientes y beneficiarios (roles 3 y 4)
+  const isClientOrBeneficiary = user?.id_rol === 3 || user?.id_rol === 4;
   
+  // Verificar acceso a grupos específicos
+  const hasVentasAccess = hasModuleAccess(PERMISSIONS.CONTRATOS) || hasModuleAccess(PERMISSIONS.CLIENTES)
   const hasMembresíasAccess = hasModuleAccess(PERMISSIONS.MEMBRESIAS) || hasModuleAccess(PERMISSIONS.ASISTENCIAS)
 
   // Para administrador, mostrar sidebar siempre
@@ -221,18 +224,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Encabezado del Sidebar */}
         <div className="h-16 px-4 border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 flex items-center">
           <div className="flex gap-3 items-center w-full">
-            {/* Logo GMSF */}
             <Link
-            to="/dashboard" 
+              to="/dashboard" 
               className="text-2xl font-bold text-black-800 font-gmsf font-normal not-italic hover:text-black-800 transition-colors duration-200 cursor-pointer"
               onClick={() => {
                 handleItemClick("dashboard")
                 if (window.innerWidth < 768) onClose()
               }}
-              aria-label="Ir al Dashboard">
-            <img src="/favicon.ico" alt="Logo GMSF" className="h-10 w-10" />
+              aria-label="Ir al Dashboard"
+            >
+              <img src="/favicon.ico" alt="Logo GMSF" className="h-10 w-10" />
             </Link>
-            {/* Título GMSF clickeable que redirecciona al dashboard */}
             <Link 
               to="/dashboard" 
               className="text-2xl font-bold text-black-800 font-gmsf font-normal not-italic hover:text-black-800 transition-colors duration-200 cursor-pointer"
@@ -244,18 +246,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             >
               GMSF
             </Link>
-            {/* 
-            Opciones alternativas de fuentes:
-            - font-title: Fuente Inter moderna y limpia
-            - font-brand: Fuente Roboto corporativa  
-            - font-modern: Fuente Poppins moderna (actual)
-            - font-tech: Fuente Fira Code estilo tecnológico
-            - font-elegant: Fuente Playfair Display elegante
-            - font-mono: Fuente monospace del sistema
-            - font-sans: Fuente sans-serif por defecto
-            - font-serif: Fuente serif tradicional
-            - font-gmsf: Fuente Fugaz One personalizada para GMSF
-            */}
             <Button 
               variant="ghost" 
               size="icon" 
@@ -271,10 +261,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Área de navegación con scroll */}
         <nav className="flex-1 overflow-y-auto py-4 px-2">
           <ul className="space-y-1">
-            {/* Para clientes y beneficiarios - Vista simplificada */}
-            {(user?.id_rol === 3 || user?.id_rol === 4) ? (
+            {/* ✅ VISTA SIMPLIFICADA PARA CLIENTES Y BENEFICIARIOS */}
+            {isClientOrBeneficiary ? (
               <>
-                {/* Mi Agenda - Solo para clientes */}
+                {/* Mi Agenda */}
                 {hasModuleAccess(PERMISSIONS.HORARIOS) && (
                   <NavItem
                     icon={<Calendar className="h-5 w-5" aria-hidden="true" />}
@@ -290,7 +280,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   />
                 )}
 
-                {/* Mi Contrato - Solo para clientes */}
+                {/* Mi Contrato */}
                 {hasModuleAccess(PERMISSIONS.CONTRATOS) && (
                   <NavItem
                     icon={<FileSignature className="h-5 w-5" aria-hidden="true" />}
@@ -303,39 +293,27 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   />
                 )}
 
-                {/* Mis Asistencias - Solo para clientes */}
+                {/* Mis Asistencias */}
                 {hasModuleAccess(PERMISSIONS.ASISTENCIAS) && (
                   <NavItem
                     icon={<BarChart4 className="h-5 w-5" aria-hidden="true" />}
                     label="Mis Asistencias"
                     active={activeItem === "my-attendance"}
-                    onClick={() => handleItemClick("my-attendance")}
-                    to="/my-attendance"
+                    onClick={() => {
+                      console.log('Click en Mis Asistencias, client?.id_persona:', client?.id_persona);
+                      handleItemClick("my-attendance");
+                    }}
+                    to={`/my-attendance/${client?.id_persona}`}
                     onClose={onClose}
                     id="nav-my-attendance"
                   />
                 )}
-
-                {/* Separador visual */}
-                <li className="mx-3 my-3">
-                  <hr className="border-gray-200 dark:border-gray-600" />
-                </li>
-
-                {/* Cerrar Sesión */}
-                <NavItem
-                  icon={<LogOut className="h-5 w-5 text-red-600" aria-hidden="true" />}
-                  label="Cerrar Sesión"
-                  active={false}
-                  onClick={logout}
-                  onClose={onClose}
-                  id="nav-logout"
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                />
               </>
             ) : (
               <>
-                {/* Vista completa para administradores y entrenadores */}
-                {/* 1. Panel de control */}
+                {/* ✅ VISTA COMPLETA PARA ADMINISTRADORES Y ENTRENADORES */}
+                
+                {/* Panel de control - Solo si tiene acceso al sistema */}
                 {hasModuleAccess(PERMISSIONS.SISTEMA) && (
                   <NavItem
                     icon={<LayoutDashboard className="h-5 w-5" aria-hidden="true" />}
@@ -348,8 +326,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   />
                 )}
 
-                {/* 2. Gestión de roles */}
-                {hasModuleAccess('SISTEMA') && (
+                {/* Gestión de roles - Solo si tiene acceso al sistema */}
+                {hasModuleAccess(PERMISSIONS.SISTEMA) && (
                   <NavItem
                     icon={<BadgeCheck className="h-5 w-5" aria-hidden="true" />}
                     label="Roles"
@@ -361,7 +339,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   />
                 )}
 
-                {/* 3. Configuración de Landing Page - Solo para administradores */}
+                {/* Configuración de Landing Page - Solo para administradores */}
                 {user?.id_rol === 1 && (
                   <NavItem
                     icon={<Globe className="h-5 w-5" aria-hidden="true" />}
@@ -374,7 +352,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   />
                 )}
 
-                {/* 4. Gestión de usuarios */}
+                {/* Gestión de usuarios - Solo si tiene acceso */}
                 {hasModuleAccess(PERMISSIONS.USUARIOS) && (
                   <NavItem
                     icon={<Users className="h-5 w-5" aria-hidden="true" />}
@@ -387,7 +365,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   />
                 )}
 
-                {/* 5. Gestión de entrenadores */}
+                {/* Gestión de entrenadores - Solo si tiene acceso */}
                 {hasModuleAccess(PERMISSIONS.ENTRENADORES) && (
                   <NavItem
                     icon={<UserCog className="h-5 w-5" aria-hidden="true" />}
@@ -400,7 +378,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   />
                 )}
 
-                {/* 6. Agenda - Visible para usuarios con acceso a horarios */}
+                {/* Agenda - Solo si tiene acceso a horarios */}
                 {hasModuleAccess(PERMISSIONS.HORARIOS) && (
                   <NavItem
                     icon={<Calendar className="h-5 w-5" aria-hidden="true" />}
@@ -416,7 +394,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   />
                 )}
 
-                {/* 7. Ventas - Solo mostrar si tiene acceso a al menos un submódulo */}
+                {/* ✅ GRUPO VENTAS - Solo mostrar si tiene acceso a al menos un submódulo */}
                 {hasVentasAccess && (
                   <>
                     <NavItem
@@ -430,7 +408,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     />
                     {activeGroup === "clients" && (
                       <ul className="py-2 mx-3 space-y-1">
-                        {/* Contratos - Solo mostrar si tiene acceso */}
+                        {/* Contratos - Solo si tiene acceso */}
                         {hasModuleAccess(PERMISSIONS.CONTRATOS) && (
                           <li>
                             <Link
@@ -454,7 +432,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                           </li>
                         )}
 
-                        {/* Personas - Solo mostrar si tiene acceso */}
+                        {/* Clientes - Solo si tiene acceso */}
                         {hasModuleAccess(PERMISSIONS.CLIENTES) && (
                           <li>
                             <Link
@@ -482,7 +460,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   </>
                 )}
 
-                {/* 8. Membresías - Solo mostrar si tiene acceso a al menos un submódulo */}
+                {/* ✅ GRUPO MEMBRESÍAS - Solo mostrar si tiene acceso a al menos un submódulo */}
                 {hasMembresíasAccess && (
                   <>
                     <NavItem
@@ -547,24 +525,24 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     )}
                   </>
                 )}
-
-                {/* Separador visual */}
-                <li className="mx-3 my-3">
-                  <hr className="border-gray-200 dark:border-gray-600" />
-                </li>
-
-                {/* Cerrar Sesión - Siempre visible */}
-                <NavItem
-                  icon={<LogOut className="h-5 w-5 text-red-600" aria-hidden="true" />}
-                  label="Cerrar Sesión"
-                  active={false}
-                  onClick={logout}
-                  onClose={onClose}
-                  id="nav-logout"
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                />
               </>
             )}
+
+            {/* Separador visual */}
+            <li className="mx-3 my-3">
+              <hr className="border-gray-200 dark:border-gray-600" />
+            </li>
+
+            {/* Cerrar Sesión - Siempre visible */}
+            <NavItem
+              icon={<LogOut className="h-5 w-5 text-red-600" aria-hidden="true" />}
+              label="Cerrar Sesión"
+              active={false}
+              onClick={logout}
+              onClose={onClose}
+              id="nav-logout"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            />
           </ul>
         </nav>
       </div>

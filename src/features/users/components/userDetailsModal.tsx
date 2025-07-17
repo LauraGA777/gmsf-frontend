@@ -6,7 +6,7 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import type { User } from "../types/user"
 import { useState, useEffect } from "react"
-import apiClient from '@/shared/services/api';
+import { roleService } from '@/features/roles/services/roleService';
 
 interface UserDetailsModalProps {
   isOpen: boolean
@@ -22,14 +22,8 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
   useEffect(() => {
     const loadRoles = async () => {
       try {
-        const response = await apiClient.get('/users/roles');
-        const data = response.data as any;
-        if (data.status === 'success' && data.data?.roles) {
-          setRoles(data.data.roles.map((role: any) => ({
-            id: role.id,
-            nombre: role.nombre
-          })));
-        }
+        const roles = await roleService.getRolesForSelect();
+        setRoles(roles);
       } catch (error) {
         console.error('Error cargando roles:', error);
       }
@@ -37,9 +31,16 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
     loadRoles();
   }, []);
 
-  const getRoleName = (id_rol: number) => {
-    const rol = roles.find(r => r.id === id_rol);
-    return rol ? rol.nombre : 'Rol Desconocido';
+  const getRoleName = (id_rol: number | null | undefined) => {
+    if (!id_rol || !Array.isArray(roles) || roles.length === 0) {
+      return "Cargando...";
+    }
+    
+    const rol = roles.find(r => r?.id === id_rol);
+    if (!rol) {
+      return "Desconocido";
+    }
+    return rol.nombre || "Sin nombre";
   };
 
   const getRoleBadge = () => {

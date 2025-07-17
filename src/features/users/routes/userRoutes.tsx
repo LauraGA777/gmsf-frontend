@@ -18,14 +18,6 @@ export const userRoutes: RouteObject[] = [
     },
     {
         path: "/profile",
-        element: (
-            <PermissionProtectedRoute 
-                requiredModule="USUARIOS" 
-                requiredPrivilege="USER_DETAILS"
-                // ✅ Perfil accesible según permisos de BD - Sin excepciones por rol
-            >    
-                <ProfilePage/>
-            </PermissionProtectedRoute>
-        )
+        element: <ProfilePage/>
     }
 ];

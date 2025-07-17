@@ -30,11 +30,13 @@ interface ApiSuccessResponse<T> {
 interface SearchResponse {
   success: boolean;
   message?: string;
-  usuarios: User[];
-  total: number;
-  pagina: number;
-  limite: number;
-  total_paginas: number;
+  data: {
+    usuarios: User[];
+    total: number;
+    pagina: number;
+    limite: number;
+    total_paginas: number;
+  };
 }
 
 export const userService = {
@@ -136,14 +138,14 @@ export const userService = {
       `/users/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
     );
     
-    // El backend envía: { success: true, message: "", usuarios: [], total: X, pagina: X, limite: X, total_paginas: X }
-    if (response.data.success && response.data.usuarios !== undefined) {
+    // El backend envía: { success: true, message: "", data: { usuarios: [], total: X, pagina: X, limite: X, total_paginas: X } }
+    if (response.data.success && response.data.data?.usuarios !== undefined) {
       return {
-        total: response.data.total,
-        page: response.data.pagina,
-        limit: response.data.limite,
-        totalPages: response.data.total_paginas,
-        data: response.data.usuarios
+        total: response.data.data.total,
+        page: response.data.data.pagina,
+        limit: response.data.data.limite,
+        totalPages: response.data.data.total_paginas,
+        data: response.data.data.usuarios
       };
     }
     

@@ -199,38 +199,29 @@ export function TrainersPage() {
         });
       }
     }
-  };
+  }
 
-  const handleViewDetails = (trainer: Trainer) => {
-    setSelectedTrainer(trainer);
-    setIsDetailsModalOpen(true);
-  };
+  const paginatedTrainers = filteredTrainers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
-  const handleEditTrainer = (trainer: Trainer) => {
-    setSelectedTrainer(trainer);
-    setIsEditModalOpen(true);
-  };
+  const totalPages = Math.ceil(filteredTrainers.length / itemsPerPage)
 
-  const handlePageChange = (newPage: number) => {
-    setPagination(prev => ({ ...prev, page: newPage }));
-  };
-
-  const handleSearch = () => {
-    setPagination(prev => ({ ...prev, page: 1 }));
-    fetchTrainers(1, pagination.limit);
-  };
-
-  const handleStatusFilterChange = (value: string) => {
-    setStatusFilter(value);
-    setPagination(prev => ({ ...prev, page: 1 }));
-  };
-
-  // Trigger search when Enter is pressed
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
+  if (trainers.length === 0 && !isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center p-8 text-center">
+            <Dumbbell className="h-16 w-16 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No hay entrenadores registrados</h3>
+            <p className="text-gray-500 mb-4">Comience agregando el primer entrenador al sistema</p>
+            <Button onClick={() => setIsModalOpen(true)} className="bg-black hover:bg-gray-800">
+              <Plus className="h-4 w-4 mr-2" />
+              Agregar Entrenador
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto px-4 py-6">

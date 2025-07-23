@@ -1,20 +1,21 @@
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { ArrowLeft, Loader2, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/shared/components/ui/form"
 import { Input } from "@/shared/components/ui/input"
 import { useToast } from "@/shared/components/ui/use-toast"
 import { formSchemaLogin, FormValuesLogin } from "@/shared/lib/formSchemasLogin"
-import { useAuth } from "@/shared/contexts/authContext" // Importar useAuth
+import { useAuth } from "@/shared/contexts/authContext"
 
 export default function LoginCard() {
     const [isLoading, setIsLoading] = useState(false)
     const { toast } = useToast()
-    const { login } = useAuth() // Usar el hook useAuth para obtener la función login
+    const { login } = useAuth()
     const [showContactInfo, setShowContactInfo] = useState(false)
+    const [showPassword, setShowPassword] = useState(false)
 
     const form = useForm<FormValuesLogin>({
         resolver: zodResolver(formSchemaLogin),
@@ -33,21 +34,21 @@ export default function LoginCard() {
                 toast({
                     title: "Inicio exitoso",
                     description: "Bienvenido a tu cuenta",
-                    type: "success"
-                });
+                    type: "success", // ✅ Esta propiedad SÍ existe en tu toast
+                }as any);
             } else {
                 toast({
                     title: "Error",
                     description: result.error || "Ha ocurrido un error inesperado",
-                    type: "error"
-                });
+                    type: "error", // ✅ Esta propiedad SÍ existe en tu toast
+                }as any);
             }
         } catch (error: any) {
             toast({
                 title: "Error",
                 description: error.message || "Ha ocurrido un error inesperado",
-                type: "error"
-            });
+                type: "error", // ✅ Esta propiedad SÍ existe en tu toast
+            }as any);
         } finally {
             setIsLoading(false);
         }
@@ -121,13 +122,29 @@ export default function LoginCard() {
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormControl>
-                                                    <Input
-                                                        type="password"
-                                                        placeholder="Ingrese su contraseña"
-                                                        {...field}
-                                                        className="transition-all focus-visible:ring-primary hover:border-primary/50"
-                                                        disabled={isLoading}
-                                                    />
+                                                    <div className="relative">
+                                                        <Input
+                                                            type={showPassword ? "text" : "password"}
+                                                            placeholder="Ingrese su contraseña"
+                                                            {...field}
+                                                            className="transition-all focus-visible:ring-primary hover:border-primary/50 pr-10"
+                                                            disabled={isLoading}
+                                                        />
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                            onClick={() => setShowPassword(!showPassword)}
+                                                            disabled={isLoading}
+                                                        >
+                                                            {showPassword ? (
+                                                                <EyeOff className="h-4 w-4 text-gray-500" />
+                                                            ) : (
+                                                                <Eye className="h-4 w-4 text-gray-500" />
+                                                            )}
+                                                        </Button>
+                                                    </div>
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>

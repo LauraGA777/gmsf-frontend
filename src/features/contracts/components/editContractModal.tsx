@@ -1,5 +1,4 @@
-import type React from "react"
-import { useState, useMemo, useEffect } from "react"
+import { useMemo, useEffect, useState } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Label } from "@/shared/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
@@ -7,17 +6,16 @@ import { Calendar } from "@/shared/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
 import { format, addDays } from "date-fns"
 import { es } from "date-fns/locale"
-import { Calendar as CalendarIcon, FileSignature, DollarSign, List, User, Info, Terminal, CalendarDays } from "lucide-react"
+import { Calendar as CalendarIcon, FileSignature, DollarSign, List, User, Info, CalendarDays } from "lucide-react"
 import { cn, formatCOP } from "@/shared/lib/utils"
 import type { Contract, Membership } from "@/shared/types"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useAuth } from "@/shared/contexts/authContext"
-import { Input } from "@/shared/components/ui/input"
-import { Textarea } from "@/shared/components/ui/textarea"
 import { Card, CardHeader, CardTitle, CardContent } from "@/shared/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/shared/components/ui/alert"
+import { membershipService } from "@/features/memberships/services/membership.service"
+import { useToast } from "@/shared/components/ui/use-toast"
 
 const updateContractFormSchema = z.object({
   id_membresia: z.number({ required_error: "Debe seleccionar una membresía" }),
@@ -30,12 +28,23 @@ type UpdateContractFormValues = z.infer<typeof updateContractFormSchema>
 interface EditContractModalProps {
   contract: Contract
   memberships: Membership[]
-  onUpdateContract: (data: Partial<UpdateContractFormValues> & { fecha_inicio: string; usuario_actualizacion?: number }) => void
+  onUpdateContract: (data: Partial<Contract>) => void
   onClose: () => void
 }
 
 export function EditContractModal({ contract, memberships, onUpdateContract, onClose }: EditContractModalProps) {
   const { user } = useAuth()
+  const { toast } = useToast()
+  const [localMemberships, setLocalMemberships] = useState<Membership[]>(memberships)
+  const [loadingMemberships, setLoadingMemberships] = useState(false)
+
+  // Debug: Log memberships data
+  console.log('🔍 EditContractModal - Memberships received:', {
+    totalMemberships: memberships.length,
+    localMemberships: localMemberships.length,
+    memberships: memberships.map(m => ({ id: m.id, nombre: m.nombre, estado: m.estado, tipo: typeof m.estado })),
+    activeMembershipsCount: memberships.filter(m => m.estado).length
+  });
 
   const {
     handleSubmit,
@@ -56,22 +65,58 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
   const watchStartDate = watch("fecha_inicio")
   const watchStatus = watch("estado")
 
-  const activeMemberships = useMemo(() => memberships.filter(m => {
-    if (typeof m.estado === 'boolean') return m.estado;
-    if (typeof m.estado === 'string') {
-        const state = m.estado.toLowerCase();
-        return state === 'true' || state === 'activo';
+  // Load memberships if empty
+  useEffect(() => {
+    const loadMemberships = async () => {
+      if (localMemberships.length === 0 && !loadingMemberships) {
+        console.log('🔄 EditContractModal - Loading memberships because they are empty');
+        setLoadingMemberships(true);
+        try {
+          const response = await membershipService.getMemberships({ estado: true });
+          if (response.data) {
+            console.log('✅ EditContractModal - Loaded memberships:', response.data);
+            setLocalMemberships(response.data);
+          }
+        } catch (error) {
+          console.error('❌ EditContractModal - Error loading memberships:', error);
+          toast({
+            title: 'Error',
+            description: 'Error al cargar las membresías.',
+            variant: 'destructive',
+          });
+        } finally {
+          setLoadingMemberships(false);
+        }
+      }
+    };
+
+    loadMemberships();
+  }, [localMemberships.length, loadingMemberships, toast]);
+
+  // Update local memberships when prop changes
+  useEffect(() => {
+    if (memberships.length > 0) {
+      setLocalMemberships(memberships);
     }
-    return false;
-  }), [memberships]);
+  }, [memberships]);
+
+  const activeMemberships = useMemo(() => {
+    const filtered = localMemberships.filter(m => m.estado);
+    console.log('🔍 EditContractModal - Active memberships filtered:', {
+      originalCount: localMemberships.length,
+      filteredCount: filtered.length,
+      filtered: filtered.map(m => ({ id: m.id, nombre: m.nombre, estado: m.estado }))
+    });
+    return filtered;
+  }, [localMemberships]);
 
 
   const summaryData = useMemo(() => {
-    const membership = memberships.find(m => String(m.id) === String(watchMembershipId));
+    const membership = localMemberships.find(m => m.id === watchMembershipId);
     const startDate = watchStartDate;
 
     if (!membership || !startDate) {
-        const originalMembership = memberships.find(m => String(m.id) === String(contract.id_membresia));
+        const originalMembership = localMemberships.find(m => m.id === contract.id_membresia);
         return {
             endDate: new Date(contract.fecha_fin),
             price: contract.membresia_precio,
@@ -90,7 +135,7 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
         vigencia: membership.vigencia_dias,
         diasAcceso: membership.dias_acceso,
     };
-  }, [watchMembershipId, watchStartDate, memberships, contract]);
+  }, [watchMembershipId, watchStartDate, localMemberships, contract]);
 
   useEffect(() => {
     reset({
@@ -101,12 +146,12 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
   }, [contract, reset])
 
   const onSubmit = (data: UpdateContractFormValues) => {
-    const updateData: Partial<UpdateContractFormValues> & { fecha_inicio: string; usuario_actualizacion?: number } = {
+    const updateData = {
       ...data, 
-      fecha_inicio: format(data.fecha_inicio, "yyyy-MM-dd"),
+      fecha_inicio: format(new Date(data.fecha_inicio), "yyyy-MM-dd"),
       usuario_actualizacion: user?.id ? Number(user.id) : undefined,
     }
-    onUpdateContract(updateData)
+    onUpdateContract(updateData as unknown as Partial<Contract>)
     onClose()
   }
 
@@ -185,10 +230,16 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
                 <Select
                   onValueChange={(value) => field.onChange(Number(value))}
                   defaultValue={String(field.value)}
-                  disabled={activeMemberships.length === 0}
+                  disabled={activeMemberships.length === 0 || loadingMemberships}
                 >
                   <SelectTrigger id="id_membresia">
-                    <SelectValue placeholder={activeMemberships.length === 0 ? "No hay membresías activas" : "Seleccionar"}/>
+                    <SelectValue placeholder={
+                      loadingMemberships 
+                        ? "Cargando membresías..." 
+                        : activeMemberships.length === 0 
+                          ? "No hay membresías activas" 
+                          : "Seleccionar"
+                    }/>
                   </SelectTrigger>
                   <SelectContent>
                     {activeMemberships.map((m) => (
@@ -199,8 +250,11 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
               )}
             />
             {errors.id_membresia && <p className="text-red-500 text-sm">{errors.id_membresia.message}</p>}
-             {activeMemberships.length === 0 && (
+             {!loadingMemberships && activeMemberships.length === 0 && (
                 <p className="text-xs text-yellow-600 flex items-center gap-1 mt-1"><Info className="h-3 w-3"/> No hay otras membresías activas para seleccionar.</p>
+            )}
+            {loadingMemberships && (
+                <p className="text-xs text-blue-600 flex items-center gap-1 mt-1"><Info className="h-3 w-3"/> Cargando membresías...</p>
             )}
           </div>
         </div>

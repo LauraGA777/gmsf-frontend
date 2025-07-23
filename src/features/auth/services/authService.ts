@@ -1,6 +1,27 @@
+import { IRole, Role } from '@/shared/types/role';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL = "https://gmsf-backend.vercel.app/auth/roles";
+
+// Función para transformar IRole a Role (backend a frontend)
+const transformRole = (iRole: IRole): Role => ({
+    ...iRole,
+    name: iRole.nombre,
+    description: iRole.descripcion || "",
+    status: iRole.estado ? "Activo" : "Inactivo",
+    isActive: iRole.estado,
+    permissions: iRole.permisos?.map(permission => ({
+        ...permission,
+        privileges: permission.privilegios?.map((privilege) => ({
+            ...privilege,
+            selected: false,
+        })),
+    })),
+    // Manejar tanto los nuevos nombres como los legacy
+    createdAt: iRole.fecha_creacion || iRole.createdAt,
+    updatedAt: iRole.fecha_actualizacion || iRole.updatedAt,
+});
 
 // Función para verificar si el token existe y es válido
 const verificarToken = () => {
@@ -15,6 +36,13 @@ const verificarToken = () => {
 // Crear una instancia de axios con la configuración base
 const axiosInstance = axios.create({
     baseURL: API_URL + '/auth',
+    headers: {
+        'Content-Type': 'application/json'
+    }
+});
+
+// Crear una instancia de axios para peticiones públicas (sin autenticación)
+const publicAxiosInstance = axios.create({
     headers: {
         'Content-Type': 'application/json'
     }
@@ -39,8 +67,8 @@ axiosInstance.interceptors.response.use(
     (response) => response,
     (error) => {
         // Solo manejamos el error 401 si no estamos en la página de login o reset-password
-        if (error.response?.status === 401 && 
-            !window.location.pathname.includes('/login') && 
+        if (error.response?.status === 401 &&
+            !window.location.pathname.includes('/login') &&
             !window.location.pathname.includes('/reset-password')) {
             localStorage.removeItem('accessToken');
             window.location.href = '/login';
@@ -96,6 +124,13 @@ export interface UsuarioResponse {
 export interface AuthResponse {
     token: string;
     usuario: Usuario;
+}
+
+export interface RolesResponse {
+    status: string;
+    data: {
+        roles: IRole[];
+    };
 }
 
 export const authService = {
@@ -202,6 +237,15 @@ export const authService = {
                 throw new Error(error.response.data.message);
             }
             throw new Error('Error al actualizar el perfil');
+        }
+    },
+    async getRoles(): Promise<Role[]> {
+        try {
+            const response = await publicAxiosInstance.get<RolesResponse>(`${API_BASE_URL}`);
+            return response.data.data?.roles?.map((role: IRole) => transformRole(role)) || [];
+        } catch (error) {
+            console.error("Error fetching roles:", error);
+            throw error;
         }
     }
 };

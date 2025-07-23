@@ -13,26 +13,20 @@ export interface Training {
   updated_at: Date;
   entrenador?: {
     id: number;
-    codigo: string;
     nombre: string;
     apellido: string;
     correo: string;
     telefono?: string;
-    especialidad: string;
-    estado: boolean;
   };
   cliente?: {
     id_persona: number;
     codigo: string;
     usuario?: {
       id: number;
-      codigo: string;
       nombre: string;
       apellido: string;
       correo: string;
       telefono?: string;
-      tipo_documento: 'CC' | 'CE' | 'TI' | 'PP' | 'DIE';
-      numero_documento: string;
     };
   };
 }

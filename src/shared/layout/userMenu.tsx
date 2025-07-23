@@ -14,22 +14,9 @@ import { cn } from "@/shared/lib/formatCop"
 import { Link } from 'react-router-dom';
 
 export function UserMenu() {
-  const { user, logout } = useAuth()
+  const { user, logout, roles } = useAuth()
 
   if (!user) return null
-
-  const getRoleName = (id_rol: number) => {
-    switch (id_rol) {
-      case 1:
-        return "Administrador"
-      case 2:
-        return "Entrenador"
-      case 3:
-        return "Cliente"
-      default:
-        return "Usuario"
-    }
-  }
 
   // Genera iniciales a partir del nombre
   const getInitials = (name: string) => {
@@ -39,18 +26,34 @@ export function UserMenu() {
     return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
   };
 
+  // Función para obtener el rol de manera robusta
+  const getRoleName = (): string => {
+    // 1. Intentar usar roleName directamente del usuario
+    if (user.roleName && user.roleName !== "Usuario") {
+      return user.roleName;
+    }
+
+    // 2. Intentar usar role.nombre del objeto rol
+    if (user.role && typeof user.role === 'object' && user.role.nombre) {
+      return user.role.nombre;
+    }
+
+    // 3. Buscar en la lista de roles dinámicos usando id_rol
+    if (user.id_rol && roles && roles.length > 0) {
+      const foundRole = roles.find(role => role.id === user.id_rol);
+      if (foundRole && foundRole.nombre) {
+        return foundRole.nombre;
+      }
+    }
+
+    // 4. Fallback final
+    return "Usuario";
+  };
+
+  const roleName = getRoleName();
+
   return (
     <div className="flex items-center space-x-4">
-      {/* Icono de notificaciones 
-      <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-800 relative">
-        <Bell className="h-5 w-5" />
-        <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
-      </Button>*/}
-      
-      {/* Icono de ayuda 
-      <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-800">
-        <HelpCircle className="h-5 w-5" />
-      </Button>*/}
       
       {/* Menú de usuario */}
       <DropdownMenu>
@@ -61,7 +64,7 @@ export function UserMenu() {
             </Avatar>
             <div className="hidden md:flex flex-col items-start text-left">
               <span className="text-sm font-medium truncate max-w-[120px]">{user.nombre}</span>
-              <p className="text-xs text-gray-400">{getRoleName(user.id_rol)}</p>
+              <p className="text-xs text-gray-400">{roleName}</p>
             </div>
             <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
@@ -73,17 +76,17 @@ export function UserMenu() {
             </Avatar>
             <div>
               <p className="text-sm font-medium leading-none">{user.nombre}</p>
-              <p className="text-xs text-gray-500 mt-1">{getRoleName(user.id_rol)}</p>
+              <p className="text-xs text-gray-500 mt-1">{roleName}</p>
             </div>
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-              <DropdownMenuItem asChild>
-                <Link to="/profile" className="flex items-center">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Perfil</span>
-                </Link>
-              </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/profile" className="flex items-center">
+                <User className="mr-2 h-4 w-4" />
+                <span>Perfil</span>
+              </Link>
+            </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={logout} className="text-red-600">

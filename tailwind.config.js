@@ -64,6 +64,14 @@ module.exports = {
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
 			},
+			fontFamily: {
+				'title': ['Inter', 'system-ui', 'sans-serif'],
+				'brand': ['Roboto', 'Arial', 'sans-serif'],
+				'modern': ['Poppins', 'system-ui', 'sans-serif'],
+				'tech': ['Fira Code', 'Courier New', 'monospace'],
+				'elegant': ['Playfair Display', 'Georgia', 'serif'],
+				'gmsf' : ['Fugaz One']
+			},
 			keyframes: {
 				'accordion-down': {
 					from: {

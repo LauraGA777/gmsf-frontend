@@ -11,6 +11,7 @@ export interface Contract {
   fecha_actualizacion: Date;
   usuario_registro?: number;
   usuario_actualizacion?: number;
+  motivo?: string;
   persona?: {
     id_persona: number;
     codigo: string;

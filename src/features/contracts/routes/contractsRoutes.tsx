@@ -1,15 +1,17 @@
-import React from "react";
 import { ContractsPage } from "@/features/contracts/pages/contractsPage";
-import { ProtectedRoute } from "../../auth/components/protectedRoute";
-
+import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
 // Rutas de contratos
 export const contractsRoutes = [
   {
     path: "/contracts",
     element: (
-      <ProtectedRoute allowedRoles={[1, 2]}>
+      <PermissionProtectedRoute 
+        requiredModule="CONTRATOS" 
+        requiredPrivilege="CONTRACT_READ"
+        // ✅ Solo permisos de BD - Sin fallbacks
+      >
         <ContractsPage />
-      </ProtectedRoute>
+      </PermissionProtectedRoute>
     )
   }
 ];

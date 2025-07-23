@@ -1,29 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import Swal from "sweetalert2";
+
+// UI Components
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
-import { 
-  Plus, 
-  Search, 
-  DollarSign, 
-  Calendar,
-  MoreHorizontal,
-  RefreshCw,
-  Edit,
-  Eye,
-  RotateCcw,
-  Power,
-  Activity,
-} from "lucide-react";
-import { Separator } from "@/shared/components/ui/separator"
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
-import { useGym } from "@/shared/contexts/gymContext";
-import { membershipService } from "@/features/memberships/services/membership.service";
-import type { Membership } from "@/shared/types";
-import Swal from "sweetalert2";
+import { Separator } from "@/shared/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,24 +25,49 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 
-// Componente del formulario de membresía
-function MembershipForm({ 
-  membership, 
-  onSave, 
-  onCancel 
-}: { 
+// Icons
+import { 
+  Plus, 
+  Search, 
+  DollarSign, 
+  Calendar,
+  MoreHorizontal,
+  RefreshCw,
+  Edit,
+  Eye,
+  RotateCcw,
+  Power,
+  Activity,
+} from "lucide-react";
+
+// Context and Services
+import { useGym } from "@/shared/contexts/gymContext";
+import { membershipService } from "@/features/memberships/services/membership.service";
+import type { Membership } from "@/shared/types";
+// Types
+interface MembershipFormProps {
   membership?: Membership;
   onSave: (data: Partial<Membership>) => Promise<void>;
   onCancel: () => void;
-}) {
+}
+
+interface MembershipActionsMenuProps {
+  membership: Membership;
+  onViewDetails: (membership: Membership) => void;
+  onEdit: (membership: Membership) => void;
+  onToggleStatus: (membership: Membership) => void;
+}
+
+// Components
+function MembershipForm({ membership, onSave, onCancel }: MembershipFormProps) {
+    
   const [formData, setFormData] = useState<Partial<Membership>>({
     nombre: membership?.nombre || '',
     descripcion: membership?.descripcion || '',
     precio: membership?.precio || 0,
-    dias_acceso: membership?.dias_acceso || 1,
-    vigencia_dias: membership?.vigencia_dias || 30,
+    dias_acceso: membership?.dias_acceso || 0,
+    vigencia_dias: membership?.vigencia_dias || 0,
   });
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -79,6 +91,20 @@ function MembershipForm({
       setErrors(['Error al guardar la membresía']);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleNumericInput = (
+    field: 'precio' | 'dias_acceso' | 'vigencia_dias',
+    value: string,
+    isDecimal = false
+  ) => {
+    const regex = isDecimal ? /^\d*\.?\d*$/ : /^\d*$/;
+    if (regex.test(value)) {
+      setFormData(prev => ({ 
+        ...prev, 
+        [field]: value === '' ? 0 : Number(value) 
+      }));
     }
   };
 
@@ -122,16 +148,8 @@ function MembershipForm({
           <Input
             type="text"
             inputMode="decimal"
-            min="0"
-            step="0.01"
             value={formData.precio === 0 ? '' : formData.precio}
-            onChange={(e) => {
-              const value = e.target.value;
-              // Solo permitir números y un punto decimal
-              if (/^\d*\.?\d*$/.test(value)) {
-                setFormData(prev => ({ ...prev, precio: value === '' ? 0 : Number(value) }));
-              }
-            }}
+            onChange={(e) => handleNumericInput('precio', e.target.value, true)}
             placeholder="Ingrese el precio"
             required
           />
@@ -141,15 +159,8 @@ function MembershipForm({
           <Input
             type="text"
             inputMode="numeric"
-            min="1"
             value={formData.dias_acceso === 0 ? '' : formData.dias_acceso}
-            onChange={(e) => {
-              const value = e.target.value;
-              // Solo permitir números enteros
-              if (/^\d*$/.test(value)) {
-                setFormData(prev => ({ ...prev, dias_acceso: value === '' ? 0 : Number(value) }));
-              }
-            }}
+            onChange={(e) => handleNumericInput('dias_acceso', e.target.value)}
             placeholder="Ingrese los días de acceso"
             required
           />
@@ -161,14 +172,8 @@ function MembershipForm({
         <Input
           type="text"
           inputMode="numeric"
-          min="1"
           value={formData.vigencia_dias === 0 ? '' : formData.vigencia_dias}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (/^\d*$/.test(value)) {
-              setFormData(prev => ({ ...prev, vigencia_dias: value === '' ? 0 : Number(value) }));
-            }
-          }}
+          onChange={(e) => handleNumericInput('vigencia_dias', e.target.value)}
           placeholder="Ingrese los días de vigencia"
           required
         />
@@ -197,7 +202,15 @@ export function MembershipsPage() {
     contracts
   } = useGym();
 
-  const [filteredMemberships, setFilteredMemberships] = useState<Membership[]>([]);
+  useEffect(() => {
+    // Cargar membresías al montar el componente si no hay datos
+    if (memberships.length === 0 && !membershipsLoading) {
+      console.log('🔄 Cargando membresías al montar la página...');
+      refreshMemberships();
+    }
+  }, []);
+
+  // State
   const [isNewMembershipOpen, setIsNewMembershipOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -205,13 +218,9 @@ export function MembershipsPage() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingMembership, setEditingMembership] = useState<Membership | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
 
-  useEffect(() => {
-    filterMemberships();
-  }, [memberships, searchTerm, statusFilter]);
-
-  const filterMemberships = () => {
+  // Memoized filtered memberships
+  const filteredMemberships = useMemo(() => {
     let filtered = [...memberships];
 
     // Filter by search term
@@ -230,14 +239,19 @@ export function MembershipsPage() {
       filtered = filtered.filter(membership => membership.estado === isActive);
     }
 
-    setFilteredMemberships(filtered);
-  };
+    return filtered;
+  }, [memberships, searchTerm, statusFilter]);
 
+  // Utility functions
   const getStatusBadge = (estado: boolean) => {
     return estado ? (
-      <Badge className="bg-green-100 text-green-800 hover:bg-green-200 hover:text-green-900">Activa</Badge>
+      <Badge className="bg-green-100 text-green-800 hover:bg-green-100 hover:text-green-800">
+        Activa
+      </Badge>
     ) : (
-      <Badge className="bg-red-100 text-red-800 hover:bg-red-200 hover:text-red-900">Inactiva</Badge>
+      <Badge className="bg-red-100 text-red-800 hover:bg-red-100 hover:text-red-800">
+        Inactiva
+      </Badge>
     );
   };
 
@@ -247,6 +261,7 @@ export function MembershipsPage() {
     ).length;
   };
 
+  // Event handlers
   const handleViewDetails = (membership: Membership) => {
     setSelectedMembership(membership);
     setIsDetailsOpen(true);
@@ -280,7 +295,7 @@ export function MembershipsPage() {
     if (!editingMembership) return;
     
     try {
-      await membershipService.updateMembership(editingMembership.id, data);
+      await membershipService.updateMembership(String(editingMembership.id), data);
       await refreshMemberships();
       setIsNewMembershipOpen(false);
       setEditingMembership(null);
@@ -316,9 +331,9 @@ export function MembershipsPage() {
       if (result.isConfirmed) {
         try {
           if (membership.estado) {
-            await membershipService.deactivateMembership(membership.id);
+            await membershipService.deactivateMembership(String(membership.id));
           } else {
-            await membershipService.reactivateMembership(membership.id);
+            await membershipService.reactivateMembership(String(membership.id));
           }
           
           // Actualizar la lista completa
@@ -359,42 +374,45 @@ export function MembershipsPage() {
     }
   };
 
-  const MembershipActionsMenu = ({ membership }: { membership: Membership }) => {
-
-    
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => handleViewDetails(membership)}>
-            <Eye className="mr-2 h-4 w-4" />
-            Ver detalles
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleEditMembership(membership)}>
-            <Edit className="mr-2 h-4 w-4" />
-            Editar
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleToggleMembershipStatus(membership)}>
-            {membership.estado ? (
-              <>
-                <Power className="mr-2 h-4 w-4" />
-                Desactivar
-              </>
-            ) : (
-              <>
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Reactivar
-              </>
-            )}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  };
+function MembershipActionsMenu({ 
+  membership, 
+  onViewDetails, 
+  onEdit, 
+  onToggleStatus 
+}: MembershipActionsMenuProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="h-8 w-8 p-0">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => onViewDetails(membership)}>
+          <Eye className="mr-2 h-4 w-4" />
+          Ver detalles
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onEdit(membership)}>
+          <Edit className="mr-2 h-4 w-4" />
+          Editar
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onToggleStatus(membership)}>
+          {membership.estado ? (
+            <>
+              <Power className="mr-2 h-4 w-4" />
+              Desactivar
+            </>
+          ) : (
+            <>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Reactivar
+            </>
+          )}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -535,15 +553,20 @@ export function MembershipsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 hover:text-blue-900">
-                          {getActiveContracts(membership.id)} activos
+                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 hover:text-blue-900">
+                          {getActiveContracts(String(membership.id))} activos
                         </Badge>
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(membership.estado)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <MembershipActionsMenu membership={membership} />
+                        <MembershipActionsMenu 
+                          membership={membership}
+                          onViewDetails={handleViewDetails}
+                          onEdit={handleEditMembership}
+                          onToggleStatus={handleToggleMembershipStatus}
+                        />
                       </TableCell>
                     </TableRow>
                   ))
@@ -602,7 +625,7 @@ export function MembershipsPage() {
                   <div className="flex items-center space-x-2 mt-2">
                     {getStatusBadge(selectedMembership.estado)}
                     <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                      {getActiveContracts(selectedMembership.id)} contratos activos
+                      {getActiveContracts(String(selectedMembership.id))} contratos activos
                     </Badge>
                   </div>
                 </div>
@@ -673,8 +696,4 @@ export function MembershipsPage() {
       </Dialog>
     </div>
   );
-}
-
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <label className={className}>{children}</label>;
 } 

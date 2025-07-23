@@ -1,33 +1,28 @@
-import type React from "react"
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
 import {
   LayoutDashboard,
   Users,
   Calendar,
-  ClipboardList,
-  MessageSquare,
   LogOut,
   ChevronDown,
   ChevronUp,
   UserCog,
-  Dumbbell,
   X,
   FileSignature,
   UserCheck,
   ClipboardCheck,
   BarChart4,
-  FileQuestion,
   User,
-  TagIcon,
-  ShoppingBagIcon,
   ShoppingCartIcon,
-  Settings,
   BadgeCheck,
+  Globe,
 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { cn } from "@/shared/lib/formatCop"
 import { useAuth } from "@/shared/contexts/authContext"
+import { usePermissions } from "@/shared/hooks/usePermissions"
+import { PERMISSIONS } from "@/shared/services/permissionService"
 
 interface SidebarProps {
   isOpen: boolean
@@ -47,13 +42,24 @@ interface NavItemProps {
   className?: string
 }
 
-const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, hasSubmenu, expanded, to, onClose, id, className }) => {
+const NavItem: React.FC<NavItemProps> = ({
+  icon,
+  label,
+  active,
+  onClick,
+  hasSubmenu,
+  expanded,
+  to,
+  onClose,
+  id,
+  className,
+}) => {
   const baseClassName = cn(
-    "flex items-center w-full py-3 px-4 text-base font-normal transition duration-75 cursor-pointer",
+    "flex items-center w-full py-2.5 px-3 mx-1 text-sm font-medium transition-all duration-200 cursor-pointer rounded-lg",
     active
-      ? "text-gray-700 bg-gray-100 hover:bg-gray-200"
-      : "text-gray-900 hover:bg-gray-50 dark:text-white dark:hover:bg-gray-700",
-    className
+      ? "text-gray-900 bg-gray-100"
+      : "text-gray-700 hover:bg-gray-50 hover:text-gray-900 dark:text-white dark:hover:bg-gray-700",
+    className,
   )
 
   const handleClick = () => {
@@ -65,10 +71,10 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, hasSubm
 
   const content = (
     <>
-      <span className="flex-shrink-0 text-gray-500 dark:text-gray-400">{icon}</span>
-      <span className="ml-3 flex-1 whitespace-nowrap">{label}</span>
+      <span className="flex-shrink-0 text-gray-500 dark:text-gray-400 mr-3">{icon}</span>
+      <span className="flex-1 whitespace-nowrap">{label}</span>
       {hasSubmenu && (
-        <span className="flex-shrink-0 text-gray-400">
+        <span className="flex-shrink-0 text-gray-400 ml-auto">
           {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </span>
       )}
@@ -77,7 +83,7 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, hasSubm
 
   if (to) {
     return (
-      <li id={id} className="my-1">
+      <li id={id}>
         <Link to={to} className={baseClassName} onClick={handleClick}>
           {content}
         </Link>
@@ -86,7 +92,7 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, hasSubm
   }
 
   return (
-    <li id={id} className="my-1">
+    <li id={id}>
       <div className={baseClassName} onClick={handleClick}>
         {content}
       </div>
@@ -98,8 +104,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
   const [activeItem, setActiveItem] = useState<string | null>(null)
   const [activeGroup, setActiveGroup] = useState<string | null>(null)
-  const { logout, user } = useAuth()
+  const { logout, user, client } = useAuth()
   const [shouldRender, setShouldRender] = useState(false)
+  const { hasModuleAccess, isLoading } = usePermissions()
 
   useEffect(() => {
     setShouldRender(!!user)
@@ -115,22 +122,24 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     } else if (path.includes("/roles")) {
       setActiveItem("roles")
       setActiveGroup(null)
-    }
-    else if (path.includes("/users")) {
+    } else if (path.includes("/landing-settings")) {
+      setActiveItem("landing-settings")
+      setActiveGroup(null)
+    } else if (path.includes("/users")) {
       setActiveItem("users")
       setActiveGroup(null)
     } else if (path.includes("/trainers")) {
       setActiveItem("trainers")
       setActiveGroup(null)
-    } else if (path.includes("/services/custom")) {
-      setActiveItem("services.custom")
-      setActiveGroup("services")
-    } else if (path.includes("/services")) {
-      setActiveItem("services.list")
-      setActiveGroup("services")
     } else if (path.includes("/calendar")) {
       setActiveItem("calendar")
-      setActiveGroup("services")
+      setActiveGroup(null)
+    } else if (path.includes("/my-contract")) {
+      setActiveItem("my-contract")
+      setActiveGroup(null)
+    } else if (path.includes("/my-attendance")) {
+      setActiveItem("my-attendance")
+      setActiveGroup(null)
     } else if (path.includes("/clients")) {
       setActiveItem("clients.list")
       setActiveGroup("clients")
@@ -143,17 +152,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     } else if (path.includes("/attendance")) {
       setActiveItem("attendance.list")
       setActiveGroup("memberships")
-    } else if (path.includes("/surveys")) {
-      setActiveItem("surveys.list")
-      setActiveGroup("feedback")
     }
   }, [location.pathname])
-
-  // Función para determinar si se debe mostrar un elemento basado en el rol de usuario
-  const shouldShowItem = (allowedRoles: number[]) => {
-    if (!user || !user.id_rol) return false
-    return allowedRoles.includes(user.id_rol)
-  }
 
   const handleItemClick = (item: string, group: string | null = null) => {
     if (item === "logout") {
@@ -178,240 +178,370 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
   )
 
+  // ✅ VERIFICACIONES DE ACCESO USANDO GRUPOS DE PERMISOS
+  // Para clientes y beneficiarios (roles 3 y 4)
+  const isClientOrBeneficiary = user?.id_rol === 3 || user?.id_rol === 4;
+  
+  // Verificar acceso a grupos específicos
+  const hasVentasAccess = hasModuleAccess(PERMISSIONS.CONTRATOS) || hasModuleAccess(PERMISSIONS.CLIENTES)
+  const hasMembresíasAccess = hasModuleAccess(PERMISSIONS.MEMBRESIAS) || hasModuleAccess(PERMISSIONS.ASISTENCIAS)
+
+  // Para administrador, mostrar sidebar siempre
   if (!shouldRender) return null
+  
+  // Si está cargando permisos, mostrar un sidebar básico para administrador
+  if (isLoading && user?.id_rol === 1) {
+    return (
+      <aside className={sidebarClasses} aria-label="Sidebar">
+        <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-800">
+          <div className="h-16 px-4 border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 flex items-center">
+            <div className="flex gap-3 items-center w-full">
+              <img src="/favicon.ico" alt="Logo GMSF" className="h-10 w-10" />
+              <Link to="/dashboard" className="text-2xl font-bold text-black-800 font-gmsf">
+                GMSF
+              </Link>
+              <Button variant="ghost" size="icon" onClick={onClose} className="md:hidden h-8 w-8">
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+          <nav className="flex-1 overflow-y-auto py-4 px-2">
+            <div className="text-center text-gray-500 py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-sm">Cargando permisos...</p>
+            </div>
+          </nav>
+        </div>
+      </aside>
+    )
+  }
+  
+  if (isLoading) return null
 
   return (
     <aside className={sidebarClasses} aria-label="Sidebar">
       <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-800">
         {/* Encabezado del Sidebar */}
-        <div className="p-4 border-b border-gray-100">
-          <div className="flex gap-2 items-center">
-            <img
-              src="../../public/favicon.ico" // o la ruta correcta a tu imagen
-              alt="Logo GMSF"
-              className="h-8 w-8" // Ajusta el tamaño según necesites
-            /> 
-            <h2 className="text-2xl font-bold text-black-800">GMSF</h2>
-            <Button variant="ghost" size="sm" onClick={onClose} className="md:hidden p-1" aria-label="Cerrar menú">
+        <div className="h-16 px-4 border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 flex items-center">
+          <div className="flex gap-3 items-center w-full">
+            <Link
+              to="/dashboard" 
+              className="text-2xl font-bold text-black-800 font-gmsf font-normal not-italic hover:text-black-800 transition-colors duration-200 cursor-pointer"
+              onClick={() => {
+                handleItemClick("dashboard")
+                if (window.innerWidth < 768) onClose()
+              }}
+              aria-label="Ir al Dashboard"
+            >
+              <img src="/favicon.ico" alt="Logo GMSF" className="h-10 w-10" />
+            </Link>
+            <Link 
+              to="/dashboard" 
+              className="text-2xl font-bold text-black-800 font-gmsf font-normal not-italic hover:text-black-800 transition-colors duration-200 cursor-pointer"
+              onClick={() => {
+                handleItemClick("dashboard")
+                if (window.innerWidth < 768) onClose()
+              }}
+              aria-label="Ir al Dashboard"
+            >
+              GMSF
+            </Link>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={onClose} 
+              className="md:hidden h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100" 
+              aria-label="Cerrar menú"
+            >
               <X className="h-5 w-5" />
             </Button>
           </div>
         </div>
 
         {/* Área de navegación con scroll */}
-        <nav className="flex-1 overflow-y-auto py-4 text-base">
-          <ul className="space-y-0">
-            {/* 1. Panel de control - Solo para admin y trainer */}
-            {shouldShowItem([1, 2]) && (
-              <NavItem
-                icon={<LayoutDashboard className="h-5 w-5" aria-hidden="true" />}
-                label="Panel de control"
-                active={activeItem === "dashboard"}
-                onClick={() => handleItemClick("dashboard")}
-                to="/dashboard"
-                onClose={onClose}
-                id="nav-dashboard"
-              />
-            )}
-
-            {/* 2. Usuarios - Solo para admin */}
-            {shouldShowItem([1]) && (
-              <NavItem
-                icon={<BadgeCheck className="h-5 w-5" aria-hidden="true" />}
-                label="Roles"
-                active={activeItem === "roles"}
-                onClick={() => handleItemClick("roles")}
-                to="/roles"
-                onClose={onClose}
-                id="nav-users"
-              />
-            )}
-
-            {/* 2. Usuarios - Solo para admin */}
-            {shouldShowItem([1]) && (
-              <NavItem
-                icon={<Users className="h-5 w-5" aria-hidden="true" />}
-                label="Usuarios"
-                active={activeItem === "users"}
-                onClick={() => handleItemClick("users")}
-                to="/users"
-                onClose={onClose}
-                id="nav-users"
-              />
-            )}
-
-            {/* 3. Entrenadores - Solo para admin */}
-            {shouldShowItem([1]) && (
-              <NavItem
-                icon={<UserCog className="h-5 w-5" aria-hidden="true" />}
-                label="Entrenadores"
-                active={activeItem === "trainers"}
-                onClick={() => handleItemClick("trainers")}
-                to="/trainers"
-                onClose={onClose}
-                id="nav-trainers"
-              />
-            )}
-
-            {/* 4. Agenda */}
-            
-              <NavItem
-                icon={<Calendar className="h-5 w-5" aria-hidden="true" />}
-                label="Agenda"
-                active={activeItem === "calendar"}
-                onClick={() => {
-                  handleItemClick("calendar", "services")
-                  if (window.innerWidth < 768) onClose()
-                }}
-                to="/calendar"
-                onClose={onClose}
-                id="nav-trainers"
-              />
-            
-            {/* 5. Clientes y contratos */}
-            {shouldShowItem([1, 2]) && (
+        <nav className="flex-1 overflow-y-auto py-4 px-2">
+          <ul className="space-y-1">
+            {/* ✅ VISTA SIMPLIFICADA PARA CLIENTES Y BENEFICIARIOS */}
+            {isClientOrBeneficiary ? (
               <>
-                <NavItem
-                  icon={<ShoppingCartIcon className="h-5 w-5" aria-hidden="true" />}
-                  label="Ventas"
-                  active={activeGroup === "clients"}
-                  onClick={() => toggleGroup("clients")}
-                  hasSubmenu={true}
-                  expanded={activeGroup === "clients"}
-                  id="nav-clients"
-                />
-                {activeGroup === "clients" && (
-                  <ul className="py-1 mx-4 border-l border-gray-100">
-                    {/* Contratos */}
-                    <li className="my-1">
-                      <Link
-                        to="/contracts"
-                        className={cn(
-                          "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
-                          activeItem === "contracts.list"
-                            ? "text-gray-700 hover:bg-gray-100"
-                            : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+                {/* Mi Agenda */}
+                {hasModuleAccess(PERMISSIONS.HORARIOS) && (
+                  <NavItem
+                    icon={<Calendar className="h-5 w-5" aria-hidden="true" />}
+                    label="Mi Agenda"
+                    active={activeItem === "calendar"}
+                    onClick={() => {
+                      handleItemClick("calendar")
+                      if (window.innerWidth < 768) onClose()
+                    }}
+                    to="/calendar"
+                    onClose={onClose}
+                    id="nav-calendar"
+                  />
+                )}
+
+                {/* Mi Contrato */}
+                {hasModuleAccess(PERMISSIONS.CONTRATOS) && (
+                  <NavItem
+                    icon={<FileSignature className="h-5 w-5" aria-hidden="true" />}
+                    label="Mi Contrato"
+                    active={activeItem === "my-contract"}
+                    onClick={() => handleItemClick("my-contract")}
+                    to="/my-contract"
+                    onClose={onClose}
+                    id="nav-my-contract"
+                  />
+                )}
+
+                {/* Mis Asistencias */}
+                {hasModuleAccess(PERMISSIONS.ASISTENCIAS) && (
+                  <NavItem
+                    icon={<BarChart4 className="h-5 w-5" aria-hidden="true" />}
+                    label="Mis Asistencias"
+                    active={activeItem === "my-attendance"}
+                    onClick={() => {
+                      console.log('Click en Mis Asistencias, client?.id_persona:', client?.id_persona);
+                      handleItemClick("my-attendance");
+                    }}
+                    to={`/my-attendance/${client?.id_persona}`}
+                    onClose={onClose}
+                    id="nav-my-attendance"
+                  />
+                )}
+              </>
+            ) : (
+              <>
+                {/* ✅ VISTA COMPLETA PARA ADMINISTRADORES Y ENTRENADORES */}
+                
+                {/* Panel de control - Solo si tiene acceso al sistema */}
+                {hasModuleAccess(PERMISSIONS.SISTEMA) && (
+                  <NavItem
+                    icon={<LayoutDashboard className="h-5 w-5" aria-hidden="true" />}
+                    label="Panel de control"
+                    active={activeItem === "dashboard"}
+                    onClick={() => handleItemClick("dashboard")}
+                    to="/dashboard"
+                    onClose={onClose}
+                    id="nav-dashboard"
+                  />
+                )}
+
+                {/* Gestión de roles - Solo si tiene acceso al sistema */}
+                {hasModuleAccess(PERMISSIONS.SISTEMA) && (
+                  <NavItem
+                    icon={<BadgeCheck className="h-5 w-5" aria-hidden="true" />}
+                    label="Roles"
+                    active={activeItem === "roles"}
+                    onClick={() => handleItemClick("roles")}
+                    to="/roles"
+                    onClose={onClose}
+                    id="nav-roles"
+                  />
+                )}
+
+                {/* Configuración de Landing Page - Solo para administradores */}
+                {user?.id_rol === 1 && (
+                  <NavItem
+                    icon={<Globe className="h-5 w-5" aria-hidden="true" />}
+                    label="Página de Inicio"
+                    active={activeItem === "landing-settings"}
+                    onClick={() => handleItemClick("landing-settings")}
+                    to="/landing-settings"
+                    onClose={onClose}
+                    id="nav-landing-settings"
+                  />
+                )}
+
+                {/* Gestión de usuarios - Solo si tiene acceso */}
+                {hasModuleAccess(PERMISSIONS.USUARIOS) && (
+                  <NavItem
+                    icon={<Users className="h-5 w-5" aria-hidden="true" />}
+                    label="Usuarios"
+                    active={activeItem === "users"}
+                    onClick={() => handleItemClick("users")}
+                    to="/users"
+                    onClose={onClose}
+                    id="nav-users"
+                  />
+                )}
+
+                {/* Gestión de entrenadores - Solo si tiene acceso */}
+                {hasModuleAccess(PERMISSIONS.ENTRENADORES) && (
+                  <NavItem
+                    icon={<UserCog className="h-5 w-5" aria-hidden="true" />}
+                    label="Entrenadores"
+                    active={activeItem === "trainers"}
+                    onClick={() => handleItemClick("trainers")}
+                    to="/trainers"
+                    onClose={onClose}
+                    id="nav-trainers"
+                  />
+                )}
+
+                {/* Agenda - Solo si tiene acceso a horarios */}
+                {hasModuleAccess(PERMISSIONS.HORARIOS) && (
+                  <NavItem
+                    icon={<Calendar className="h-5 w-5" aria-hidden="true" />}
+                    label="Agenda"
+                    active={activeItem === "calendar"}
+                    onClick={() => {
+                      handleItemClick("calendar")
+                      if (window.innerWidth < 768) onClose()
+                    }}
+                    to="/calendar"
+                    onClose={onClose}
+                    id="nav-calendar"
+                  />
+                )}
+
+                {/* ✅ GRUPO VENTAS - Solo mostrar si tiene acceso a al menos un submódulo */}
+                {hasVentasAccess && (
+                  <>
+                    <NavItem
+                      icon={<ShoppingCartIcon className="h-5 w-5" aria-hidden="true" />}
+                      label="Ventas"
+                      active={activeGroup === "clients"}
+                      onClick={() => toggleGroup("clients")}
+                      hasSubmenu={true}
+                      expanded={activeGroup === "clients"}
+                      id="nav-clients"
+                    />
+                    {activeGroup === "clients" && (
+                      <ul className="py-2 mx-3 space-y-1">
+                        {/* Contratos - Solo si tiene acceso */}
+                        {hasModuleAccess(PERMISSIONS.CONTRATOS) && (
+                          <li>
+                            <Link
+                              to="/contracts"
+                              className={cn(
+                                "flex items-center w-full py-2 px-3 ml-3 text-sm font-medium transition-all duration-200 cursor-pointer rounded-lg border-l-2",
+                                activeItem === "contracts.list"
+                                  ? "text-gray-900 bg-gray-50 border-gray-300"
+                                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-transparent dark:text-gray-300 dark:hover:bg-gray-700",
+                              )}
+                              onClick={() => {
+                                handleItemClick("contracts.list", "clients")
+                                if (window.innerWidth < 768) onClose()
+                              }}
+                            >
+                              <span className="flex-shrink-0 text-gray-500 mr-3">
+                                <FileSignature className="h-4 w-4" aria-hidden="true" />
+                              </span>
+                              <span className="flex-1 whitespace-nowrap">Contratos</span>
+                            </Link>
+                          </li>
                         )}
-                        onClick={() => {
-                          handleItemClick("contracts.list", "clients")
-                          if (window.innerWidth < 768) onClose()
-                        }}
-                      >
-                        <span className="flex-shrink-0 text-gray-500 mr-3">
-                          <FileSignature className="h-5 w-5" aria-hidden="true" />
-                        </span>
-                        <span className="flex-1 whitespace-nowrap">Contratos</span>
-                      </Link>
-                    </li>
-                    {/* Personas */}
-                    <li className="my-1">
-                      <Link
-                        to="/clients"
-                        className={cn(
-                          "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
-                          activeItem === "clients.list"
-                            ? "text-gray-700 hover:bg-gray-100"
-                            : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
+
+                        {/* Clientes - Solo si tiene acceso */}
+                        {hasModuleAccess(PERMISSIONS.CLIENTES) && (
+                          <li>
+                            <Link
+                              to="/clients"
+                              className={cn(
+                                "flex items-center w-full py-2 px-3 ml-3 text-sm font-medium transition-all duration-200 cursor-pointer rounded-lg border-l-2",
+                                activeItem === "clients.list"
+                                  ? "text-gray-900 bg-gray-50 border-gray-300"
+                                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-transparent dark:text-gray-300 dark:hover:bg-gray-700",
+                              )}
+                              onClick={() => {
+                                handleItemClick("clients.list", "clients")
+                                if (window.innerWidth < 768) onClose()
+                              }}
+                            >
+                              <span className="flex-shrink-0 text-gray-500 mr-3">
+                                <User className="h-4 w-4" aria-hidden="true" />
+                              </span>
+                              <span className="flex-1 whitespace-nowrap">Clientes</span>
+                            </Link>
+                          </li>
                         )}
-                        onClick={() => {
-                          handleItemClick("clients.list", "clients")
-                          if (window.innerWidth < 768) onClose()
-                        }}
-                      >
-                        <span className="flex-shrink-0 text-gray-500 mr-3">
-                          <User className="h-5 w-5" aria-hidden="true" />
-                        </span>
-                        <span className="flex-1 whitespace-nowrap">Personas</span>
-                      </Link>
-                    </li>
-                  </ul>
+                      </ul>
+                    )}
+                  </>
+                )}
+
+                {/* ✅ GRUPO MEMBRESÍAS - Solo mostrar si tiene acceso a al menos un submódulo */}
+                {hasMembresíasAccess && (
+                  <>
+                    <NavItem
+                      icon={<UserCheck className="h-5 w-5" aria-hidden="true" />}
+                      label="Membresías"
+                      active={activeGroup === "memberships"}
+                      onClick={() => toggleGroup("memberships")}
+                      hasSubmenu={true}
+                      expanded={activeGroup === "memberships"}
+                      id="nav-memberships"
+                    />
+                    {activeGroup === "memberships" && (
+                      <ul className="py-2 mx-3 space-y-1">
+                        {/* Membresías - Solo mostrar si tiene acceso */}
+                        {hasModuleAccess(PERMISSIONS.MEMBRESIAS) && (
+                          <li>
+                            <Link
+                              to="/memberships"
+                              className={cn(
+                                "flex items-center w-full py-2 px-3 ml-3 text-sm font-medium transition-all duration-200 cursor-pointer rounded-lg border-l-2",
+                                activeItem === "memberships.list"
+                                  ? "text-gray-900 bg-gray-50 border-gray-300"
+                                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-transparent dark:text-gray-300 dark:hover:bg-gray-700",
+                              )}
+                              onClick={() => {
+                                handleItemClick("memberships.list", "memberships")
+                                if (window.innerWidth < 768) onClose()
+                              }}
+                            >
+                              <span className="flex-shrink-0 text-gray-500 mr-3">
+                                <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
+                              </span>
+                              <span className="flex-1 whitespace-nowrap">Membresías</span>
+                            </Link>
+                          </li>
+                        )}
+
+                        {/* Asistencia - Solo mostrar si tiene acceso */}
+                        {hasModuleAccess(PERMISSIONS.ASISTENCIAS) && (
+                          <li>
+                            <Link
+                              to="/attendance"
+                              className={cn(
+                                "flex items-center w-full py-2 px-3 ml-3 text-sm font-medium transition-all duration-200 cursor-pointer rounded-lg border-l-2",
+                                activeItem === "attendance.list"
+                                  ? "text-gray-900 bg-gray-50 border-gray-300"
+                                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-transparent dark:text-gray-300 dark:hover:bg-gray-700",
+                              )}
+                              onClick={() => {
+                                handleItemClick("attendance.list", "memberships")
+                                if (window.innerWidth < 768) onClose()
+                              }}
+                            >
+                              <span className="flex-shrink-0 text-gray-500 mr-3">
+                                <BarChart4 className="h-4 w-4" aria-hidden="true" />
+                              </span>
+                              <span className="flex-1 whitespace-nowrap">Asistencia</span>
+                            </Link>
+                          </li>
+                        )}
+                      </ul>
+                    )}
+                  </>
                 )}
               </>
             )}
 
-            {/* 6. Membresías y asistencia */}
-            {shouldShowItem([1, 2]) && (
-              <>
-                <NavItem
-                  icon={<UserCheck className="h-5 w-5" aria-hidden="true" />}
-                  label="Membresías"
-                  active={activeGroup === "memberships"}
-                  onClick={() => toggleGroup("memberships")}
-                  hasSubmenu={true}
-                  expanded={activeGroup === "memberships"}
-                  id="nav-memberships"
-                />
-                {activeGroup === "memberships" && (
-                  <ul className="py-1 mx-4 border-l border-gray-100">
-                    {/* Membresías */}
-                    <li className="my-1">
-                      <Link
-                        to="/memberships"
-                        className={cn(
-                          "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
-                          activeItem === "memberships.list"
-                            ? "text-gray-700 hover:bg-gray-100"
-                            : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
-                        )}
-                        onClick={() => {
-                          handleItemClick("memberships.list", "memberships")
-                          if (window.innerWidth < 768) onClose()
-                        }}
-                      >
-                        <span className="flex-shrink-0 text-gray-500 mr-3">
-                          <ClipboardCheck className="h-5 w-5" aria-hidden="true" />
-                        </span>
-                        <span className="flex-1 whitespace-nowrap">Membresías</span>
-                      </Link>
-                    </li>
-                    {/* Asistencia */}
-                    <li className="my-1">
-                      <Link
-                        to="/attendance"
-                        className={cn(
-                          "flex items-center w-full py-2 px-4 text-base font-normal transition duration-75 cursor-pointer ml-2",
-                          activeItem === "attendance.list"
-                            ? "text-gray-700 hover:bg-gray-100"
-                            : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700",
-                        )}
-                        onClick={() => {
-                          handleItemClick("attendance.list", "memberships")
-                          if (window.innerWidth < 768) onClose()
-                        }}
-                      >
-                        <span className="flex-shrink-0 text-gray-500 mr-3">
-                          <BarChart4 className="h-5 w-5" aria-hidden="true" />
-                        </span>
-                        <span className="flex-1 whitespace-nowrap">Asistencia</span>
-                      </Link>
-                    </li>
-                  </ul>
-                )}
-              </>
-            )}
+            {/* Separador visual */}
+            <li className="mx-3 my-3">
+              <hr className="border-gray-200 dark:border-gray-600" />
+            </li>
 
-            {/* 7. Retroalimentación - Encuestas
-            {shouldShowItem([1, 2]) && (
-              <NavItem
-                icon={<MessageSquare className="h-5 w-5" aria-hidden="true" />}
-                label="Encuestas"
-                active={activeItem === "surveys.list"}
-                onClick={() => handleItemClick("surveys.list", "feedback")}
-                to="/surveys"
-                onClose={onClose}
-                id="nav-surveys"
-              />
-            )}  */}
-
-            {/* Cerrar Sesión */}
+            {/* Cerrar Sesión - Siempre visible */}
             <NavItem
-                icon={<LogOut className="h-5 w-5 text-red-600" aria-hidden="true" />}
-                label="Cerrar Sesión"
-                active={false}
-                onClick={logout}
-                onClose={onClose}
-                id="nav-logout"
-                className="text-red-600 hover:text-red-700"
+              icon={<LogOut className="h-5 w-5 text-red-600" aria-hidden="true" />}
+              label="Cerrar Sesión"
+              active={false}
+              onClick={logout}
+              onClose={onClose}
+              id="nav-logout"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
             />
           </ul>
         </nav>

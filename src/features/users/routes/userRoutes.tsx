@@ -1,23 +1,23 @@
 import { RouteObject } from "react-router-dom";
-import { ProtectedRoute } from "../../auth/components/protectedRoute";
 import ProfilePage from "@/features/auth/pages/profilePage";
 import UsersPage from "../pages/usersPage";
+import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
 
 export const userRoutes: RouteObject[] = [
     {
         path: "/users",
         element: (
-        <ProtectedRoute allowedRoles={[1]}>    
-        <UsersPage/>
-        </ProtectedRoute>
-    )
+            <PermissionProtectedRoute 
+                requiredModule="USUARIOS" 
+                requiredPrivilege="USER_READ"
+                // ✅ Solo permisos de BD - Sin fallbacks
+            >    
+                <UsersPage/>
+            </PermissionProtectedRoute>
+        )
     },
     {
         path: "/profile",
-        element: (
-        <ProtectedRoute allowedRoles={[1, 2, 3]}>    
-        <ProfilePage/>
-        </ProtectedRoute>
-    )
+        element: <ProfilePage/>
     }
 ];

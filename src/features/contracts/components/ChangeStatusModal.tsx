@@ -1,4 +1,3 @@
-import type React from "react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -13,6 +12,15 @@ import { Info } from "lucide-react"
 
 const changeStatusSchema = z.object({
     estado: z.enum(["Activo", "Congelado", "Vencido", "Cancelado", "Por vencer"]),
+    motivo: z.string().optional(),
+}).refine(data => {
+    if ((data.estado === "Congelado" || data.estado === "Cancelado") && (!data.motivo || data.motivo.trim().length < 10)) {
+        return false
+    }
+    return true
+}, {
+    message: "Se requiere un motivo de al menos 10 caracteres para congelar o cancelar.",
+    path: ["motivo"],
 })
 
 type ChangeStatusFormValues = z.infer<typeof changeStatusSchema>
@@ -44,6 +52,9 @@ export function ChangeStatusModal({ contract, onUpdateContract, onClose }: Chang
         const updateData: Partial<ChangeStatusFormValues> & { usuario_actualizacion?: number } = {
             estado: data.estado,
             usuario_actualizacion: user?.id ? Number(user.id) : undefined,
+        }
+        if (data.motivo) {
+            updateData.motivo = data.motivo
         }
         onUpdateContract(updateData)
         onClose()
@@ -89,6 +100,24 @@ export function ChangeStatusModal({ contract, onUpdateContract, onClose }: Chang
                     />
                     {errors.estado && <p className="text-red-500 text-sm">{errors.estado.message}</p>}
                 </div>
+
+                {(watchStatus === "Congelado" || watchStatus === "Cancelado") && (
+                    <div className="space-y-2">
+                        <Label htmlFor="motivo">Motivo del cambio *</Label>
+                        <Controller
+                            name="motivo"
+                            control={control}
+                            render={({ field }) => (
+                                <Textarea
+                                    id="motivo"
+                                    placeholder={`Escribe el motivo de la ${watchStatus === 'Congelado' ? 'congelación' : 'cancelación'}...`}
+                                    {...field}
+                                />
+                            )}
+                        />
+                        {errors.motivo && <p className="text-red-500 text-sm">{errors.motivo.message}</p>}
+                    </div>
+                )}
 
                 {watchStatus === "Congelado" && (
                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">

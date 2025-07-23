@@ -13,7 +13,7 @@ import { format, isBefore, startOfDay, differenceInMinutes } from "date-fns"
 import { es } from "date-fns/locale"
 import type { Training } from "@/shared/types/training"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
-import { CalendarIcon, Clock, User, Dumbbell, Info, FileText, Check, ChevronsUpDown } from "lucide-react"
+import { CalendarIcon, Clock, User, Dumbbell, FileText, Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/shared/lib/utils";
 
 const trainingSchema = z.object({
@@ -24,17 +24,42 @@ const trainingSchema = z.object({
     estado: z.enum(["Programado", "En proceso", "Completado", "Cancelado"]),
     id_cliente: z.number().min(1, "El cliente es requerido"),
     id_entrenador: z.number().min(1, "El entrenador es requerido"),
+}).refine((data) => {
+    if (data.fecha_inicio && data.fecha_fin) {
+        const startDate = new Date(data.fecha_inicio);
+        const endDate = new Date(data.fecha_fin);
+        const durationMinutes = differenceInMinutes(endDate, startDate);
+        const durationHours = durationMinutes / 60;
+        
+        if (durationHours > 2) {
+            return false;
+        }
+    }
+    return true;
+}, {
+    message: "La duración del entrenamiento no puede exceder 2 horas",
+    path: ["fecha_fin"],
 })
 
 type TrainingFormData = z.infer<typeof trainingSchema>
+
+interface TrainerOption {
+    id: number;
+    name: string;
+}
+
+interface ClientOption {
+    id: number;
+    name: string;
+}
 
 interface TrainingDetailsFormProps {
     training: Training | null;
     onUpdate: (data: Partial<Training>) => void;
     onDelete: () => void;
     onClose: () => void;
-    trainers: Array<{ id: string; name: string }>;
-    clients: Array<{ id: string; name: string }>;
+    trainers: TrainerOption[];
+    clients: ClientOption[];
 }
 
 export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, trainers = [], clients = [] }: TrainingDetailsFormProps) {
@@ -46,9 +71,6 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
 
     const isReadOnly = training.estado === "Completado" || training.estado === "Cancelado";
     const isInProgress = training.estado === "En proceso";
-
-    const validTrainers = Array.isArray(trainers) ? trainers.filter(trainer => trainer && trainer.id && trainer.id.toString().trim() !== '') : [];
-    const validClients = Array.isArray(clients) ? clients.filter(client => client && client.id && client.id.toString().trim() !== '') : [];
 
     const {
         register,
@@ -73,14 +95,29 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
     const watchFields = watch();
 
     const summaryData = useMemo(() => {
-        const client = clients.find(c => c.id === watchFields.id_cliente?.toString());
-        const trainer = trainers.find(t => t.id === watchFields.id_entrenador?.toString());
+        const client = clients.find(c => c.id === watchFields.id_cliente);
+        const trainer = trainers.find(t => t.id === watchFields.id_entrenador);
         const startDate = watchFields.fecha_inicio ? new Date(watchFields.fecha_inicio) : null;
         const endDate = watchFields.fecha_fin ? new Date(watchFields.fecha_fin) : null;
         
         let duration = null;
+        let durationText = '...';
+        
         if (startDate && endDate) {
-            duration = differenceInMinutes(endDate, startDate);
+            const durationMinutes = differenceInMinutes(endDate, startDate);
+            if (durationMinutes >= 0) {
+                duration = durationMinutes;
+                const hours = Math.floor(durationMinutes / 60);
+                const minutes = durationMinutes % 60;
+                
+                if (hours > 0) {
+                    durationText = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+                } else {
+                    durationText = `${minutes}m`;
+                }
+            } else {
+                durationText = 'Duración inválida';
+            }
         }
 
         return {
@@ -89,6 +126,7 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
             startDate,
             endDate,
             duration,
+            durationText,
         }
     }, [watchFields, clients, trainers]);
 
@@ -102,10 +140,20 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
     const handleFormSubmit = async (data: TrainingFormData) => {
         setIsLoading(true)
         try {
-            await onUpdate(data)
+            await onUpdate({
+                ...data,
+                id: training.id,
+                fecha_inicio: new Date(data.fecha_inicio),
+                fecha_fin: new Date(data.fecha_fin),
+            });
             onClose()
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error updating training:", error)
+            // El error ya se maneja en el componente padre (SchedulePage)
+            // pero agregamos un log específico para debugging
+            if (error?.response?.data?.message?.includes("exceder 2 horas")) {
+                console.error("Duración excede 2 horas:", error)
+            }
         } finally {
             setIsLoading(false)
         }
@@ -149,8 +197,13 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
                             <div className="flex items-center gap-2 font-medium">
                                 <Clock className="h-4 w-4" /> Duración
                             </div>
-                            <p className="text-gray-600 text-sm">
-                                {summaryData.duration !== null ? `${summaryData.duration} minutos` : "..."}
+                            <p className={cn("text-sm", 
+                                summaryData.duration !== null && summaryData.duration > 120 
+                                  ? "text-red-600 font-medium" 
+                                  : "text-gray-600")}>
+                                {summaryData.durationText}
+                                {summaryData.duration !== null && summaryData.duration > 120 && 
+                                  " (excede 2 horas)"}
                             </p>
                         </div>
                     </CardContent>
@@ -213,7 +266,7 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
                                 <Popover>
                                     <PopoverTrigger asChild disabled={isReadOnly}>
                                         <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                                            {field.value ? validClients.find(c => c.id === field.value.toString())?.name : "Seleccione un cliente"}
+                                            {field.value ? clients.find(c => c.id === field.value)?.name : "Seleccione un cliente"}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
@@ -222,15 +275,15 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
                                             <CommandInput placeholder="Buscar cliente..." />
                                             <CommandEmpty>No se encontró el cliente.</CommandEmpty>
                                             <CommandGroup>
-                                                {validClients.map(client => (
+                                                {clients.map(client => (
                                                     <CommandItem
                                                         key={client.id}
                                                         value={client.name}
                                                         onSelect={() => {
-                                                            setValue("id_cliente", parseInt(client.id, 10));
+                                                            setValue("id_cliente", client.id);
                                                         }}
                                                     >
-                                                        <Check className={cn("mr-2 h-4 w-4", field.value === parseInt(client.id, 10) ? "opacity-100" : "opacity-0")} />
+                                                        <Check className={cn("mr-2 h-4 w-4", field.value === client.id ? "opacity-100" : "opacity-0")} />
                                                         {client.name}
                                                     </CommandItem>
                                                 ))}
@@ -252,7 +305,7 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
                                 <Popover>
                                     <PopoverTrigger asChild disabled={isReadOnly}>
                                         <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                                            {field.value ? validTrainers.find(t => t.id === field.value.toString())?.name : "Seleccione un entrenador"}
+                                            {field.value ? trainers.find(t => t.id === field.value)?.name : "Seleccione un entrenador"}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </PopoverTrigger>
@@ -261,15 +314,15 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
                                             <CommandInput placeholder="Buscar entrenador..." />
                                             <CommandEmpty>No se encontró el entrenador.</CommandEmpty>
                                             <CommandGroup>
-                                                {validTrainers.map(trainer => (
+                                                {trainers.map(trainer => (
                                                     <CommandItem
                                                         key={trainer.id}
                                                         value={trainer.name}
                                                         onSelect={() => {
-                                                            setValue("id_entrenador", parseInt(trainer.id, 10));
+                                                            setValue("id_entrenador", trainer.id);
                                                         }}
                                                     >
-                                                        <Check className={cn("mr-2 h-4 w-4", field.value === parseInt(trainer.id, 10) ? "opacity-100" : "opacity-0")} />
+                                                        <Check className={cn("mr-2 h-4 w-4", field.value === trainer.id ? "opacity-100" : "opacity-0")} />
                                                         {trainer.name}
                                                     </CommandItem>
                                                 ))}
@@ -315,10 +368,26 @@ export function TrainingDetailsForm({ training, onUpdate, onDelete, onClose, tra
                             <Button type="button" variant="outline" onClick={onClose}>
                                 Cancelar
                             </Button>
-                            <Button type="submit" disabled={isLoading} className="bg-black hover:bg-gray-800">
+                            <Button 
+                                type="submit" 
+                                disabled={isLoading || (summaryData.duration !== null && summaryData.duration > 120)} 
+                                className={cn(
+                                    "bg-black hover:bg-gray-800",
+                                    summaryData.duration !== null && summaryData.duration > 120 && 
+                                    "bg-gray-400 cursor-not-allowed"
+                                )}
+                            >
                                 {isLoading ? "Guardando..." : "Guardar Cambios"}
                             </Button>
                         </div>
+                    </div>
+                )}
+                
+                {!isReadOnly && summaryData.duration !== null && summaryData.duration > 120 && (
+                    <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                        <p className="text-sm text-red-600 font-medium">
+                            ⚠️ La duración excede las 2 horas permitidas. Por favor, ajuste las fechas para poder guardar el entrenamiento.
+                        </p>
                     </div>
                 )}
             </div>

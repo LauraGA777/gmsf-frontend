@@ -1,9 +1,17 @@
 import { useState, useMemo, useEffect } from "react"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
+import Swal from 'sweetalert2'
+
+// UI Components
 import { Button } from "@/shared/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table"
+import { Badge } from "@/shared/components/ui/badge"
+import { Calendar } from "@/shared/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
 import {
   Dialog,
   DialogContent,
@@ -24,228 +32,190 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/shared/components/ui/alert-dialog"
-import { Badge } from "@/shared/components/ui/badge"
-import { Calendar } from "@/shared/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
-import { Search, Plus, RefreshCw, Eye, Trash2, CalendarIcon, Users, Clock, CheckCircle } from "lucide-react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
+
+// Icons
+import { 
+  Search, 
+  Plus, 
+  RefreshCw, 
+  Eye, 
+  Trash2, 
+  CalendarIcon, 
+  Users, 
+  Clock, 
+  CheckCircle 
+} from "lucide-react"
+
+// Types and Services
 import { AttendanceRecord, UserRole } from "@/shared/types/types"
-import Swal from 'sweetalert2'
 import { attendanceService } from "../services/attendanceService"
 
 export default function AttendanceRegistry() {
-    const [userRole] = useState<UserRole>(1) // 1 = Administrador
-    const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([])
-    const [searchTerm, setSearchTerm] = useState("")
-    const [selectedDate, setSelectedDate] = useState<Date>(new Date())
-    const [isManualRegistryOpen, setIsManualRegistryOpen] = useState(false)
-    const [isDetailsOpen, setIsDetailsOpen] = useState(false)
-    const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null)
-    const [documentNumber, setDocumentNumber] = useState("")
-    const [isLoading, setIsLoading] = useState(false)
-    const [page, setPage] = useState(1)
-    const [totalPages, setTotalPages] = useState(1)
-    const [stats, setStats] = useState({
-      total: 0,
-      activos: 0,
-      eliminados: 0
-    })
-  
-    // Cargar datos iniciales
-    useEffect(() => {
-      fetchAttendanceData()
-      fetchStats()
-    }, [page])
-  
-    // Obtener datos de asistencia
-    const fetchAttendanceData = async () => {
-      try {
-        setIsLoading(true)
-        const response = await attendanceService.getAttendances(page)
-        setAttendanceData(response.data)
-        setTotalPages(response.totalPages)
-      } catch (error) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'Error al cargar los registros de asistencia',
-          confirmButtonColor: '#3085d6',
-        })
-        console.error(error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-  
-    // Obtener estadísticas
-    const fetchStats = async () => {
-      try {
-        const response = await attendanceService.getAttendanceStats(selectedDate)
-        setStats(response)
-      } catch (error) {
-        console.error("Error al cargar estadísticas:", error)
-      }
-    }
-  
-    // Filtrar datos
-    const filteredData = useMemo(() => {
-      if (!searchTerm) return attendanceData
-      
-      return attendanceData.filter((record) => {
-        const matchesSearch =
-          record.persona?.usuario?.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          record.persona?.usuario?.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          record.persona?.usuario?.numero_documento.includes(searchTerm) ||
-          record.persona?.codigo.toLowerCase().includes(searchTerm.toLowerCase())
-  
-        return matchesSearch && record.estado === "Activo"
+  // Constants
+  const [userRole] = useState<UserRole>(1) // 1 = Administrador
+
+  // State
+  const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [isManualRegistryOpen, setIsManualRegistryOpen] = useState(false)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null)
+  const [documentNumber, setDocumentNumber] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Load initial data
+  useEffect(() => {
+    fetchAttendanceData()
+  }, [])
+
+  // Fetch attendance data
+  const fetchAttendanceData = async () => {
+    try {
+      setIsLoading(true)
+      const response = await attendanceService.getAttendances({})
+      setAttendanceData(response.data || [])
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al cargar los registros de asistencia',
+        confirmButtonColor: '#3085d6',
       })
-    }, [attendanceData, searchTerm])
-  
-    // Registrar asistencia manual
-    const handleManualRegistry = async () => {
-      const trimmedDocument = documentNumber.trim();
-      if (!trimmedDocument) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'Por favor ingrese un número de documento válido',
-          confirmButtonColor: '#3085d6',
-        })
-        return
-      }
+      console.error(error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  // Memoized filtered data
+  const filteredData = useMemo(() => {
+    if (!searchTerm) return attendanceData.filter(record => record.estado === "Activo")
+    
+    const term = searchTerm.toLowerCase()
+    return attendanceData.filter((record) => {
+      const matchesSearch =
+        record.persona?.usuario?.nombre.toLowerCase().includes(term) ||
+        record.persona?.usuario?.apellido.toLowerCase().includes(term) ||
+        record.persona?.usuario?.numero_documento.includes(searchTerm) ||
+        record.persona?.codigo.toLowerCase().includes(term)
 
-      try {
-        setIsLoading(true)
-        const newRecord = await attendanceService.registerAttendance(trimmedDocument)
-        setAttendanceData((prev) => [newRecord, ...prev])
-        setDocumentNumber("")
-        setIsManualRegistryOpen(false)
-        Swal.fire({
-          icon: 'success',
-          title: '¡Éxito!',
-          text: 'Asistencia registrada exitosamente',
-          confirmButtonColor: '#3085d6',
-        })
-        fetchStats() // Actualizar estadísticas
-      } catch (error: any) {
-        const errorMessage = error.response?.data?.message || "Error al registrar la asistencia"
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: errorMessage,
-          confirmButtonColor: '#3085d6',
-        })
-        console.error("Error detallado:", error)
-      } finally {
-        setIsLoading(false)
-      }
+      return matchesSearch && record.estado === "Activo"
+    })
+  }, [attendanceData, searchTerm])
+  // Event handlers
+  const handleManualRegistry = async () => {
+    const trimmedDocument = documentNumber.trim()
+    if (!trimmedDocument) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Por favor ingrese un número de documento válido',
+        confirmButtonColor: '#3085d6',
+      })
+      return
     }
-  
-    // Eliminar registro
-    const handleDeleteRecord = async (id: number) => {
-      if (!id || isNaN(id)) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'ID de asistencia inválido',
-          confirmButtonColor: '#3085d6',
-        })
-        return
-      }
 
-      try {
-        await attendanceService.deleteAttendance(id)
-        setAttendanceData((prev) =>
-          prev.map((record) =>
-            record.id === id
-              ? { ...record, estado: "Eliminado" as const, fecha_actualizacion: new Date().toISOString() }
-              : record,
-          ),
-        )
-        Swal.fire({
-          icon: 'success',
-          title: '¡Éxito!',
-          text: 'Registro eliminado exitosamente',
-          confirmButtonColor: '#3085d6',
-        })
-        fetchStats() // Actualizar estadísticas
-      } catch (error: any) {
-        const errorMessage = error.response?.data?.message || error.message || 'Error al eliminar el registro'
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: errorMessage,
-          confirmButtonColor: '#3085d6',
-        })
-        console.error("Error detallado:", error)
-      }
+    try {
+      setIsLoading(true)
+      const newRecord = await attendanceService.registerAttendance(trimmedDocument)
+      setAttendanceData((prev) => [newRecord, ...prev])
+      setDocumentNumber("")
+      setIsManualRegistryOpen(false)
+      
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'Asistencia registrada exitosamente',
+        confirmButtonColor: '#3085d6',
+      })
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || "Error al registrar la asistencia"
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: errorMessage,
+        confirmButtonColor: '#3085d6',
+      })
+      console.error("Error:", error)
+    } finally {
+      setIsLoading(false)
     }
-  
-    // Refrescar datos
-    const handleRefresh = () => {
-      fetchAttendanceData()
-      fetchStats()
-    }
-  
-    // Buscar registros
-    const handleSearch = async () => {
-      if (!searchTerm.trim()) {
-        fetchAttendanceData()
-        return
-      }
-  
-      try {
-        setIsLoading(true)
-        const response = await attendanceService.searchAttendances(searchTerm, page)
-        setAttendanceData(response.data)
-        setTotalPages(response.totalPages)
-      } catch (error) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'Error al buscar registros',
-          confirmButtonColor: '#3085d6',
-        })
-        console.error(error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-  
-    // Ver detalles del registro
-    const handleViewDetails = async (id: number) => {
-      if (!id || isNaN(id)) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'ID de asistencia inválido',
-          confirmButtonColor: '#3085d6',
-        })
-        return
-      }
+  }
 
-      try {
-        const record = await attendanceService.getAttendanceDetails(id)
-        setSelectedRecord(record)
-        setIsDetailsOpen(true)
-      } catch (error: any) {
-        const errorMessage = error.response?.data?.message || error.message || 'Error al cargar los detalles del registro'
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: errorMessage,
-          confirmButtonColor: '#3085d6',
-        })
-        console.error("Error detallado:", error)
-      }
+  const handleDeleteRecord = async (id: number) => {
+    if (!id || isNaN(id)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'ID de asistencia inválido',
+        confirmButtonColor: '#3085d6',
+      })
+      return
     }
+
+    try {
+      await attendanceService.deleteAttendance(id)
+      setAttendanceData((prev) =>
+        prev.map((record) =>
+          record.id === id
+            ? { ...record, estado: "Eliminado" as const, fecha_actualizacion: new Date().toISOString() }
+            : record,
+        ),
+      )
+      
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'Registro eliminado exitosamente',
+        confirmButtonColor: '#3085d6',
+      })
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Error al eliminar el registro'
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: errorMessage,
+        confirmButtonColor: '#3085d6',
+      })
+      console.error("Error:", error)
+    }
+  }
+
+  const handleViewDetails = async (id: number) => {
+    if (!id || isNaN(id)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'ID de asistencia inválido',
+        confirmButtonColor: '#3085d6',
+      })
+      return
+    }
+
+    try {
+      const record = await attendanceService.getAttendanceDetails(id)
+      setSelectedRecord(record)
+      setIsDetailsOpen(true)
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Error al cargar los detalles del registro'
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: errorMessage,
+        confirmButtonColor: '#3085d6',
+      })
+      console.error("Error:", error)
+    }
+  }
+
+  const handleRefresh = () => {
+    fetchAttendanceData()
+  }
   
     return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      <div className="container mx-auto px-4 py-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          {/* Header Section */}
+          {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Asistencia</h1>
@@ -333,7 +303,7 @@ export default function AttendanceRegistry() {
             </Card>
           </div>
   
-          {/* Filter Section */}
+          {/* Filters */}
           <Card>
             <CardContent className="p-6">
               <div className="flex flex-col md:flex-row gap-4">
@@ -372,8 +342,8 @@ export default function AttendanceRegistry() {
               </div>
             </CardContent>
           </Card>
-  
-          {/* Data Table Section */}
+
+          {/* Data Table */}
           <Card>
             <CardHeader>
               <CardTitle>Registros de Asistencia</CardTitle>
@@ -418,13 +388,19 @@ export default function AttendanceRegistry() {
                           </TableCell>
                           <TableCell className="font-mono">{record.persona?.usuario?.numero_documento}</TableCell>
                           <TableCell>
-                            <Badge variant={record.contrato?.estado === "Activo" ? "default" : "secondary"}>
+                            <Badge 
+                              variant={record.contrato?.estado === "Activo" ? "default" : "destructive"}
+                              className="hover:bg-default"
+                            >
                               {record.contrato?.estado}
                             </Badge>
                           </TableCell>
                           <TableCell className="font-mono">{record.hora_registro}</TableCell>
                           <TableCell>
-                            <Badge variant={record.contrato?.estado === "Activo" ? "default" : "destructive"}>
+                            <Badge 
+                              variant={record.contrato?.estado === "Activo" ? "default" : "destructive"}
+                              className="hover:bg-default"
+                            >
                               {record.contrato?.estado}
                             </Badge>
                           </TableCell>

@@ -8,9 +8,8 @@ import {
   TableCell,
 } from "@/shared/components/ui/table"
 import { Button } from "@/shared/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogTrigger } from "@/shared/components/ui/dialog"
+import { Dialog, DialogContent } from "@/shared/components/ui/dialog"
 import {
-  Plus,
   Eye,
   Ban,
   ChevronLeft,
@@ -21,13 +20,11 @@ import {
   Edit,
   Power,
   Snowflake,
-  CreditCard,
   MoreHorizontal,
   Trash2,
   FileText
 } from "lucide-react"
 import { format } from "date-fns"
-import { NewContractForm } from "./newContractForm"
 import { ContractDetails } from "@/features/contracts/components/contractDetails"
 import { useAuth } from "@/shared/contexts/authContext"
 import type { Contract, Client, Membership } from "@/shared/types"
@@ -36,7 +33,7 @@ import { formatCOP, cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
 import { EditContractModal } from "./editContractModal"
 import { ChangeStatusModal } from "./ChangeStatusModal"
-import { DialogTitle } from "@/shared/components/ui/dialog"
+import { DialogTitle, DialogHeader } from "@/shared/components/ui/dialog"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import {
   DropdownMenu,
@@ -55,7 +52,7 @@ interface ContractsTableProps {
   memberships: Membership[]
   clients: Client[]
   isLoading: boolean
-  onUpdateContract: (id: number, updates: Partial<Contract>) => void
+  onUpdateContract: (id: number, updates: Partial<Contract & { motivo?: string }>) => void
   onDeleteContract: (id: number) => void
   pagination: {
     total: number
@@ -87,7 +84,7 @@ export function ContractsTable({
   const [statusChangeContract, setStatusChangeContract] = useState<Contract | null>(null)
   const { toast } = useToast()
 
-  const isAdmin = useMemo(() => user?.role === "ADMIN", [user])
+  const isAdmin = useMemo(() => user?.roleName === "ADMIN", [user])
   const columns = isAdmin ? 8 : 7
 
   const handleViewContract = (contract: Contract) => {
@@ -157,18 +154,25 @@ export function ContractsTable({
     }
   }
   
-  const handleUpdateContract = (id: number, updates: Partial<Contract>) => {
-    onUpdateContract(id, updates);
-    setIsEditModalOpen(false);
+  const handleUpdateContract = (updates: Partial<Contract>) => {
+    if (editingContract) {
+      onUpdateContract(editingContract.id, updates);
+      setIsEditModalOpen(false);
+      setEditingContract(null);
+    }
   }
 
-  const handleStatusUpdate = (id: number, updates: Partial<Contract>) => {
-    onUpdateContract(id, updates);
-    toast({
-      title: `Estado actualizado`,
-      description: `El contrato ahora está en estado: ${updates.estado}`,
-      type: "success",
-    })
+  const handleStatusUpdate = (updates: Partial<Contract & { motivo?: string }>) => {
+    if (statusChangeContract) {
+      onUpdateContract(statusChangeContract.id, updates);
+      setIsStatusModalOpen(false);
+      setStatusChangeContract(null);
+      toast({
+        title: `Estado actualizado`,
+        description: `El contrato ahora está en estado: ${updates.estado || 'actualizado'}`,
+        variant: "default",
+      })
+    }
   }
 
   if (isLoading) {
@@ -208,7 +212,7 @@ export function ContractsTable({
                 const status = getContractStatus(contract)
                 const client = clients.find(c => c.id_persona === contract.id_persona)
                 const membership = memberships.find(
-                  m => String(m.id) === String(contract.id_membresia)
+                  m => m.id === contract.id_membresia
                 )
                 return (
                   <TableRow key={contract.id} className="hover:bg-gray-50">
@@ -303,29 +307,60 @@ export function ContractsTable({
         </div>
       )}
 
-      {selectedContract && isViewModalOpen && (
+      {/* Modal para ver detalles */}
+      {selectedContract && (
         <ContractDetails
           contract={selectedContract}
           isOpen={isViewModalOpen}
-          onClose={() => setIsViewModalOpen(false)}
+          onClose={() => {
+            setIsViewModalOpen(false)
+            setSelectedContract(null)
+          }}
         />
       )}
-      {editingContract && isEditModalOpen && (
-        <EditContractModal
-          contract={editingContract}
-          onUpdateContract={handleUpdateContract}
-          onClose={() => setIsEditModalOpen(false)}
-          clients={clients}
-          memberships={memberships}
-        />
+
+      {/* Modal para editar contrato */}
+      {editingContract && (
+        <Dialog open={isEditModalOpen} onOpenChange={() => {
+          setIsEditModalOpen(false)
+          setEditingContract(null)
+        }}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                <VisuallyHidden>Editar Contrato</VisuallyHidden>
+              </DialogTitle>
+            </DialogHeader>
+            <EditContractModal
+              contract={editingContract}
+              memberships={memberships}
+              onUpdateContract={handleUpdateContract}
+              onClose={() => {
+                setIsEditModalOpen(false)
+                setEditingContract(null)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       )}
-      {statusChangeContract && isStatusModalOpen && (
-        <ChangeStatusModal
-          contract={statusChangeContract}
-          isOpen={isStatusModalOpen}
-          onClose={() => setIsStatusModalOpen(false)}
-          onUpdateStatus={handleStatusUpdate}
-        />
+
+      {/* Modal para cambiar estado */}
+      {statusChangeContract && (
+        <Dialog open={isStatusModalOpen} onOpenChange={() => {
+          setIsStatusModalOpen(false)
+          setStatusChangeContract(null)
+        }}>
+          <DialogContent>
+            <ChangeStatusModal
+              contract={statusChangeContract}
+              onUpdateContract={handleStatusUpdate}
+              onClose={() => {
+                setIsStatusModalOpen(false)
+                setStatusChangeContract(null)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </>
   )

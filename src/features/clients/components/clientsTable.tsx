@@ -1,7 +1,6 @@
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/shared/components/ui/table"
 import { Button } from "@/shared/components/ui/button"
-import { Dialog, DialogContent } from "@/shared/components/ui/dialog"
 import {
   Eye,
   Edit,
@@ -15,9 +14,10 @@ import {
 } from "lucide-react"
 import { format } from "date-fns"
 import { ClientDetails } from "./clientDetails"
-import { EditClientModal } from "./editClientModal"
-import { useAuth } from "@/shared/contexts/authContext"
-import type { Client } from "@/shared/types"
+import { EditClientModal, type UpdateClientFormValues } from "./editClientModal"
+import { usePermissions } from "@/shared/hooks/usePermissions"
+import { PERMISSIONS, PRIVILEGES } from "@/shared/services/permissionService"
+import type { Client } from "@/shared/types/client";
 import Swal from "sweetalert2"
 import { cn } from "@/shared/lib/utils"
 import { Badge } from "@/shared/components/ui/badge"
@@ -56,13 +56,17 @@ export function ClientsTable({
   onPageChange,
   onAddNewClient,
 }: ClientsTableProps) {
-  const { user } = useAuth()
+  const { hasPrivilege } = usePermissions()
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   
-  const isAdmin = useMemo(() => user?.role === 'ADMIN', [user])
-  const columns = isAdmin ? 8 : 7;
+  // Verificar permisos específicos para cada acción
+  const canViewDetails = hasPrivilege(PERMISSIONS.CLIENTES, PRIVILEGES.CLIENT_DETAILS)
+  const canUpdateClient = hasPrivilege(PERMISSIONS.CLIENTES, PRIVILEGES.CLIENT_UPDATE)
+  const canDeleteClient = hasPrivilege(PERMISSIONS.CLIENTES, PRIVILEGES.CLIENT_DELETE)
+  const hasAnyAction = canViewDetails || canUpdateClient || canDeleteClient
+  const columns = hasAnyAction ? 8 : 7;
 
   const handleViewClient = (client: Client) => {
     setSelectedClient(client)
@@ -84,8 +88,8 @@ export function ClientsTable({
     setSelectedClient(null)
   }
 
-  const handleUpdateClient = async (clientId: number, updates: Partial<Client>) => {
-    await onUpdateClient(clientId, updates)
+  const handleUpdateClient = async (clientId: number, updates: UpdateClientFormValues) => {
+    await onUpdateClient(clientId, updates as unknown as Partial<Client>)
     setIsEditModalOpen(false)
   }
 
@@ -150,7 +154,7 @@ export function ClientsTable({
               <TableHead>Contacto</TableHead>
               <TableHead>Contratos</TableHead>
               <TableHead>Estado</TableHead>
-              {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
+              {hasAnyAction && <TableHead className="text-right">Acciones</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -159,7 +163,8 @@ export function ClientsTable({
               const beneficiaryInfo = client.beneficiarios && client.beneficiarios.length > 0
                 ? client.beneficiarios[0].persona_beneficiaria?.usuario
                 : client.usuario
-              const activeContracts = client.contratos?.filter(c => c.estado === 'Activo').length || 0
+              // Aseguramos el tipado correcto para contratos
+              const activeContracts = (client.contratos as { estado: string }[] | undefined)?.filter((c) => c.estado === 'Activo').length || 0
 
               return (
                 <TableRow key={client.id_persona} className="hover:bg-gray-50">
@@ -200,7 +205,7 @@ export function ClientsTable({
                       <span>{status.label}</span>
                     </Badge>
                   </TableCell>
-                  {isAdmin && (
+                  {hasAnyAction && (
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -211,22 +216,30 @@ export function ClientsTable({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleViewClient(client)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Ver detalles
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEditClient(client)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(client.id_persona)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Eliminar
-                          </DropdownMenuItem>
+                          {canViewDetails && (
+                            <DropdownMenuItem onClick={() => handleViewClient(client)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              Ver detalles
+                            </DropdownMenuItem>
+                          )}
+                          {canUpdateClient && (
+                            <DropdownMenuItem onClick={() => handleEditClient(client)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                          )}
+                          {canDeleteClient && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(client.id_persona)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -274,9 +287,9 @@ export function ClientsTable({
         />
       )}
       
-      {selectedClient && isEditModalOpen && (
+      {selectedClient && selectedClient.usuario && isEditModalOpen && (
         <EditClientModal
-          client={selectedClient}
+          client={selectedClient as Client & { usuario: NonNullable<Client['usuario']> }}
           onUpdateClient={handleUpdateClient}
           onClose={handleCloseEditModal}
         />

@@ -1,26 +1,51 @@
 import { useState, useEffect } from "react"
-import { Outlet, useLocation } from "react-router-dom"
+import { Outlet, useLocation, Navigate } from "react-router-dom"
 import { Sidebar } from "./sidebar"
 import { Header } from "./header"
 import { useMobile } from "../hooks/useMediaQuery"
 import { useAuth } from "../contexts/authContext"
 
 export function AppLayout() {
-  const { user } = useAuth()
+  const { user, isAuthenticated, isLoading, isInitialized } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const isMobile = useMobile()
   const location = useLocation()
   const [currentSection, setCurrentSection] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [isPageLoading, setIsPageLoading] = useState(false)
+
+  // ✅ VERIFICACIÓN ADICIONAL DE SEGURIDAD: Redirigir si no está autenticado
+  if (!isLoading && isInitialized && !isAuthenticated) {
+    console.warn("⚠️ AppLayout: Usuario no autenticado, redirigiendo a login")
+    return <Navigate to="/login" replace />
+  }
+
+  // ✅ VERIFICACIÓN ADICIONAL DE SEGURIDAD: Verificar datos del usuario
+  if (!isLoading && isInitialized && isAuthenticated && !user) {
+    console.error("❌ AppLayout: Usuario autenticado pero sin datos, redirigiendo a login")
+    return <Navigate to="/login" replace />
+  }
+
+  // Loading state mientras se inicializa la autenticación
+  if (isLoading || !isInitialized) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+          <p className="text-lg font-semibold text-gray-700">Cargando aplicación...</p>
+          <p className="text-sm text-gray-500">Por favor, espere un momento.</p>
+        </div>
+      </div>
+    )
+  }
 
   // Simulación de carga al cambiar de ruta
   useEffect(() => {
     if (location.pathname) {
-      setIsLoading(true)
+      setIsPageLoading(true)
       // Simular carga por 300ms para una mejor experiencia
       const timer = setTimeout(() => {
-        setIsLoading(false)
+        setIsPageLoading(false)
       }, 300)
       return () => clearTimeout(timer)
     }
@@ -44,7 +69,7 @@ export function AppLayout() {
     else if (path.includes("/contracts")) setCurrentSection("Contratos")
     else if (path.includes("/memberships")) setCurrentSection("Membresías")
     else if (path.includes("/attendance")) setCurrentSection("Control de Asistencia")
-    else if (path.includes("/surveys")) setCurrentSection("Encuestas de Satisfacción")
+    else if (path.includes("/my-attendances/:id")) setCurrentSection("Mis Asistencias")
   }, [location.pathname, isMobile, isSidebarOpen, user])
 
   // Manejar escape key para cerrar sidebar
@@ -112,7 +137,7 @@ export function AppLayout() {
           <Header toggleSidebar={toggleSidebar} currentSection={currentSection} />
           
           {/* Indicador de carga */}
-          {isLoading && (
+          {isPageLoading && (
             <div className="h-0.5 bg-indigo-100 w-full relative overflow-hidden">
               <div className="absolute h-0.5 bg-indigo-600 animate-loading-bar"></div>
             </div>

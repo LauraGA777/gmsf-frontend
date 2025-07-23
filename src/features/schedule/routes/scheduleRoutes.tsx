@@ -1,17 +1,18 @@
-import { SchedulePage } from "@/features/schedule/pages/SchedulePage";
-import { ClientSchedulePage } from "@/features/schedule/pages/ClientSchedulePage";
+import { PermissionProtectedRoute } from "@/shared/routes/PermissionProtectedRoute";
+import { PERMISSIONS, PRIVILEGES } from "@/shared/services/permissionService";
+import { AgendaRouter } from "./AgendaRouter"; // Importamos el enrutador inteligente
 
 export const scheduleRoutes = [
   {
-    path: "/schedule",
-    element: <SchedulePage />,
-  },
-  {
+    // Ruta principal de la agenda para todos los roles
     path: "/calendar",
-    element: <SchedulePage />,
-  },
-  {
-    path: "/client-schedule",
-    element: <ClientSchedulePage />,
+    element: (
+      <PermissionProtectedRoute 
+        requiredModule={PERMISSIONS.HORARIOS}
+        requiredPrivilege={PRIVILEGES.SCHEDULE_READ}
+      >
+        <AgendaRouter />
+      </PermissionProtectedRoute>
+    )
   },
 ];

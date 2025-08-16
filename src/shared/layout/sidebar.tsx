@@ -301,11 +301,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     active={activeItem === "my-attendance"}
                     onClick={() => {
                       console.log('Click en Mis Asistencias, client?.id_persona:', client?.id_persona);
-                      handleItemClick("my-attendance");
+                      handleItemClick("my-attendances");
                     }}
-                    to={`/my-attendance/${client?.id_persona}`}
+                    to={`/my-attendances/${user.id}`}
                     onClose={onClose}
-                    id="nav-my-attendance"
+                    id="nav-my-attendances"
                   />
                 )}
               </>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useParams, Navigate } from "react-router-dom"; // ✅ Agregar imports
 import { useAuth } from "@/shared/contexts/authContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
@@ -81,9 +82,16 @@ const NoAttendanceState = () => (
 );
 
 export function MyAttendancePage() {
-  const { client } = useAuth();
+  const { userId } = useParams<{ userId: string }>();
+  const { user } = useAuth();
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: 20,
+    totalPages: 0
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState("daily");
@@ -91,62 +99,92 @@ export function MyAttendancePage() {
   const [monthlyStats, setMonthlyStats] = useState<any>({});
   const [yearlyStats, setYearlyStats] = useState<any>({});
 
-  // Cargar datos de asistencia del cliente
-  const fetchAttendanceData = async () => {
-    console.log('fetchAttendanceData ejecutándose, client:', client);
-    if (!client?.id_persona) {
-      console.log('No hay client.id_persona:', client?.id_persona);
-      toast.error("No se pudo obtener la información del usuario");
-      setIsLoading(false);
-      return;
-    }
+  // ✅ Validaciones iniciales
+  if (!userId || userId === 'undefined') {
+    console.error('❌ ID de usuario no válido:', userId);
+    return <Navigate to="/calendar" replace />;
+  }
+
+  // ✅ Validar que el usuario puede acceder a sus propias asistencias
+  if (user?.id_rol === 3 && user?.id && userId !== String(user.id)) {
+    console.error('❌ Usuario intentando acceder a asistencias de otro usuario');
+    return <Navigate to="/calendar" replace />;
+  }
+
+  // ✅ Función para cargar datos con paginación
+  const fetchAttendanceData = async (page: number = 1) => {
+    console.log('🔄 fetchAttendanceData ejecutándose');
+    console.log('📋 userId desde URL:', userId);
+    console.log('📄 Página:', page);
 
     try {
       setIsLoading(true);
+      console.log(`🔍 Obteniendo asistencias para usuario ID: ${userId}`);
 
-      // Obtener historial de asistencias
-      const historyResponse = await attendanceService.getClientAttendanceHistory(client.id_persona.toString()); // Usa client.id_persona
-      if (historyResponse.success && historyResponse.data && Array.isArray(historyResponse.data)) {
-        const mappedAttendances = historyResponse.data.map((attendance: any) => ({
-          id: attendance.id || 0,
+      // ✅ Obtener historial con paginación
+      const historyResponse = await attendanceService.getUserAttendanceHistory(userId!, page, 20);
+      
+      console.log('📡 Respuesta del historial:', historyResponse);
+      
+      if (historyResponse.success && historyResponse.data) {
+        // ✅ Mapear los datos a la estructura esperada
+        const mappedAttendances = historyResponse.data.map((attendance) => ({
+          id: attendance.id,
           fecha_uso: attendance.fecha_uso,
           hora_registro: attendance.hora_registro,
-          estado: attendance.estado === 'Activo' ? "Activo" as "Activo" : "Eliminado" as "Eliminado",
+          estado: attendance.estado === 'Activo' ? "Activo" as const : "Eliminado" as const,
           fecha_registro: attendance.fecha_registro,
+          // ✅ Información adicional de contrato y membresía
+          contrato: attendance.contrato
         }));
+        
         setAttendanceData(mappedAttendances);
+        setPagination(historyResponse.pagination);
+        console.log('✅ Asistencias cargadas:', mappedAttendances.length);
+        console.log('📊 Paginación:', historyResponse.pagination);
       } else {
         setAttendanceData([]);
+        console.log('⚠️ No se encontraron asistencias');
       }
 
-      
-      // Obtener estadísticas semanales
-      const weeklyDateRange = await attendanceService.getClientDateRangeByPeriod('weekly');
-      const weeklyStatsResponse = await attendanceService.getClientAttendanceStats(client.id_persona, weeklyDateRange.startDate, weeklyDateRange.endDate); // Usa client.id_persona
-      setWeeklyStats(weeklyStatsResponse.data);
+      // ✅ Cargar estadísticas
+      try {
+        const weeklyDateRange = await attendanceService.getUserDateRangeByPeriod('weekly');
+        const weeklyStatsResponse = await attendanceService.getUserAttendanceStats(parseInt(userId!), weeklyDateRange.startDate, weeklyDateRange.endDate);
+        setWeeklyStats(weeklyStatsResponse.data || {});
 
-      // Obtener estadísticas mensuales
-      const monthlyDateRange = await attendanceService.getClientDateRangeByPeriod('monthly');
-      const monthlyStatsResponse = await attendanceService.getClientAttendanceStats(client.id_persona, monthlyDateRange.startDate, monthlyDateRange.endDate); // Usa client.id_persona
-      setMonthlyStats(monthlyStatsResponse.data);
+        const monthlyDateRange = await attendanceService.getUserDateRangeByPeriod('monthly');
+        const monthlyStatsResponse = await attendanceService.getUserAttendanceStats(parseInt(userId!), monthlyDateRange.startDate, monthlyDateRange.endDate);
+        setMonthlyStats(monthlyStatsResponse.data || {});
 
-      // Obtener estadísticas anuales
-      const yearlyDateRange = await attendanceService.getClientDateRangeByPeriod('yearly');
-      const yearlyStatsResponse = await attendanceService.getClientAttendanceStats(client.id_persona, yearlyDateRange.startDate, yearlyDateRange.endDate); // Usa client.id_persona
-      setYearlyStats(yearlyStatsResponse.data);
+        const yearlyDateRange = await attendanceService.getUserDateRangeByPeriod('yearly');
+        const yearlyStatsResponse = await attendanceService.getUserAttendanceStats(parseInt(userId!), yearlyDateRange.startDate, yearlyDateRange.endDate);
+        setYearlyStats(yearlyStatsResponse.data || {});
+      } catch (statsError) {
+        console.error('⚠️ Error al cargar estadísticas:', statsError);
+      }
 
     } catch (error) {
-      console.error('Error loading attendance data:', error);
+      console.error('❌ Error loading attendance data:', error);
       setAttendanceData([]);
       toast.error("No se pudieron cargar los datos de asistencia");
     } finally {
       setIsLoading(false);
     }
-  };;
+  };
 
   useEffect(() => {
-    fetchAttendanceData();
-  }, [client]);
+    if (userId && user) {
+      fetchAttendanceData(1);
+    }
+  }, [userId, user]);
+
+  // ✅ Función para cambiar de página
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchAttendanceData(newPage);
+    }
+  };
 
   // Filtrar datos por búsqueda
   const filteredData = useMemo(() => {
@@ -199,7 +237,7 @@ export function MyAttendancePage() {
           <h1 className="text-3xl font-bold">Mis Asistencias</h1>
           <p className="text-gray-600">Seguimiento de tu asistencia al gimnasio</p>
         </div>
-        <Button onClick={fetchAttendanceData} variant="outline" size="sm">
+        <Button onClick={() => fetchAttendanceData()} variant="outline" size="sm">
           <RefreshCw className="h-4 w-4 mr-2" />
           Actualizar
         </Button>
@@ -621,6 +659,32 @@ export function MyAttendancePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ✅ Agregar controles de paginación si hay más de una página */}
+      {pagination.totalPages > 1 && (
+        <div className="flex justify-center items-center space-x-2 mt-6">
+          <Button
+            variant="outline"
+            onClick={() => handlePageChange(pagination.page - 1)}
+            disabled={pagination.page === 1}
+          >
+            Anterior
+          </Button>
+          
+          <span className="text-sm text-gray-600">
+            Página {pagination.page} de {pagination.totalPages} 
+            ({pagination.total} asistencias totales)
+          </span>
+          
+          <Button
+            variant="outline"
+            onClick={() => handlePageChange(pagination.page + 1)}
+            disabled={pagination.page === pagination.totalPages}
+          >
+            Siguiente
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

@@ -176,6 +176,19 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
                   <p className="text-sm text-gray-500">{user.asistencias_totales || 0}</p>
                 </div>
               </div>
+
+              {/* ✅ Nuevo campo para mostrar estado de primer acceso */}
+              <div className="flex items-center space-x-3">
+                <Shield className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Estado de Acceso</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge className={user.primer_acceso ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"}>
+                      {user.primer_acceso ? "Primer acceso pendiente" : "Contraseña configurada"}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

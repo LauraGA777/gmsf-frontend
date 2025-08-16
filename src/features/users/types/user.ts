@@ -14,6 +14,7 @@ export interface User {
     telefono: string
     direccion: string
     genero: string
+    primer_acceso: boolean // ✅ Nuevo campo para controlar primer acceso
 }
 
 export interface UserFormData {
@@ -28,8 +29,9 @@ export interface UserFormData {
     numero_documento?: string;
     fecha_nacimiento?: string;
     id_rol?: number;
-    contrasena?: string;
-    confirmarContrasena?: string;
+    // ✅ Se eliminan los campos de contraseña del formulario de usuario
+    // contrasena?: string;
+    // confirmarContrasena?: string;
 }
 
 export interface UpdateUserFormData extends Partial<UserFormData> {

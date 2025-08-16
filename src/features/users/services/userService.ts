@@ -176,5 +176,23 @@ export const userService = {
       console.error('Error checking email:', error);
       return false;
     }
-  }
+  },
+
+  // ✅ Nuevo método para cambio de contraseña en primer acceso
+  changeFirstAccessPassword: async (userId: number, newPassword: string): Promise<void> => {
+    await apiClient.post(`/users/${userId}/change-first-password`, { 
+      nueva_contrasena: newPassword 
+    });
+  },
+
+  // ✅ Nuevo método para verificar si es primer acceso
+  checkFirstAccess: async (userId: number): Promise<boolean> => {
+    try {
+      const response = await apiClient.get<ApiResponse<{ primer_acceso: boolean }>>(`/users/${userId}/first-access`);
+      return response.data.data.primer_acceso;
+    } catch (error) {
+      console.error('Error checking first access:', error);
+      return false;
+    }
+  },
 };

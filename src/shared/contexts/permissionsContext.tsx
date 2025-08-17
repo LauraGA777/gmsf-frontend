@@ -96,11 +96,6 @@ export function PermissionsProvider({
             setPermissionsVersion(Date.now());
 
             if (enableDebugLogs) {
-                console.log('🔄 Estado de permisos actualizado:', {
-                    modules: modules.length,
-                    permissions: permissions.length,
-                    ready: true
-                });
             }
         } else {
             setAccessibleModules([]);
@@ -111,7 +106,6 @@ export function PermissionsProvider({
     // ✅ Función para manejar cambios en permisos
     const handlePermissionsChange = useCallback(() => {
         if (enableDebugLogs) {
-            console.log('📡 PermissionsContext: Detectado cambio en permisos');
         }
         updateStateFromService();
     }, [updateStateFromService, enableDebugLogs]);
@@ -119,9 +113,7 @@ export function PermissionsProvider({
     // ✅ Función para inicializar permisos
     const initializePermissions = useCallback(async () => {
         if (!isAuthenticated || !user?.id_rol) {
-            if (enableDebugLogs) {
-                console.log('🚫 PermissionsContext: Usuario no autenticado, limpiando permisos');
-            }
+            if (enableDebugLogs) {}
 
             permissionService.clearPermissions();
             setIsLoading(false);
@@ -134,9 +126,7 @@ export function PermissionsProvider({
         }
 
         try {
-            if (enableDebugLogs) {
-                console.log('🚀 PermissionsContext: Inicializando permisos para usuario:', user.id, 'rol:', user.id_rol);
-            }
+            if (enableDebugLogs) {}
 
             setIsLoading(true);
             setLastError(null);
@@ -147,19 +137,15 @@ export function PermissionsProvider({
             // Actualizar estado local
             updateStateFromService();
 
-            if (enableDebugLogs) {
-                console.log('✅ PermissionsContext: Permisos inicializados correctamente');
-            }
+            if (enableDebugLogs) {}
 
         } catch (error: any) {
-            console.error('❌ PermissionsContext: Error al inicializar permisos:', error);
             setLastError(error.message || 'Error al cargar permisos');
             setIsLoading(false);
             setIsReady(false);
 
             // Si es error de autenticación, hacer logout
             if (error.message?.includes('autenticación') || error.message?.includes('token')) {
-                console.warn('🔐 PermissionsContext: Error de autenticación, cerrando sesión');
                 logout();
             }
         }
@@ -173,7 +159,6 @@ export function PermissionsProvider({
 
         try {
             if (enableDebugLogs) {
-                console.log('🔄 PermissionsContext: Refrescando permisos manualmente...');
             }
 
             setIsLoading(true);
@@ -183,11 +168,9 @@ export function PermissionsProvider({
             updateStateFromService();
 
             if (enableDebugLogs) {
-                console.log('✅ PermissionsContext: Permisos refrescados exitosamente');
             }
 
         } catch (error: any) {
-            console.error('❌ PermissionsContext: Error al refrescar permisos:', error);
             setLastError(error.message || 'Error al refrescar permisos');
             setIsLoading(false);
             throw error;
@@ -201,9 +184,7 @@ export function PermissionsProvider({
         }
 
         try {
-            if (enableDebugLogs) {
-                console.log('🔍 PermissionsContext: Verificando cambios en permisos...');
-            }
+            if (enableDebugLogs) {}
 
             // Obtener permisos actuales del servidor
             const serverPermissions = await permissionService.fetchUserPermissions(user.id_rol);
@@ -213,9 +194,7 @@ export function PermissionsProvider({
             const hasChanged = JSON.stringify(serverPermissions.sort()) !== JSON.stringify(localPermissions.sort());
 
             if (hasChanged) {
-                if (enableDebugLogs) {
-                    console.log('🔄 PermissionsContext: Detectados cambios remotos, actualizando...');
-                }
+                if (enableDebugLogs) {}
                 await refreshPermissions();
                 return true;
             }
@@ -223,7 +202,6 @@ export function PermissionsProvider({
             return false;
 
         } catch (error: any) {
-            console.error('❌ PermissionsContext: Error al verificar cambios:', error);
             return false;
         }
     }, [isAuthenticated, user, refreshPermissions, enableDebugLogs]);
@@ -319,13 +297,9 @@ export function PermissionsProvider({
         // Crear nuevo timer
         const timer = setInterval(async () => {
             try {
-                if (enableDebugLogs) {
-                    console.log('⏰ PermissionsContext: Verificación periódica de permisos');
-                }
+                if (enableDebugLogs) {}
                 await checkForChanges();
-            } catch (error) {
-                console.error('❌ PermissionsContext: Error en polling:', error);
-            }
+            } catch (error) {}
         }, pollingInterval);
 
         setPollingTimer(timer);
@@ -412,7 +386,7 @@ export function usePermissionsDebug() {
         getDebugInfo,
         refreshPermissions,
         checkForChanges,
-        logDebugInfo: () => console.log('🐛 Permissions Debug:', getDebugInfo())
+        logDebugInfo: () => {}
     };
 }
 

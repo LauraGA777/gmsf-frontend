@@ -25,7 +25,7 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
         const roles = await roleService.getRolesForSelect();
         setRoles(roles);
       } catch (error) {
-        console.error('Error cargando roles:', error);
+        
       }
     };
     loadRoles();

@@ -137,21 +137,19 @@ export function MyAttendancePage() {
 
   // ✅ Validaciones iniciales
   if (!userId || userId === 'undefined') {
-    console.error('❌ ID de usuario no válido:', userId);
+    
     return <Navigate to="/calendar" replace />;
   }
 
   // ✅ Validar que el usuario puede acceder a sus propias asistencias
   if (user?.id_rol === 3 && user?.id && userId !== String(user.id)) {
-    console.error('❌ Usuario intentando acceder a asistencias de otro usuario');
+    
     return <Navigate to="/calendar" replace />;
   }
 
   // ✅ Función para cargar datos con formateo correcto
   const fetchAttendanceData = async (page: number = 1) => {
-    console.log('🔄 fetchAttendanceData ejecutándose');
-    console.log('📋 userId desde URL:', userId);
-    console.log('📄 Página:', page);
+    
 
     try {
       setIsLoading(true);
@@ -160,24 +158,12 @@ export function MyAttendancePage() {
       if (historyResponse.success && historyResponse.data) {
         // ✅ Mapear los datos con formato correcto de fechas y tipado explícito
         const mappedAttendances: AttendanceRecordWithFormatting[] = historyResponse.data.map((attendance) => {
-          console.log('📅 Procesando asistencia:', {
-            id: attendance.id,
-            fecha_uso_original: attendance.fecha_uso,
-            hora_registro_original: attendance.hora_registro,
-            fecha_registro_original: attendance.fecha_registro
-          });
 
           // ✅ Formatear fechas correctamente
           const fechaFormateada = formatDateFromDB(attendance.fecha_uso);
           const horaFormateada = formatTimeFromDB(attendance.hora_registro);
           const diaDeLaSemana = getDayOfWeekFromDB(attendance.fecha_uso);
-
-          console.log('📅 Fechas formateadas:', {
-            fechaFormateada,
-            horaFormateada,
-            diaDeLaSemana
-          });
-
+          
           return {
             id: attendance.id,
             fecha_uso: attendance.fecha_uso,
@@ -194,7 +180,7 @@ export function MyAttendancePage() {
         
         setAttendanceData(mappedAttendances);
         setPagination(historyResponse.pagination);
-        console.log('✅ Asistencias cargadas con fechas formateadas:', mappedAttendances.length);
+        
       } else {
         setAttendanceData([]);
       }
@@ -213,11 +199,11 @@ export function MyAttendancePage() {
         const yearlyStatsResponse = await attendanceService.getUserAttendanceStats(parseInt(userId!), yearlyDateRange.startDate, yearlyDateRange.endDate);
         setYearlyStats(yearlyStatsResponse.data || {});
       } catch (statsError) {
-        console.error('⚠️ Error al cargar estadísticas:', statsError);
+    
       }
 
     } catch (error) {
-      console.error('❌ Error loading attendance data:', error);
+      
       setAttendanceData([]);
       toast.error("No se pudieron cargar los datos de asistencia");
     } finally {

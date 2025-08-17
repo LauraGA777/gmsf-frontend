@@ -18,7 +18,6 @@ export function useFirstAccessCheck() {
                 const firstAccess = await userService.checkFirstAccess(Number(user.id));
                 setIsFirstAccess(firstAccess);
             } catch (error) {
-                console.error('Error checking first access:', error);
                 setIsFirstAccess(false);
             } finally {
                 setIsLoading(false);

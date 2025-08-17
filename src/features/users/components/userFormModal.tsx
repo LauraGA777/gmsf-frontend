@@ -107,7 +107,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
         const rolesData = await roleService.getRolesForSelect();
         setRoles(rolesData);
       } catch (error) {
-        console.error('Error cargando roles:', error);
+        
       } finally {
         setIsLoadingRoles(false);
       }

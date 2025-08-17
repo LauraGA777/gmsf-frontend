@@ -215,7 +215,7 @@ export function MyMembershipPage() {
             }
 
         } catch (error: any) {
-            console.error('Error al cargar datos de membresía:', error);
+            
             setError(error.message || 'Error al cargar la información');
         } finally {
             setLoading(false);

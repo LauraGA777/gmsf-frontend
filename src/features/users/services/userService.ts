@@ -43,16 +43,10 @@ export const userService = {
   // Obtener todos los usuarios
   getUsers: async (page = 1, limit = 10): Promise<PaginatedResponse<User>> => {
     try {
-      console.log(`🔍 Fetching users: page=${page}, limit=${limit}`);
       const response = await apiClient.get<ApiSuccessResponse<User[]>>(`/users?page=${page}&limit=${limit}`);
-      
-      console.log('📡 Raw API response:', response);
-      console.log('📦 Response data:', response.data);
-      console.log('📊 Response status:', response.status);
-      
+
       // Verificar si la respuesta tiene la estructura esperada
       if (!response.data) {
-        console.error('❌ Response data is null/undefined');
         throw new Error('No se recibieron datos del servidor');
       }
       
@@ -70,7 +64,6 @@ export const userService = {
       
       // Si la respuesta es directamente un array (sin paginación) - fallback
       if (Array.isArray(response.data)) {
-        console.log('📋 Response is direct array, creating pagination wrapper');
         return {
           total: response.data.length,
           page: page,
@@ -80,11 +73,9 @@ export const userService = {
         };
       }
       
-      console.error('❌ Unexpected response structure:', response.data);
       throw new Error('Estructura de respuesta inesperada del servidor');
       
     } catch (error) {
-      console.error('❌ Error in userService.getUsers:', error);
       
       // Re-throw con más información
       if (error instanceof Error) {
@@ -160,7 +151,6 @@ export const userService = {
       });
       return response.data.data.exists;
     } catch (error) {
-      console.error('Error checking document:', error);
       return false;
     }
   },
@@ -173,7 +163,6 @@ export const userService = {
       });
       return response.data.data.exists;
     } catch (error) {
-      console.error('Error checking email:', error);
       return false;
     }
   },
@@ -191,7 +180,6 @@ export const userService = {
       const response = await apiClient.get<ApiResponse<{ primer_acceso: boolean }>>(`/users/${userId}/first-access`);
       return response.data.data.primer_acceso;
     } catch (error) {
-      console.error('Error checking first access:', error);
       return false;
     }
   },

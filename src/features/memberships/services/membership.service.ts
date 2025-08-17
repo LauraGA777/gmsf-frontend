@@ -156,7 +156,7 @@ class MembershipService {
     };
 
     const errorInterceptor = (error: any) => {
-      console.error('Error en la petición:', error);
+      
       if (error.response?.status === 401) {
         localStorage.removeItem('accessToken');
         window.location.href = '/login';
@@ -233,7 +233,7 @@ class MembershipService {
         }
       };
     } catch (error) {
-      console.error('❌ Error en getMemberships:', error);
+      
       throw error;
     }
   }
@@ -263,7 +263,7 @@ class MembershipService {
         }
       };
     } catch (error) {
-      console.error('Error searching memberships:', error);
+      
       throw error;
     }
   }
@@ -274,7 +274,7 @@ class MembershipService {
       const response = await this.api.get<ApiResponse<any>>(`/${id}`);
       return this.mapApiResponseToMembership(response.data.data);
     } catch (error) {
-      console.error(`Error fetching membership ${id}:`, error);
+      
       throw error;
     }
   }
@@ -286,7 +286,7 @@ class MembershipService {
       const response = await this.api.post<ApiResponse<any>>("/new-membership", apiData);
       return this.mapApiResponseToMembership(response.data.data);
     } catch (error) {
-      console.error('Error creating membership:', error);
+      
       throw error;
     }
   }
@@ -298,7 +298,7 @@ class MembershipService {
       const response = await this.api.put<ApiResponse<any>>(`/${id}`, apiData);
       return this.mapApiResponseToMembership(response.data.data);
     } catch (error) {
-      console.error(`Error updating membership ${id}:`, error);
+      
       throw error;
     }
   }
@@ -356,7 +356,7 @@ class MembershipService {
       const response = await this.getMemberships({ estado: true, limit: 50 });
       return response.data.filter(m => m.estado);
     } catch (error) {
-      console.error('Error fetching active memberships:', error);
+      
       throw error;
     }
   }
@@ -369,13 +369,11 @@ class MembershipService {
   async getMyActiveMembership(): Promise<MyActiveMembership> {
     try {
       this.checkAuth();
-      console.log('🔍 Obteniendo mi membresía activa...');
+      
       
       const response = await this.clientApi.get<ClientApiResponse<MyActiveMembership>>(
         '/my-membership/active'
       );
-      
-      console.log('✅ Mi membresía activa obtenida:', response.data);
       
       if (!response.data.success) {
         throw new Error(response.data.message || 'Error al obtener la membresía activa');
@@ -383,7 +381,7 @@ class MembershipService {
       
       return response.data.data;
     } catch (error: any) {
-      console.error('❌ Error al obtener mi membresía activa:', error);
+      
       
       if (error.response?.status === 404) {
         throw new Error('No tienes una membresía activa');
@@ -403,8 +401,7 @@ class MembershipService {
   async getMyMembershipHistory(page: number = 1, limit: number = 10): Promise<PaginatedHistoryResponse<MembershipHistoryItem>> {
     try {
       this.checkAuth();
-      console.log(`🔍 Obteniendo mi historial de membresías - página: ${page}, límite: ${limit}`);
-      
+    
       const queryParams = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString()
@@ -414,15 +411,12 @@ class MembershipService {
         `/my-membership/history?${queryParams.toString()}`
       );
       
-      console.log('✅ Mi historial de membresías obtenido:', response.data);
-      
       if (!response.data.success) {
         throw new Error(response.data.message || 'Error al obtener el historial de membresías');
       }
       
       return response.data.data;
     } catch (error: any) {
-      console.error('❌ Error al obtener mi historial de membresías:', error);
       
       if (error.response?.status === 403) {
         throw new Error('No tienes permisos para acceder a esta información');
@@ -438,13 +432,10 @@ class MembershipService {
   async getMyMembershipBenefits(): Promise<MembershipBenefits> {
     try {
       this.checkAuth();
-      console.log('🔍 Obteniendo beneficios de mi membresía...');
       
       const response = await this.clientApi.get<ClientApiResponse<MembershipBenefits>>(
         '/my-membership/benefits'
       );
-      
-      console.log('✅ Beneficios de mi membresía obtenidos:', response.data);
       
       if (!response.data.success) {
         throw new Error(response.data.message || 'Error al obtener los beneficios');
@@ -452,7 +443,6 @@ class MembershipService {
       
       return response.data.data;
     } catch (error: any) {
-      console.error('❌ Error al obtener beneficios de mi membresía:', error);
       
       if (error.response?.status === 404) {
         throw new Error('No tienes una membresía activa para consultar beneficios');
@@ -485,7 +475,6 @@ class MembershipService {
         proxima_renovacion: activeMembership.contrato.fecha_fin
       };
     } catch (error: any) {
-      console.error('❌ Error al obtener estadísticas de mi membresía:', error);
       throw error;
     }
   }

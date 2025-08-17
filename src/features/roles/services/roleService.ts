@@ -267,7 +267,6 @@ class RoleService {
       const data = await this.makeRequest(`${API_BASE_URL}`)
       return data.data?.roles?.map((role: IRole) => transformRole(role)) || []
     } catch (error) {
-      console.error("Error fetching roles:", error)
       throw error
     }
   }
@@ -277,7 +276,6 @@ class RoleService {
       const data = await this.makeRequest(`${API_BASE_URL}/${id}`)
       return data.data?.role ? transformRole(data.data.role) : undefined
     } catch (error) {
-      console.error("Error fetching role by id:", error)
       throw error
     }
   }
@@ -350,7 +348,6 @@ class RoleService {
       
       return { role, permissions }
     } catch (error) {
-      console.error("Error fetching role with permissions:", error)
       throw error
     }
   }
@@ -403,7 +400,6 @@ class RoleService {
         }))
       }
     } catch (error) {
-      console.error("Error fetching permissions:", error)
       throw error
     }
   }
@@ -460,7 +456,6 @@ class RoleService {
       
       return transformRole(data.data.role)
     } catch (error) {
-      console.error("Error creating role:", error)
       throw error
     }
   }
@@ -500,7 +495,6 @@ class RoleService {
         privilegios: selectedPrivileges
       }
 
-      console.log("Datos enviados al backend:", backendData)
 
       const data = await this.makeRequest(`${API_BASE_URL}`, {
         method: "POST",
@@ -509,7 +503,6 @@ class RoleService {
       
       return transformRole(data.data.role)
     } catch (error) {
-      console.error("Error creating role with permissions:", error)
       throw error
     }
   }
@@ -531,7 +524,6 @@ class RoleService {
       
       return transformRole(data.data.role)
     } catch (error) {
-      console.error("Error updating role:", error)
       throw error
     }
   }
@@ -570,9 +562,6 @@ class RoleService {
         permisos: uniquePermissions,
         privilegios: selectedPrivileges
       }
-
-      console.log("Datos enviados al backend para actualizar:", backendData)
-
       const data = await this.makeRequest(`${API_BASE_URL}/${role.id}`, {
         method: "PUT",
         body: JSON.stringify(backendData)
@@ -580,7 +569,6 @@ class RoleService {
       
       return transformRole(data.data.role)
     } catch (error) {
-      console.error("Error updating role with permissions:", error)
       throw error
     }
   }
@@ -591,7 +579,6 @@ class RoleService {
         method: "DELETE"
       })
     } catch (error) {
-      console.error("Error deleting role:", error)
       throw error
     }
   }
@@ -605,7 +592,6 @@ class RoleService {
       
       return transformRole(data.data.role)
     } catch (error) {
-      console.error("Error toggling role status:", error)
       throw error
     }
   }
@@ -620,7 +606,6 @@ class RoleService {
           nombre: role.nombre
         }))
     } catch (error) {
-      console.error("Error fetching roles for select:", error)
       throw error
     }
   }
@@ -657,7 +642,7 @@ class RoleService {
         fecha_actualizacion: usuario.fecha_actualizacion || usuario.updatedAt
       }))
     } catch (error) {
-      console.error("Error fetching users by role:", error)
+      
       return [] // Returns empty array on error
     }
   }

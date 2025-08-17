@@ -34,7 +34,6 @@ export function RoleDetailModal({ isOpen, onClose, role, onEdit, onDelete }: Rol
       const usersData = await roleService.getUsersByRole(roleId)
       setUsers(usersData)
     } catch (error) {
-      console.error("Error loading users for role:", error)
       setUsers([])
     } finally {
       setLoadingUsers(false)

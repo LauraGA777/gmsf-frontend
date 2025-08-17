@@ -193,8 +193,6 @@ const getMostActiveDay = (attendances: UserAttendanceItem[]): string | null => {
 
 const getAllUserAttendances = async (userId: string): Promise<UserAttendanceItem[]> => {
   try {
-    console.log(`🔍 Obteniendo todas las asistencias para usuario: ${userId}`);
-    
     let allAttendances: UserAttendanceItem[] = [];
     let currentPage = 1;
     let hasMorePages = true;
@@ -214,10 +212,9 @@ const getAllUserAttendances = async (userId: string): Promise<UserAttendanceItem
       }
     }
     
-    console.log('✅ Total de asistencias obtenidas:', allAttendances.length);
+    
     return allAttendances;
   } catch (error) {
-    console.error('❌ Error al obtener todas las asistencias:', error);
     throw error;
   }
 };
@@ -247,17 +244,11 @@ export const attendanceService = {
       queryParams.append('fecha_fin', params.fecha_fin);
     }
 
-    console.log('🔍 Solicitando asistencias admin con parámetros:', queryParams.toString());
-    console.log('📅 Fechas enviadas:', {
-      fecha_inicio: params.fecha_inicio,
-      fecha_fin: params.fecha_fin
-    });
-
     const response = await apiClient.get<AdminAttendanceResponse>(
       `/attendance?${queryParams}`
     );
     
-    console.log('📦 Respuesta del backend (admin):', response.data);
+    
     return response.data;
   },
 
@@ -269,7 +260,7 @@ export const attendanceService = {
     }
     
     const response = await apiClient.get<ApiResponse<AdminAttendanceRecord>>(`/attendance/${numericId}`);
-    console.log('📦 Detalles de asistencia:', response.data);
+    
     return response.data.data;
   },
 
@@ -309,13 +300,13 @@ export const attendanceService = {
       ...(params.fecha_fin && { fecha_fin: params.fecha_fin })
     });
 
-    console.log('🔍 Buscando asistencias con parámetros:', queryParams.toString());
+    
 
     const response = await apiClient.get<AdminAttendanceResponse>(
       `/attendance/search?${queryParams}`
     );
     
-    console.log('📦 Resultados de búsqueda:', response.data);
+    
     return response.data;
   },
 
@@ -345,18 +336,13 @@ export const attendanceService = {
   // Usuario endpoints (sin cambios)
   getUserAttendanceHistory: async (userId: string, page: number = 1, limit: number = 20): Promise<UserAttendanceResponse> => {
     try {
-      console.log(`🔍 Obteniendo historial de asistencias para usuario: ${userId}, página: ${page}, límite: ${limit}`);
-      
       const response = await apiClient.get<UserAttendanceResponse>(
         `/attendance/my-attendances/${userId}?page=${page}&limit=${limit}`
       );
       
-      console.log('📡 Respuesta del servidor:', response.status);
-      console.log('📦 Datos de asistencias:', response.data);
       
       return response.data;
     } catch (error) {
-      console.error('❌ Error al obtener historial de asistencias:', error);
       throw error;
     }
   },
@@ -365,7 +351,7 @@ export const attendanceService = {
 
   getUserAttendanceStats: async (userId: number, startDate: string, endDate: string): Promise<{ data: AttendanceStats }> => {
     try {
-      console.log(`🔍 Calculando estadísticas para usuario: ${userId}`);
+    
       
       const allAttendances = await getAllUserAttendances(userId.toString());
       
@@ -390,7 +376,6 @@ export const attendanceService = {
         data: stats
       };
     } catch (error) {
-      console.error('❌ Error al calcular estadísticas:', error);
       return {
         data: {
           currentPeriod: 0,

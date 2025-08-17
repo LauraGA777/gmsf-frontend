@@ -51,20 +51,15 @@ import { AttendanceRecord, UserRole } from "@/shared/types/types"
 import { attendanceService, AdminAttendanceRecord, AdminAttendanceResponse } from "../services/attendanceService";
 import { formatTimeFromDB, formatDateFromDB } from "@/shared/utils/date";
 
-// ✅ Agregar función para formatear fecha y hora completa
 const formatFullDateTime = (dateTimeString: string): string => {
   try {
     if (!dateTimeString) return 'N/A';
     
-    // Si viene en formato ISO "2025-08-16T19:03:10.034Z"
     if (dateTimeString.includes('T')) {
-      // Extraer fecha y hora por separado para evitar conversiones
       const [datePart, timePart] = dateTimeString.split('T');
-      const timeOnly = timePart.split('.')[0]; // Remover milisegundos si existen
+      const timeOnly = timePart.split('.')[0];
       
-      // Formatear fecha
       const formattedDate = formatDateFromDB(datePart);
-      // Formatear hora
       const formattedTime = formatTimeFromDB(timeOnly);
       
       return `${formattedDate} ${formattedTime}`;
@@ -72,14 +67,13 @@ const formatFullDateTime = (dateTimeString: string): string => {
     
     return dateTimeString;
   } catch (error) {
-    console.error('Error al formatear fecha-hora completa:', error);
     return dateTimeString;
   }
 };
 
 export default function AttendanceRegistry() {
   // Constants
-  const [userRole] = useState<UserRole>(1) // 1 = Administrador
+  const [userRole] = useState<UserRole>(1)
 
   // State
   const [attendanceData, setAttendanceData] = useState<AdminAttendanceRecord[]>([]);
@@ -104,27 +98,18 @@ export default function AttendanceRegistry() {
     try {
       setIsLoading(true);
       
-      // ✅ Crear fechas de inicio y fin del día seleccionado
       const startOfDay = new Date(selectedDate);
       startOfDay.setHours(0, 0, 0, 0);
       
       const endOfDay = new Date(selectedDate);
       endOfDay.setHours(23, 59, 59, 999);
 
-      console.log('📅 Fechas para consulta:', {
-        selectedDate: selectedDate,
-        startOfDay: startOfDay.toISOString(),
-        endOfDay: endOfDay.toISOString()
-      });
-
       const data = await attendanceService.getAttendances({
         page: currentPage,
         limit: pageSize,
-        fecha_inicio: startOfDay.toISOString(), // ✅ Formato datetime completo
-        fecha_fin: endOfDay.toISOString()       // ✅ Formato datetime completo
+        fecha_inicio: startOfDay.toISOString(),
+        fecha_fin: endOfDay.toISOString()
       });
-      
-      console.log('📦 Datos cargados:', data);
       
       if (data.success && data.data) {
         setAttendanceData(data.data);
@@ -134,7 +119,6 @@ export default function AttendanceRegistry() {
         setTotalRecords(0);
       }
     } catch (error) {
-      console.error('❌ Error al cargar asistencias:', error);
       setAttendanceData([]);
       Swal.fire({
         icon: 'error',
@@ -146,6 +130,7 @@ export default function AttendanceRegistry() {
       setIsLoading(false);
     }
   };
+
   // Memoized filtered data
   const filteredData = useMemo(() => {
     if (!searchTerm) return attendanceData.filter(record => record.estado === "Activo")
@@ -161,6 +146,7 @@ export default function AttendanceRegistry() {
       return matchesSearch && record.estado === "Activo"
     })
   }, [attendanceData, searchTerm])
+
   // Event handlers
   const handleManualRegistry = async () => {
     const trimmedDocument = documentNumber.trim()
@@ -195,7 +181,6 @@ export default function AttendanceRegistry() {
         text: errorMessage,
         confirmButtonColor: '#3085d6',
       })
-      console.error("Error:", error)
     } finally {
       setIsLoading(false)
     }
@@ -236,7 +221,6 @@ export default function AttendanceRegistry() {
         text: errorMessage,
         confirmButtonColor: '#3085d6',
       })
-      console.error("Error:", error)
     }
   }
 
@@ -263,7 +247,6 @@ export default function AttendanceRegistry() {
         text: errorMessage,
         confirmButtonColor: '#3085d6',
       })
-      console.error("Error:", error)
     }
   }
 
@@ -271,408 +254,398 @@ export default function AttendanceRegistry() {
     fetchAttendanceData()
   }
   
-    return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Asistencia</h1>
-              <p className="text-gray-600 mt-1">
-                Registro y seguimiento de asistencias de clientes - {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: es })}
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-                Refrescar
-              </Button>
-              <Dialog open={isManualRegistryOpen} onOpenChange={setIsManualRegistryOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Registrar Asistencia
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Registrar Asistencia Manual</DialogTitle>
-                    <DialogDescription>
-                      Ingrese el número de documento del cliente para registrar su asistencia.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div>
-                      <Label htmlFor="document">Número de Documento</Label>
-                      <Input
-                        id="document"
-                        placeholder="Ej: 12345678"
-                        value={documentNumber}
-                        onChange={(e) => setDocumentNumber(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleManualRegistry();
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsManualRegistryOpen(false)}>
-                      Cancelar
-                    </Button>
-                    <Button onClick={handleManualRegistry} disabled={!documentNumber.trim() || isLoading}>
-                      {isLoading ? "Registrando..." : "Registrar"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
+  return (
+    <div className="container mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Asistencia</h1>
+            <p className="text-gray-600 mt-1">
+              Registro y seguimiento de asistencias de clientes - {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: es })}
+            </p>
           </div>
-  
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+              Refrescar
+            </Button>
+            <Dialog open={isManualRegistryOpen} onOpenChange={setIsManualRegistryOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Registrar Asistencia
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Registrar Asistencia Manual</DialogTitle>
+                  <DialogDescription>
+                    Ingrese el número de documento del cliente para registrar su asistencia.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Asistencias Hoy</p>
-                    <p className="text-2xl font-bold text-gray-900">{filteredData.length}</p>
-                  </div>
-                  <Users className="h-8 w-8 text-blue-600" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Última Asistencia</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {filteredData.length > 0 ? formatTimeFromDB(filteredData[0].hora_registro) : "--:--"}
-                    </p>
-                  </div>
-                  <Clock className="h-8 w-8 text-green-600" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Estado Sistema</p>
-                    <p className="text-2xl font-bold text-green-600">Activo</p>
-                  </div>
-                  <CheckCircle className="h-8 w-8 text-green-600" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-  
-          {/* Filters */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                  <Label htmlFor="search">Buscar Cliente</Label>
-                  <div className="relative mt-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Label htmlFor="document">Número de Documento</Label>
                     <Input
-                      id="search"
-                      placeholder="Nombre, documento o código..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
+                      id="document"
+                      placeholder="Ej: 12345678"
+                      value={documentNumber}
+                      onChange={(e) => setDocumentNumber(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleManualRegistry();
+                        }
+                      }}
                     />
                   </div>
                 </div>
-                <div className="md:w-48">
-                  <Label>Fecha</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal mt-1">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(selectedDate, "dd/MM/yyyy", { locale: es })}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={(date) => {
-                          if (date) {
-                            console.log('📅 Nueva fecha seleccionada:', date);
-                            setSelectedDate(date);
-                            // ✅ La recarga se hará automáticamente por el useEffect
-                          }
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsManualRegistryOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleManualRegistry} disabled={!documentNumber.trim() || isLoading}>
+                    {isLoading ? "Registrando..." : "Registrar"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Asistencias Hoy</p>
+                  <p className="text-2xl font-bold text-gray-900">{filteredData.length}</p>
+                </div>
+                <Users className="h-8 w-8 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Última Asistencia</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {filteredData.length > 0 ? formatTimeFromDB(filteredData[0].hora_registro) : "--:--"}
+                  </p>
+                </div>
+                <Clock className="h-8 w-8 text-green-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Estado Sistema</p>
+                  <p className="text-2xl font-bold text-green-600">Activo</p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <Label htmlFor="search">Buscar Cliente</Label>
+                <div className="relative mt-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="search"
+                    placeholder="Nombre, documento o código..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div className="md:w-48">
+                <Label>Fecha</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal mt-1">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(selectedDate, "dd/MM/yyyy", { locale: es })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          setSelectedDate(date);
+                        }
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Data Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Registros de Asistencia 
+              {isLoading && <span className="text-sm text-gray-500 ml-2">(Cargando...)</span>}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="text-center py-12">
+                <RefreshCw className="h-8 w-8 text-gray-400 mx-auto mb-4 animate-spin" />
+                <p className="text-gray-600">Cargando asistencias...</p>
+              </div>
+            ) : filteredData.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No hay registros</h3>
+                <p className="text-gray-600 mb-4">
+                  No se encontraron asistencias para el {format(selectedDate, "dd 'de' MMMM", { locale: es })}.
+                </p>
+                <Button onClick={() => setIsManualRegistryOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Registrar Primera Asistencia
+                </Button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Documento</TableHead>
+                      <TableHead>Estado Contrato</TableHead>
+                      <TableHead>Hora</TableHead>
+                      <TableHead>Estado Asistencia</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredData.map((record) => (
+                      <TableRow key={record.id} className="hover:bg-gray-50">
+                        <TableCell>
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {record.persona_asistencia?.usuario?.nombre || 'N/A'} {record.persona_asistencia?.usuario?.apellido || ''}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {record.persona_asistencia?.codigo || 'N/A'}
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="font-mono">
+                          {record.persona_asistencia?.usuario?.numero_documento || 'N/A'}
+                        </TableCell>
+
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">
+                              {record.contrato?.codigo || 'N/A'}
+                            </div>
+                            <div className="text-sm">
+                              <Badge 
+                                variant={record.contrato?.estado === "Activo" ? "default" : "destructive"}
+                                className="text-xs"
+                              >
+                                {record.contrato?.estado || 'N/A'}
+                              </Badge>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="font-mono">
+                          {formatTimeFromDB(record.hora_registro)}
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge 
+                            variant={record.estado === "Activo" ? "default" : "destructive"}
+                          >
+                            {record.estado}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewDetails(Number(record.id))}
+                              title="Ver detalles"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Paginación */}
+        {totalRecords > pageSize && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-600">
+                  Mostrando {((currentPage - 1) * pageSize) + 1} a {Math.min(currentPage * pageSize, totalRecords)} de {totalRecords} registros
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => prev + 1)}
+                    disabled={currentPage * pageSize >= totalRecords}
+                  >
+                    Siguiente
+                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
+        )}
 
-          {/* Data Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                Registros de Asistencia 
-                {isLoading && <span className="text-sm text-gray-500 ml-2">(Cargando...)</span>}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="text-center py-12">
-                  <RefreshCw className="h-8 w-8 text-gray-400 mx-auto mb-4 animate-spin" />
-                  <p className="text-gray-600">Cargando asistencias...</p>
-                </div>
-              ) : filteredData.length === 0 ? (
-                <div className="text-center py-12">
-                  <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No hay registros</h3>
-                  <p className="text-gray-600 mb-4">
-                    No se encontraron asistencias para el {format(selectedDate, "dd 'de' MMMM", { locale: es })}.
-                  </p>
-                  <Button onClick={() => setIsManualRegistryOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Registrar Primera Asistencia
-                  </Button>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Cliente</TableHead>
-                        <TableHead>Documento</TableHead>
-                        <TableHead>Estado Contrato</TableHead>
-                        <TableHead>Hora</TableHead>
-                        <TableHead>Estado Asistencia</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredData.map((record) => (
-                        <TableRow key={record.id} className="hover:bg-gray-50">
-                          {/* Cliente */}
-                          <TableCell>
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                {record.persona_asistencia?.usuario?.nombre || 'N/A'} {record.persona_asistencia?.usuario?.apellido || ''}
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                {record.persona_asistencia?.codigo || 'N/A'}
-                              </div>
-                            </div>
-                          </TableCell>
-
-                          {/* Documento */}
-                          <TableCell className="font-mono">
-                            {record.persona_asistencia?.usuario?.numero_documento || 'N/A'}
-                          </TableCell>
-
-                          {/* Estado del Contrato */}
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">
-                                {record.contrato?.codigo || 'N/A'}
-                              </div>
-                              <div className="text-sm">
-                                <Badge 
-                                  variant={record.contrato?.estado === "Activo" ? "default" : "destructive"}
-                                  className="text-xs"
-                                >
-                                  {record.contrato?.estado || 'N/A'}
-                                </Badge>
-                              </div>
-                            </div>
-                          </TableCell>
-
-                          {/* Hora */}
-                          <TableCell className="font-mono">
-                            {formatTimeFromDB(record.hora_registro)}
-                          </TableCell>
-
-                          {/* Estado de la Asistencia */}
-                          <TableCell>
-                            <Badge 
-                              variant={record.estado === "Activo" ? "default" : "destructive"}
-                            >
-                              {record.estado}
-                            </Badge>
-                          </TableCell>
-
-                          {/* Acciones */}
-                          <TableCell>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleViewDetails(Number(record.id))}
-                                title="Ver detalles"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-  
-          {/* Paginación si es necesaria */}
-          {totalRecords > pageSize && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-600">
-                    Mostrando {((currentPage - 1) * pageSize) + 1} a {Math.min(currentPage * pageSize, totalRecords)} de {totalRecords} registros
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Anterior
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => prev + 1)}
-                      disabled={currentPage * pageSize >= totalRecords}
-                    >
-                      Siguiente
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Details Modal - CORREGIDO */}
-          <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Detalles de Asistencia</DialogTitle>
-                <DialogDescription>
-                  Información completa del registro de asistencia
-                </DialogDescription>
-              </DialogHeader>
-              {selectedRecord && (
-                <div className="space-y-6">
-                  {/* Información del Cliente */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold border-b pb-2">Información del Cliente</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Código</Label>
-                        <p className="font-mono">{selectedRecord.persona_asistencia?.codigo || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Documento</Label>
-                        <p className="font-mono">{selectedRecord.persona_asistencia?.usuario?.numero_documento || 'N/A'}</p>
-                      </div>
-                      <div className="col-span-2 md:col-span-1">
-                        <Label className="text-sm font-medium text-gray-600">Nombre Completo</Label>
-                        <p className="font-medium">
-                          {selectedRecord.persona_asistencia?.usuario?.nombre || 'N/A'} {selectedRecord.persona_asistencia?.usuario?.apellido || ''}
-                        </p>
-                      </div>
+        {/* Details Modal */}
+        <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Detalles de Asistencia</DialogTitle>
+              <DialogDescription>
+                Información completa del registro de asistencia
+              </DialogDescription>
+            </DialogHeader>
+            {selectedRecord && (
+              <div className="space-y-6">
+                {/* Información del Cliente */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">Información del Cliente</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Código</Label>
+                      <p className="font-mono">{selectedRecord.persona_asistencia?.codigo || 'N/A'}</p>
                     </div>
-                  </div>
-  
-                  {/* Información del Contrato */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold border-b pb-2">Información del Contrato</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Código Contrato</Label>
-                        <p className="font-mono">{selectedRecord.contrato?.codigo || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Membresía</Label>
-                        <p>{selectedRecord.contrato?.membresia?.nombre || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Precio</Label>
-                        <p className="font-mono">
-                          ${selectedRecord.contrato?.membresia_precio ? Number(selectedRecord.contrato?.membresia_precio).toLocaleString() : 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Fecha Inicio</Label>
-                        <p>{selectedRecord.contrato?.fecha_inicio ? formatDateFromDB(selectedRecord.contrato.fecha_inicio) : 'N/A'}</p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Fecha Fin</Label>
-                        <p>{selectedRecord.contrato?.fecha_fin ? formatDateFromDB(selectedRecord.contrato.fecha_fin) : 'N/A'}</p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Estado Contrato</Label>
-                        <Badge variant={selectedRecord.contrato?.estado === "Activo" ? "default" : "secondary"}>
-                          {selectedRecord.contrato?.estado || 'N/A'}
-                        </Badge>
-                      </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Documento</Label>
+                      <p className="font-mono">{selectedRecord.persona_asistencia?.usuario?.numero_documento || 'N/A'}</p>
                     </div>
-                  </div>
-  
-                  {/* Información de la Asistencia - CORREGIDO */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold border-b pb-2">Detalles de la Asistencia</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Fecha de Uso</Label>
-                        <p>{formatDateFromDB(selectedRecord.fecha_uso)}</p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Hora Registro</Label>
-                        <p className="font-mono">{formatTimeFromDB(selectedRecord.hora_registro)}</p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Estado Asistencia</Label>
-                        <Badge variant={selectedRecord.estado === "Activo" ? "default" : "destructive"}>
-                          {selectedRecord.estado}
-                        </Badge>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Fecha Registro</Label>
-                        {/* ✅ CORREGIDO: Usar función personalizada para evitar conversión de zona horaria */}
-                        <p className="font-mono">{formatFullDateTime(selectedRecord.fecha_registro)}</p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Última Actualización</Label>
-                        {/* ✅ CORREGIDO: Usar función personalizada para evitar conversión de zona horaria */}
-                        <p className="font-mono">
-                          {selectedRecord.fecha_actualizacion 
-                            ? formatFullDateTime(selectedRecord.fecha_actualizacion)
-                            : "N/A"}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-600">Usuario Registro</Label>
-                        <p className="font-mono">ID: {selectedRecord.usuario_registro || "N/A"}</p>
-                      </div>
+                    <div className="col-span-2 md:col-span-1">
+                      <Label className="text-sm font-medium text-gray-600">Nombre Completo</Label>
+                      <p className="font-medium">
+                        {selectedRecord.persona_asistencia?.usuario?.nombre || 'N/A'} {selectedRecord.persona_asistencia?.usuario?.apellido || ''}
+                      </p>
                     </div>
                   </div>
                 </div>
-              )}
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>
-                  Cerrar
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+
+                {/* Información del Contrato */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">Información del Contrato</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Código Contrato</Label>
+                      <p className="font-mono">{selectedRecord.contrato?.codigo || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Membresía</Label>
+                      <p>{selectedRecord.contrato?.membresia?.nombre || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Precio</Label>
+                      <p className="font-mono">
+                        ${selectedRecord.contrato?.membresia_precio ? Number(selectedRecord.contrato?.membresia_precio).toLocaleString() : 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Fecha Inicio</Label>
+                      <p>{selectedRecord.contrato?.fecha_inicio ? formatDateFromDB(selectedRecord.contrato.fecha_inicio) : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Fecha Fin</Label>
+                      <p>{selectedRecord.contrato?.fecha_fin ? formatDateFromDB(selectedRecord.contrato.fecha_fin) : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Estado Contrato</Label>
+                      <Badge variant={selectedRecord.contrato?.estado === "Activo" ? "default" : "secondary"}>
+                        {selectedRecord.contrato?.estado || 'N/A'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Información de la Asistencia */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">Detalles de la Asistencia</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Fecha de Uso</Label>
+                      <p>{formatDateFromDB(selectedRecord.fecha_uso)}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Hora Registro</Label>
+                      <p className="font-mono">{formatTimeFromDB(selectedRecord.hora_registro)}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Estado Asistencia</Label>
+                      <Badge variant={selectedRecord.estado === "Activo" ? "default" : "destructive"}>
+                        {selectedRecord.estado}
+                      </Badge>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Fecha Registro</Label>
+                      <p className="font-mono">{formatFullDateTime(selectedRecord.fecha_registro)}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Última Actualización</Label>
+                      <p className="font-mono">
+                        {selectedRecord.fecha_actualizacion 
+                          ? formatFullDateTime(selectedRecord.fecha_actualizacion)
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Usuario Registro</Label>
+                      <p className="font-mono">ID: {selectedRecord.usuario_registro || "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>
+                Cerrar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-    )
-  }
+    </div>
+  )
+}

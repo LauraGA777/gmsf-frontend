@@ -230,13 +230,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // ✅ No renderizar si no hay usuario
   if (!shouldRender) {
-    console.log('🚫 Sidebar: No rendering - no user or invalid user')
     return null
   }
 
   // ✅ Mostrar loading mientras se cargan permisos (solo para no-administradores)
   if (isLoading && user?.id_rol !== 1) {
-    console.log('⏳ Sidebar: Loading permissions for role:', user?.id_rol)
     return (
       <aside className={sidebarClasses} aria-label="Sidebar">
         <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-800">
@@ -261,22 +259,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // ✅ Para administradores, mostrar sidebar incluso durante la carga
   if (isLoading && user?.id_rol === 1) {
-    console.log('⏳ Sidebar: Admin loading, showing basic sidebar')
   }
 
   // ✅ Si no está listo y no es admin, no mostrar
   if (!isReady && user?.id_rol !== 1) {
-    console.log('🚫 Sidebar: Not ready and not admin, not rendering')
     return null
   }
-
-  console.log('✅ Sidebar: Rendering with permissions:', {
-    isReady,
-    isLoading,
-    accessibleModules: accessibleModules.length,
-    userRole: user?.id_rol,
-    permissionsVersion
-  })
 
   return (
     <aside className={sidebarClasses} aria-label="Sidebar">
@@ -363,7 +351,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     label="Mis Asistencias"
                     active={activeItem === "my-attendance"}
                     onClick={() => {
-                      console.log('Click en Mis Asistencias, client?.id_persona:', client?.id_persona);
                       handleItemClick("my-attendances");
                     }}
                     to={`/my-attendances/${user.id}`}

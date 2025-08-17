@@ -45,7 +45,6 @@ export function usePermissions() {
                 JSON.stringify(prevState.accessibleModules) !== JSON.stringify(newState.accessibleModules) ||
                 JSON.stringify(prevState.userPermissions) !== JSON.stringify(newState.userPermissions)
             ) {
-                console.log('🔄 Actualizando estado de permisos:', newState)
                 return newState
             }
             return prevState
@@ -55,12 +54,10 @@ export function usePermissions() {
     // ✅ Función para refrescar permisos manualmente
     const refreshPermissions = useCallback(async () => {
         if (!isAuthenticated || !user?.id_rol) {
-            console.log('🚫 No se pueden refrescar permisos: usuario no autenticado')
             return
         }
 
         try {
-            console.log('🔄 Refrescando permisos...')
             setPermissionsState(prev => ({ ...prev, isLoading: true }))
             
             // Recargar permisos desde el servidor
@@ -69,7 +66,6 @@ export function usePermissions() {
             // Actualizar estado local
             updatePermissionsState()
         } catch (error) {
-            console.error('❌ Error al refrescar permisos:', error)
             setPermissionsState(prev => ({ 
                 ...prev, 
                 isLoading: false, 
@@ -82,7 +78,6 @@ export function usePermissions() {
     useEffect(() => {
         // Función que se ejecutará cuando cambien los permisos
         const handlePermissionsChange = () => {
-            console.log('📡 Detectado cambio en permisos, actualizando...')
             updatePermissionsState()
         }
 
@@ -105,7 +100,6 @@ export function usePermissions() {
     // ✅ Efecto para reaccionar a cambios en el usuario
     useEffect(() => {
         if (isAuthenticated && user?.id_rol) {
-            console.log('👤 Usuario cambió, refrescando permisos...', { userId: user.id, roleId: user.id_rol })
             refreshPermissions()
         } else {
             // Limpiar permisos si no hay usuario
@@ -126,7 +120,6 @@ export function usePermissions() {
 
         // Verificar cambios cada 5 minutos
         const interval = setInterval(() => {
-            console.log('⏰ Verificación periódica de permisos')
             refreshPermissions()
         }, 5 * 60 * 1000) // 5 minutos
 
@@ -137,19 +130,16 @@ export function usePermissions() {
     const hasModuleAccess = useCallback((moduleName: PermissionName): boolean => {
         // 🔒 SEGURIDAD: Usuario debe estar autenticado
         if (!isAuthenticated || !user) {
-            console.log(`🚫 Acceso denegado a ${moduleName}: usuario no autenticado`)
             return false
         }
 
         // 🔒 SEGURIDAD: Usuario debe tener rol válido
         if (!user.id_rol) {
-            console.log(`🚫 Acceso denegado a ${moduleName}: usuario sin rol`)
             return false
         }
 
         // 🔒 SEGURIDAD: Aplicación debe estar inicializada Y lista
         if (!permissionsState.isReady) {
-            console.log(`🚫 Acceso denegado a ${moduleName}: aplicación inicializando o cargando permisos`)
             return false
         }
 
@@ -195,14 +185,12 @@ export function usePermissions() {
             const hasChanged = JSON.stringify(currentPermissions) !== JSON.stringify(localPermissions)
             
             if (hasChanged) {
-                console.log('🔄 Detectados cambios en permisos remotos, actualizando...')
                 await refreshPermissions()
                 return true
             }
             
             return false
         } catch (error) {
-            console.error('❌ Error al verificar cambios en permisos:', error)
             return false
         }
     }, [isAuthenticated, user?.id_rol, refreshPermissions])

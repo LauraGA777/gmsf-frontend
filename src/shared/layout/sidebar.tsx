@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Link, useLocation } from "react-router-dom"
 import {
   LayoutDashboard,
@@ -17,11 +17,12 @@ import {
   ShoppingCartIcon,
   BadgeCheck,
   Globe,
+  CreditCard,
 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { cn } from "@/shared/lib/formatCop"
 import { useAuth } from "@/shared/contexts/authContext"
-import { usePermissions } from "@/shared/hooks/usePermissions"
+import { usePermissionsContext } from '@/shared/contexts/permissionsContext'
 import { PERMISSIONS } from "@/shared/services/permissionService"
 
 interface SidebarProps {
@@ -105,13 +106,38 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [activeItem, setActiveItem] = useState<string | null>(null)
   const [activeGroup, setActiveGroup] = useState<string | null>(null)
   const { logout, user, client } = useAuth()
-  const [shouldRender, setShouldRender] = useState(false)
-  const { hasModuleAccess, isLoading } = usePermissions()
+  
+  // ✅ Usar el nuevo contexto de permisos
+  const {
+    hasModuleAccess,
+    isLoading,
+    isReady,
+    lastError,
+    accessibleModules,
+    permissionsVersion, // Para forzar re-renders
+    refreshPermissions
+  } = usePermissionsContext()
 
-  useEffect(() => {
-    setShouldRender(!!user)
+  // ✅ Determinar si debe renderizar el sidebar
+  const shouldRender = useMemo(() => {
+    return !!user && Number(user.id) > 0
   }, [user])
 
+  // ✅ Determinar tipo de usuario
+  const isClientOrBeneficiary = useMemo(() => {
+    return user?.id_rol === 3 || user?.id_rol === 4
+  }, [user?.id_rol])
+
+  // ✅ Verificar acceso a grupos específicos (reactivo)
+  const hasVentasAccess = useMemo(() => {
+    return hasModuleAccess(PERMISSIONS.CONTRATOS) || hasModuleAccess(PERMISSIONS.CLIENTES)
+  }, [hasModuleAccess, permissionsVersion])
+
+  const hasMembresíasAccess = useMemo(() => {
+    return hasModuleAccess(PERMISSIONS.MEMBRESIAS) || hasModuleAccess(PERMISSIONS.ASISTENCIAS)
+  }, [hasModuleAccess, permissionsVersion])
+
+  // ✅ Efectos para manejar rutas activas
   useEffect(() => {
     const path = location.pathname
 
@@ -139,6 +165,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       setActiveGroup(null)
     } else if (path.includes("/my-attendance")) {
       setActiveItem("my-attendance")
+      setActiveGroup(null)
+    } else if (path.includes("/my-membership")) {
+      setActiveItem("my-membership")
       setActiveGroup(null)
     } else if (path.includes("/clients")) {
       setActiveItem("clients.list")
@@ -168,7 +197,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     setActiveGroup(activeGroup === group ? null : group)
   }
 
-  // Clases para el sidebar basadas en el estado isOpen
+  // ✅ Clases para el sidebar basadas en el estado isOpen
   const sidebarClasses = cn(
     "fixed md:sticky top-0 left-0 z-30",
     "h-screen",
@@ -178,19 +207,36 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
   )
 
-  // ✅ VERIFICACIONES DE ACCESO USANDO GRUPOS DE PERMISOS
-  // Para clientes y beneficiarios (roles 3 y 4)
-  const isClientOrBeneficiary = user?.id_rol === 3 || user?.id_rol === 4;
-  
-  // Verificar acceso a grupos específicos
-  const hasVentasAccess = hasModuleAccess(PERMISSIONS.CONTRATOS) || hasModuleAccess(PERMISSIONS.CLIENTES)
-  const hasMembresíasAccess = hasModuleAccess(PERMISSIONS.MEMBRESIAS) || hasModuleAccess(PERMISSIONS.ASISTENCIAS)
+  // ✅ Componente de loading para permisos
+  const LoadingPermissions = () => (
+    <div className="text-center text-gray-500 py-4">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+      <p className="text-sm">Cargando permisos...</p>
+      {lastError && (
+        <div className="mt-2">
+          <p className="text-xs text-red-600">{lastError}</p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={refreshPermissions}
+            className="mt-1 text-xs"
+          >
+            Reintentar
+          </Button>
+        </div>
+      )}
+    </div>
+  )
 
-  // Para administrador, mostrar sidebar siempre
-  if (!shouldRender) return null
-  
-  // Si está cargando permisos, mostrar un sidebar básico para administrador
-  if (isLoading && user?.id_rol === 1) {
+  // ✅ No renderizar si no hay usuario
+  if (!shouldRender) {
+    console.log('🚫 Sidebar: No rendering - no user or invalid user')
+    return null
+  }
+
+  // ✅ Mostrar loading mientras se cargan permisos (solo para no-administradores)
+  if (isLoading && user?.id_rol !== 1) {
+    console.log('⏳ Sidebar: Loading permissions for role:', user?.id_rol)
     return (
       <aside className={sidebarClasses} aria-label="Sidebar">
         <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-800">
@@ -206,27 +252,41 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             </div>
           </div>
           <nav className="flex-1 overflow-y-auto py-4 px-2">
-            <div className="text-center text-gray-500 py-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-              <p className="text-sm">Cargando permisos...</p>
-            </div>
+            <LoadingPermissions />
           </nav>
         </div>
       </aside>
     )
   }
-  
-  if (isLoading) return null
+
+  // ✅ Para administradores, mostrar sidebar incluso durante la carga
+  if (isLoading && user?.id_rol === 1) {
+    console.log('⏳ Sidebar: Admin loading, showing basic sidebar')
+  }
+
+  // ✅ Si no está listo y no es admin, no mostrar
+  if (!isReady && user?.id_rol !== 1) {
+    console.log('🚫 Sidebar: Not ready and not admin, not rendering')
+    return null
+  }
+
+  console.log('✅ Sidebar: Rendering with permissions:', {
+    isReady,
+    isLoading,
+    accessibleModules: accessibleModules.length,
+    userRole: user?.id_rol,
+    permissionsVersion
+  })
 
   return (
     <aside className={sidebarClasses} aria-label="Sidebar">
       <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-800">
-        {/* Encabezado del Sidebar */}
+        {/* ✅ Encabezado del Sidebar */}
         <div className="h-16 px-4 border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 flex items-center">
           <div className="flex gap-3 items-center w-full">
             <Link
               to="/dashboard" 
-              className="text-2xl font-bold text-black-800 font-gmsf font-normal not-italic hover:text-black-800 transition-colors duration-200 cursor-pointer"
+              className="flex items-center gap-3 text-2xl font-bold text-black-800 font-gmsf font-normal not-italic hover:text-black-800 transition-colors duration-200 cursor-pointer"
               onClick={() => {
                 handleItemClick("dashboard")
                 if (window.innerWidth < 768) onClose()
@@ -234,23 +294,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               aria-label="Ir al Dashboard"
             >
               <img src="/favicon.ico" alt="Logo GMSF" className="h-10 w-10" />
-            </Link>
-            <Link 
-              to="/dashboard" 
-              className="text-2xl font-bold text-black-800 font-gmsf font-normal not-italic hover:text-black-800 transition-colors duration-200 cursor-pointer"
-              onClick={() => {
-                handleItemClick("dashboard")
-                if (window.innerWidth < 768) onClose()
-              }}
-              aria-label="Ir al Dashboard"
-            >
-              GMSF
+              <span>GMSF</span>
             </Link>
             <Button 
               variant="ghost" 
               size="icon" 
               onClick={onClose} 
-              className="md:hidden h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100" 
+              className="md:hidden h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 ml-auto" 
               aria-label="Cerrar menú"
             >
               <X className="h-5 w-5" />
@@ -258,7 +308,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
         </div>
 
-        {/* Área de navegación con scroll */}
+        {/* ✅ Área de navegación con scroll */}
         <nav className="flex-1 overflow-y-auto py-4 px-2">
           <ul className="space-y-1">
             {/* ✅ VISTA SIMPLIFICADA PARA CLIENTES Y BENEFICIARIOS */}
@@ -293,8 +343,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   />
                 )}
 
+                {/* Mi Membresía */}
+                {hasModuleAccess(PERMISSIONS.MEMBRESIAS) && (
+                  <NavItem
+                    icon={<CreditCard className="h-5 w-5" aria-hidden="true" />}
+                    label="Mi Membresía"
+                    active={activeItem === "my-membership"}
+                    onClick={() => handleItemClick("my-membership")}
+                    to="/my-membership"
+                    onClose={onClose}
+                    id="nav-my-membership"
+                  />
+                )}
+
                 {/* Mis Asistencias */}
-                {hasModuleAccess(PERMISSIONS.ASISTENCIAS) && (
+                {hasModuleAccess(PERMISSIONS.ASISTENCIAS) && user?.id && (
                   <NavItem
                     icon={<BarChart4 className="h-5 w-5" aria-hidden="true" />}
                     label="Mis Asistencias"
@@ -314,7 +377,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 {/* ✅ VISTA COMPLETA PARA ADMINISTRADORES Y ENTRENADORES */}
                 
                 {/* Panel de control - Solo si tiene acceso al sistema */}
-                {hasModuleAccess(PERMISSIONS.SISTEMA) && (
+                {(hasModuleAccess(PERMISSIONS.SISTEMA) || user?.id_rol === 1) && (
                   <NavItem
                     icon={<LayoutDashboard className="h-5 w-5" aria-hidden="true" />}
                     label="Panel de control"
@@ -327,7 +390,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 )}
 
                 {/* Gestión de roles - Solo si tiene acceso al sistema */}
-                {hasModuleAccess(PERMISSIONS.SISTEMA) && (
+                {(hasModuleAccess(PERMISSIONS.SISTEMA) || user?.id_rol === 1) && (
                   <NavItem
                     icon={<BadgeCheck className="h-5 w-5" aria-hidden="true" />}
                     label="Roles"
@@ -528,12 +591,23 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               </>
             )}
 
-            {/* Separador visual */}
+            {/* ✅ Separador visual */}
             <li className="mx-3 my-3">
               <hr className="border-gray-200 dark:border-gray-600" />
             </li>
 
-            {/* Cerrar Sesión - Siempre visible */}
+            {/* ✅ Estado de permisos (solo en desarrollo) */}
+            {process.env.NODE_ENV === 'development' && (
+              <li className="mx-3 mb-2">
+                <div className="text-xs text-gray-500 text-center">
+                  <div>Permisos: {isReady ? '✅' : '⏳'}</div>
+                  <div>Módulos: {accessibleModules.length}</div>
+                  <div>V: {permissionsVersion.toString().slice(-4)}</div>
+                </div>
+              </li>
+            )}
+
+            {/* ✅ Cerrar Sesión - Siempre visible */}
             <NavItem
               icon={<LogOut className="h-5 w-5 text-red-600" aria-hidden="true" />}
               label="Cerrar Sesión"

@@ -1,6 +1,15 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, Navigate } from "react-router-dom"; // ✅ Agregar imports
+import { useParams, Navigate } from "react-router-dom";
 import { useAuth } from "@/shared/contexts/authContext";
+import { attendanceService } from "../services/attendanceService";
+import { toast } from "react-hot-toast";
+import { 
+  formatDateFromDB, 
+  formatTimeFromDB, 
+  getDayOfWeekFromDB,
+  isToday as isTodayCustom,
+  normalizeDateFromDB 
+} from "@/shared/utils/date";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -23,17 +32,42 @@ import {
   Loader2,
   RefreshCw
 } from "lucide-react";
-import { format, startOfWeek, endOfWeek, startOfMonth, startOfYear, isSameDay, isToday, isYesterday } from "date-fns";
+import { 
+  format, 
+  startOfWeek, 
+  endOfWeek, 
+  startOfMonth, 
+  startOfYear, 
+  isSameDay, 
+  isToday as isTodayDateFns, // ✅ Renombrar la de date-fns
+  isYesterday 
+} from "date-fns";
 import { es } from "date-fns/locale";
-import { attendanceService } from "../services/attendanceService";
-import { toast } from "sonner";
 
+// ✅ Actualizar la interfaz para incluir campos formateados
 interface AttendanceRecord {
   id: number;
   fecha_uso: string;
   hora_registro: string;
   estado: "Activo" | "Eliminado";
   fecha_registro: string;
+  contrato?: {
+    codigo: string;
+    membresia: {
+      nombre: string;
+    };
+  };
+  // ✅ Agregar campos formateados opcionales
+  fechaFormateada?: string;
+  horaFormateada?: string;
+  diaDeLaSemana?: string;
+}
+
+// ✅ O crear una interfaz extendida específica para la vista
+interface AttendanceRecordWithFormatting extends AttendanceRecord {
+  fechaFormateada: string;
+  horaFormateada: string;
+  diaDeLaSemana: string;
 }
 
 // Componente para el estado de carga
@@ -84,7 +118,9 @@ const NoAttendanceState = () => (
 export function MyAttendancePage() {
   const { userId } = useParams<{ userId: string }>();
   const { user } = useAuth();
-  const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
+  
+  // ✅ Usar la interfaz extendida para el estado
+  const [attendanceData, setAttendanceData] = useState<AttendanceRecordWithFormatting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pagination, setPagination] = useState({
     total: 0,
@@ -111,7 +147,7 @@ export function MyAttendancePage() {
     return <Navigate to="/calendar" replace />;
   }
 
-  // ✅ Función para cargar datos con paginación
+  // ✅ Función para cargar datos con formateo correcto
   const fetchAttendanceData = async (page: number = 1) => {
     console.log('🔄 fetchAttendanceData ejecutándose');
     console.log('📋 userId desde URL:', userId);
@@ -119,32 +155,48 @@ export function MyAttendancePage() {
 
     try {
       setIsLoading(true);
-      console.log(`🔍 Obteniendo asistencias para usuario ID: ${userId}`);
-
-      // ✅ Obtener historial con paginación
       const historyResponse = await attendanceService.getUserAttendanceHistory(userId!, page, 20);
       
-      console.log('📡 Respuesta del historial:', historyResponse);
-      
       if (historyResponse.success && historyResponse.data) {
-        // ✅ Mapear los datos a la estructura esperada
-        const mappedAttendances = historyResponse.data.map((attendance) => ({
-          id: attendance.id,
-          fecha_uso: attendance.fecha_uso,
-          hora_registro: attendance.hora_registro,
-          estado: attendance.estado === 'Activo' ? "Activo" as const : "Eliminado" as const,
-          fecha_registro: attendance.fecha_registro,
-          // ✅ Información adicional de contrato y membresía
-          contrato: attendance.contrato
-        }));
+        // ✅ Mapear los datos con formato correcto de fechas y tipado explícito
+        const mappedAttendances: AttendanceRecordWithFormatting[] = historyResponse.data.map((attendance) => {
+          console.log('📅 Procesando asistencia:', {
+            id: attendance.id,
+            fecha_uso_original: attendance.fecha_uso,
+            hora_registro_original: attendance.hora_registro,
+            fecha_registro_original: attendance.fecha_registro
+          });
+
+          // ✅ Formatear fechas correctamente
+          const fechaFormateada = formatDateFromDB(attendance.fecha_uso);
+          const horaFormateada = formatTimeFromDB(attendance.hora_registro);
+          const diaDeLaSemana = getDayOfWeekFromDB(attendance.fecha_uso);
+
+          console.log('📅 Fechas formateadas:', {
+            fechaFormateada,
+            horaFormateada,
+            diaDeLaSemana
+          });
+
+          return {
+            id: attendance.id,
+            fecha_uso: attendance.fecha_uso,
+            hora_registro: attendance.hora_registro,
+            estado: attendance.estado === 'Activo' ? "Activo" as const : "Eliminado" as const,
+            fecha_registro: attendance.fecha_registro,
+            contrato: attendance.contrato,
+            // ✅ Campos formateados garantizados (no opcionales)
+            fechaFormateada,
+            horaFormateada,
+            diaDeLaSemana
+          };
+        });
         
         setAttendanceData(mappedAttendances);
         setPagination(historyResponse.pagination);
-        console.log('✅ Asistencias cargadas:', mappedAttendances.length);
-        console.log('📊 Paginación:', historyResponse.pagination);
+        console.log('✅ Asistencias cargadas con fechas formateadas:', mappedAttendances.length);
       } else {
         setAttendanceData([]);
-        console.log('⚠️ No se encontraron asistencias');
       }
 
       // ✅ Cargar estadísticas
@@ -186,20 +238,27 @@ export function MyAttendancePage() {
     }
   };
 
-  // Filtrar datos por búsqueda
+  // ✅ Filtrar datos con campos garantizados
   const filteredData = useMemo(() => {
     return attendanceData.filter((record) => {
-      const matchesSearch = format(new Date(record.fecha_uso), "dd/MM/yyyy").includes(searchTerm) ||
-        record.hora_registro.includes(searchTerm);
-      return matchesSearch && record.estado === "Activo";
+      const searchLower = searchTerm.toLowerCase();
+      
+      // ✅ Ahora estos campos están garantizados por la interfaz
+      return (
+        record.fechaFormateada.toLowerCase().includes(searchLower) ||
+        record.diaDeLaSemana.toLowerCase().includes(searchLower) ||
+        record.estado.toLowerCase().includes(searchLower) ||
+        record.horaFormateada.includes(searchLower) ||
+        record.contrato?.codigo.toLowerCase().includes(searchLower) ||
+        record.contrato?.membresia.nombre.toLowerCase().includes(searchLower)
+      );
     });
   }, [attendanceData, searchTerm]);
 
-  // Estadísticas diarias
+  // ✅ Estadísticas diarias usando tu función personalizada para strings de BD
   const dailyStats = useMemo(() => {
-    const today = new Date();
     const todayAttendances = attendanceData.filter(record =>
-      isSameDay(new Date(record.fecha_uso), today) && record.estado === "Activo"
+      isTodayCustom(record.fecha_uso) && record.estado === "Activo" // ✅ Usar función personalizada
     );
 
     const yesterdayAttendances = attendanceData.filter(record =>
@@ -214,10 +273,11 @@ export function MyAttendancePage() {
     };
   }, [attendanceData]);
 
-  // Verificar si hay asistencia en una fecha específica
+  // ✅ Verificar si hay asistencia en una fecha específica (para el calendario)
   const hasAttendance = (date: Date) => {
-    return attendanceData.some(record =>
-      isSameDay(new Date(record.fecha_uso), date) && record.estado === "Activo"
+    const dateString = format(date, 'yyyy-MM-dd');
+    return attendanceData.some(record => 
+      record.fecha_uso === dateString && record.estado === "Activo"
     );
   };
 
@@ -268,7 +328,7 @@ export function MyAttendancePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Esta Semana</p>
-                <p className="text-2xl font-bold">{weeklyStats.currentPeriod}/7</p>
+                <p className="text-2xl font-bold">{weeklyStats.currentPeriod || 0}/7</p>
               </div>
               <div className="p-2 rounded-full bg-blue-100">
                 <CalendarDays className="h-6 w-6 text-blue-600" />
@@ -282,7 +342,7 @@ export function MyAttendancePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Este Mes</p>
-                <p className="text-2xl font-bold">{monthlyStats.currentPeriod}</p>
+                <p className="text-2xl font-bold">{monthlyStats.currentPeriod || 0}</p>
               </div>
               <div className="p-2 rounded-full bg-purple-100">
                 <CalendarIcon className="h-6 w-6 text-purple-600" />
@@ -296,7 +356,7 @@ export function MyAttendancePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Racha Actual</p>
-                <p className="text-2xl font-bold">{weeklyStats.streak}</p>
+                <p className="text-2xl font-bold">{weeklyStats.streak || 0}</p>
               </div>
               <div className="p-2 rounded-full bg-orange-100">
                 <Award className="h-6 w-6 text-orange-600" />
@@ -336,7 +396,7 @@ export function MyAttendancePage() {
                   className="rounded-md border"
                   modifiers={{
                     attended: (date) => hasAttendance(date),
-                    today: (date) => isToday(date),
+                    today: (date) => isTodayDateFns(date), // ✅ Usar date-fns para objetos Date
                   }}
                   modifiersStyles={{
                     attended: { backgroundColor: "hsl(var(--primary))", color: "white" },
@@ -359,20 +419,33 @@ export function MyAttendancePage() {
               <CardContent>
                 <div className="space-y-3">
                   {filteredData.slice(0, 10).map((record) => (
-                    <div key={record.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div 
+                      key={record.id} 
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        isTodayCustom(record.fecha_uso) ? "bg-blue-50 border border-blue-200" : "bg-gray-50"
+                      }`} // ✅ Usar función personalizada para destacar asistencia de hoy
+                    >
                       <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div className={`w-2 h-2 rounded-full ${
+                          isTodayCustom(record.fecha_uso) ? "bg-blue-500" : "bg-green-500"
+                        }`}></div>
                         <div>
                           <p className="font-medium">
-                            {format(new Date(record.fecha_uso), "EEEE, d 'de' MMMM", { locale: es })}
+                            {/* ✅ Usar campos formateados consistentes */}
+                            {record.diaDeLaSemana}, {record.fechaFormateada}
                           </p>
                           <p className="text-sm text-gray-600">
-                            Registrado a las {record.hora_registro}
+                            {/* ✅ Usar hora formateada en lugar de hora_registro directa */}
+                            Registrado a las {record.horaFormateada}
+                            {isTodayCustom(record.fecha_uso) && (
+                              <span className="ml-2 text-blue-600 font-medium">• Hoy</span>
+                            )}
                           </p>
                         </div>
                       </div>
-                      <Badge variant="secondary">
-                        {format(new Date(record.fecha_uso), "dd/MM/yyyy")}
+                      <Badge variant={isTodayCustom(record.fecha_uso) ? "default" : "secondary"}>
+                        {/* ✅ Usar fecha formateada en lugar de format(new Date()) */}
+                        {record.fechaFormateada}
                       </Badge>
                     </div>
                   ))}
@@ -634,11 +707,11 @@ export function MyAttendancePage() {
                 {filteredData.map((record) => (
                   <TableRow key={record.id}>
                     <TableCell className="font-medium">
-                      {format(new Date(record.fecha_uso), "dd/MM/yyyy")}
+                      {record.fechaFormateada} {/* ✅ Usar campo formateado */}
                     </TableCell>
-                    <TableCell>{record.hora_registro}</TableCell>
-                    <TableCell>
-                      {format(new Date(record.fecha_uso), "EEEE", { locale: es })}
+                    <TableCell>{record.horaFormateada}</TableCell> {/* ✅ Usar campo formateado */}
+                    <TableCell className="capitalize">
+                      {record.diaDeLaSemana} {/* ✅ Usar campo formateado */}
                     </TableCell>
                     <TableCell>
                       <Badge variant={record.estado === "Activo" ? "default" : "secondary"}>
@@ -660,7 +733,7 @@ export function MyAttendancePage() {
         </CardContent>
       </Card>
 
-      {/* ✅ Agregar controles de paginación si hay más de una página */}
+      {/* Controles de paginación */}
       {pagination.totalPages > 1 && (
         <div className="flex justify-center items-center space-x-2 mt-6">
           <Button

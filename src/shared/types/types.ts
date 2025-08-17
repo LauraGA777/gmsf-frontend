@@ -50,13 +50,28 @@ export interface AttendanceRecord {
   id: number;
   id_persona: number;
   id_contrato: number;
-  fecha_uso: string;
-  hora_registro: string;
+  fecha_uso: string; // Formato: "2025-08-16"
+  hora_registro: string; // Formato: "19:21:22"
   estado: "Activo" | "Eliminado";
-  fecha_registro: string;
+  fecha_registro: string; // Formato: "2025-08-16T14:21:22.119Z" o "2025-08-16 14:01:58.831+00"
   fecha_actualizacion: string;
-  usuario_registro: number | null;
+  usuario_registro: number;
   usuario_actualizacion: number | null;
-  persona: Persona;
-  contrato: Contrato;
+  
+  // ✅ Campos adicionales que pueden venir del backend
+  contrato?: {
+    id: number;
+    codigo: string;
+    id_persona: number;
+    id_membresia: number;
+    fecha_inicio: string;
+    membresia?: {
+      nombre: string;
+    };
+  };
+  
+  // ✅ Campos calculados para la vista
+  fechaFormateada?: string;
+  diaDeLaSemana?: string;
+  horaFormateada?: string;
 }

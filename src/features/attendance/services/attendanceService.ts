@@ -1,6 +1,7 @@
 import apiClient from '@/shared/services/api';
 import { AttendanceRecord } from "@/shared/types/types"
 import { format } from "date-fns"
+import { normalizeDateFromDB } from '@/shared/utils/date';
 
 interface ApiResponse<T> {
   status: string;
@@ -16,7 +17,56 @@ interface PaginatedResponse<T> {
   data: T[];
 }
 
-// ✅ Interfaz para un item de asistencia del usuario
+// ✅ Actualizar interfaz para coincidir con respuesta de API
+interface AdminAttendanceRecord {
+  id: number;
+  id_persona: number;
+  id_contrato: number;
+  fecha_uso: string;
+  hora_registro: string;
+  estado: "Activo" | "Eliminado";
+  fecha_registro: string;
+  fecha_actualizacion: string;
+  usuario_registro: number;
+  usuario_actualizacion: number | null;
+  // ✅ Estructura real de la API
+  persona_asistencia: {
+    codigo: string;
+    id_usuario: number;
+    usuario: {
+      nombre: string;
+      apellido: string;
+      numero_documento: string;
+    };
+  };
+  contrato: {
+    codigo: string;
+    estado: "Activo" | "Eliminado";
+    // ✅ Puede que falte membresia - verificar con backend
+    membresia?: {
+      nombre: string;
+      precio?: number;
+    };
+    fecha_inicio?: string;
+    fecha_fin?: string;
+    membresia_precio?: number;
+  };
+}
+
+// ✅ Respuesta paginada específica para admin
+interface AdminAttendanceResponse {
+  success: boolean;
+  message: string;
+  data: AdminAttendanceRecord[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+// ✅ Interfaz para un item de asistencia del usuario (cliente)
 interface UserAttendanceItem {
   id: number;
   fecha_uso: string;
@@ -55,7 +105,7 @@ interface AttendanceStats {
   mostActiveDay: string | null;
 }
 
-// ✅ Funciones auxiliares fuera del objeto (para evitar problemas con 'this')
+// ✅ Funciones auxiliares (sin cambios)...
 const calculateAveragePerWeek = (attendances: UserAttendanceItem[], startDate: string, endDate: string): number => {
   if (attendances.length === 0) return 0;
   
@@ -70,27 +120,26 @@ const calculateAveragePerWeek = (attendances: UserAttendanceItem[], startDate: s
 const calculateStreak = (attendances: UserAttendanceItem[]): number => {
   if (!attendances || attendances.length === 0) return 0;
   
-  // Filtrar solo asistencias activas y ordenar por fecha descendente
   const activeAttendances = attendances
     .filter((a: UserAttendanceItem) => a.estado === 'Activo')
-    .sort((a: UserAttendanceItem, b: UserAttendanceItem) => 
-      new Date(b.fecha_uso).getTime() - new Date(a.fecha_uso).getTime()
-    );
+    .sort((a: UserAttendanceItem, b: UserAttendanceItem) => {
+      const dateA = normalizeDateFromDB(a.fecha_uso);
+      const dateB = normalizeDateFromDB(b.fecha_uso);
+      return dateB.getTime() - dateA.getTime();
+    });
   
   if (activeAttendances.length === 0) return 0;
   
   let streak = 0;
   let currentDate = new Date();
-  currentDate.setHours(0, 0, 0, 0); // Resetear horas para comparación de fechas
+  currentDate.setHours(0, 0, 0, 0);
   
-  // Agrupar asistencias por fecha
   const attendancesByDate = new Map<string, number>();
   activeAttendances.forEach((attendance: UserAttendanceItem) => {
     const dateKey = attendance.fecha_uso;
     attendancesByDate.set(dateKey, (attendancesByDate.get(dateKey) || 0) + 1);
   });
   
-  // Calcular racha desde hoy hacia atrás
   while (true) {
     const dateKey = format(currentDate, 'yyyy-MM-dd');
     
@@ -142,7 +191,6 @@ const getMostActiveDay = (attendances: UserAttendanceItem[]): string | null => {
   return mostActiveDay;
 };
 
-// ✅ Función para obtener todas las asistencias del usuario
 const getAllUserAttendances = async (userId: string): Promise<UserAttendanceItem[]> => {
   try {
     console.log(`🔍 Obteniendo todas las asistencias para usuario: ${userId}`);
@@ -150,7 +198,7 @@ const getAllUserAttendances = async (userId: string): Promise<UserAttendanceItem
     let allAttendances: UserAttendanceItem[] = [];
     let currentPage = 1;
     let hasMorePages = true;
-    const limit = 100; // Obtener de a 100 para reducir llamadas
+    const limit = 100;
     
     while (hasMorePages) {
       const response = await apiClient.get<UserAttendanceResponse>(
@@ -159,8 +207,6 @@ const getAllUserAttendances = async (userId: string): Promise<UserAttendanceItem
       
       if (response.data && response.data.data) {
         allAttendances = [...allAttendances, ...response.data.data];
-        
-        // Verificar si hay más páginas
         hasMorePages = currentPage < response.data.pagination.totalPages;
         currentPage++;
       } else {
@@ -177,53 +223,69 @@ const getAllUserAttendances = async (userId: string): Promise<UserAttendanceItem
 };
 
 export const attendanceService = {
-  // Obtener todas las asistencias con parámetros adicionales
+  // ✅ Actualizar getAttendances para manejar fechas datetime
   getAttendances: async (params: {
     page?: number;
     limit?: number;
     orderBy?: string;
     direction?: 'ASC' | 'DESC';
-    fecha_inicio?: string;
-    fecha_fin?: string;
-  } = {}): Promise<PaginatedResponse<AttendanceRecord>> => {
+    fecha_inicio?: string; // Formato ISO datetime
+    fecha_fin?: string;    // Formato ISO datetime
+  } = {}): Promise<AdminAttendanceResponse> => {
     const queryParams = new URLSearchParams({
       page: (params.page || 1).toString(),
       limit: (params.limit || 10).toString(),
       orderBy: params.orderBy || 'fecha_uso',
-      direction: params.direction || 'DESC',
-      ...(params.fecha_inicio && { fecha_inicio: params.fecha_inicio }),
-      ...(params.fecha_fin && { fecha_fin: params.fecha_fin })
+      direction: params.direction || 'DESC'
     });
 
-    const response = await apiClient.get<PaginatedResponse<AttendanceRecord>>(
+    // ✅ Solo agregar fechas si están definidas
+    if (params.fecha_inicio) {
+      queryParams.append('fecha_inicio', params.fecha_inicio);
+    }
+    if (params.fecha_fin) {
+      queryParams.append('fecha_fin', params.fecha_fin);
+    }
+
+    console.log('🔍 Solicitando asistencias admin con parámetros:', queryParams.toString());
+    console.log('📅 Fechas enviadas:', {
+      fecha_inicio: params.fecha_inicio,
+      fecha_fin: params.fecha_fin
+    });
+
+    const response = await apiClient.get<AdminAttendanceResponse>(
       `/attendance?${queryParams}`
     );
+    
+    console.log('📦 Respuesta del backend (admin):', response.data);
     return response.data;
   },
 
   // Obtener detalles de una asistencia
-  getAttendanceDetails: async (id: number): Promise<AttendanceRecord> => {
+  getAttendanceDetails: async (id: number): Promise<AdminAttendanceRecord> => {
     const numericId = Number(id);
     if (isNaN(numericId)) {
       throw new Error("ID de asistencia inválido: debe ser un número")
     }
-    const response = await apiClient.get<ApiResponse<AttendanceRecord>>(`/attendance/${numericId}`);
+    
+    const response = await apiClient.get<ApiResponse<AdminAttendanceRecord>>(`/attendance/${numericId}`);
+    console.log('📦 Detalles de asistencia:', response.data);
     return response.data.data;
   },
 
   // Registrar nueva asistencia
-  registerAttendance: async (documentNumber: string): Promise<AttendanceRecord> => {
+  registerAttendance: async (documentNumber: string): Promise<AdminAttendanceRecord> => {
     if (!documentNumber || !documentNumber.trim()) {
       throw new Error("El número de documento es requerido")
     }
 
-    const response = await apiClient.post<ApiResponse<AttendanceRecord>>('/attendance/register', {
+    const response = await apiClient.post<ApiResponse<AdminAttendanceRecord>>('/attendance/register', {
       numero_documento: documentNumber.trim()
     });
     return response.data.data;
   },
 
-  // Búsqueda con parámetros completos
+  // ✅ Búsqueda actualizada para admin
   searchAttendances: async (params: {
     codigo_usuario?: string;
     nombre_usuario?: string;
@@ -234,7 +296,7 @@ export const attendanceService = {
     limit?: number;
     orderBy?: string;
     direction?: 'ASC' | 'DESC';
-  } = {}): Promise<PaginatedResponse<AttendanceRecord>> => {
+  } = {}): Promise<AdminAttendanceResponse> => {
     const queryParams = new URLSearchParams({
       page: (params.page || 1).toString(),
       limit: (params.limit || 10).toString(),
@@ -247,9 +309,13 @@ export const attendanceService = {
       ...(params.fecha_fin && { fecha_fin: params.fecha_fin })
     });
 
-    const response = await apiClient.get<PaginatedResponse<AttendanceRecord>>(
+    console.log('🔍 Buscando asistencias con parámetros:', queryParams.toString());
+
+    const response = await apiClient.get<AdminAttendanceResponse>(
       `/attendance/search?${queryParams}`
     );
+    
+    console.log('📦 Resultados de búsqueda:', response.data);
     return response.data;
   },
 
@@ -276,7 +342,7 @@ export const attendanceService = {
     return response.data.data;
   },
 
-  // ✅ Obtener historial de asistencia del usuario con tipos corregidos
+  // Usuario endpoints (sin cambios)
   getUserAttendanceHistory: async (userId: string, page: number = 1, limit: number = 20): Promise<UserAttendanceResponse> => {
     try {
       console.log(`🔍 Obteniendo historial de asistencias para usuario: ${userId}, página: ${page}, límite: ${limit}`);
@@ -295,18 +361,14 @@ export const attendanceService = {
     }
   },
 
-  // ✅ Obtener todas las asistencias del usuario
   getAllUserAttendances,
 
-  // ✅ Obtener estadísticas calculadas con tipos corregidos
   getUserAttendanceStats: async (userId: number, startDate: string, endDate: string): Promise<{ data: AttendanceStats }> => {
     try {
       console.log(`🔍 Calculando estadísticas para usuario: ${userId}`);
       
-      // Obtener todas las asistencias del usuario
       const allAttendances = await getAllUserAttendances(userId.toString());
       
-      // Filtrar por rango de fechas
       const filteredAttendances = allAttendances.filter((attendance: UserAttendanceItem) => {
         const attendanceDate = new Date(attendance.fecha_uso);
         const start = new Date(startDate);
@@ -314,10 +376,9 @@ export const attendanceService = {
         return attendanceDate >= start && attendanceDate <= end && attendance.estado === 'Activo';
       });
 
-      // Calcular estadísticas
       const stats: AttendanceStats = {
         currentPeriod: filteredAttendances.length,
-        goal: 12, // Meta por defecto
+        goal: 12,
         averagePerWeek: calculateAveragePerWeek(filteredAttendances, startDate, endDate),
         streak: calculateStreak(allAttendances),
         totalAttendances: allAttendances.filter((a: UserAttendanceItem) => a.estado === 'Activo').length,
@@ -344,7 +405,6 @@ export const attendanceService = {
     }
   },
 
-  // ✅ Método para obtener rangos de fecha (sin usar 'this')
   getUserDateRangeByPeriod: (period: 'weekly' | 'monthly' | 'yearly'): Promise<{ startDate: string; endDate: string }> => {
     const today = new Date();
     
@@ -352,7 +412,7 @@ export const attendanceService = {
       case 'weekly':
         const startOfWeekDate = new Date(today);
         const dayOfWeek = today.getDay();
-        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Ajustar para que la semana empiece en lunes
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
         startOfWeekDate.setDate(today.getDate() + diff);
         
         const endOfWeekDate = new Date(startOfWeekDate);
@@ -387,7 +447,6 @@ export const attendanceService = {
   }
 };
 
-// ✅ Exportar también las funciones auxiliares si necesitas usarlas en otros lugares
 export {
   calculateAveragePerWeek,
   calculateStreak,
@@ -396,8 +455,9 @@ export {
   getAllUserAttendances
 };
 
-// ✅ Exportar tipos para usar en otros archivos
 export type {
+  AdminAttendanceRecord,
+  AdminAttendanceResponse,
   UserAttendanceItem,
   UserAttendanceResponse,
   AttendanceStats

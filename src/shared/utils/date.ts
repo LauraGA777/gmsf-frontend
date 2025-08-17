@@ -293,6 +293,40 @@ export function debugTimeConsistency(originalTime: string, formattedTime: string
   });
 }
 
+// ✅ Agregar función para formatear fecha y hora completa
+export function formatFullDateTime(dateTimeString: string): string {
+  try {
+    console.log('🕐 formatFullDateTime recibió:', dateTimeString);
+    
+    if (!dateTimeString) return 'N/A';
+    
+    // Si viene en formato ISO "2025-08-16T19:03:10.034Z"
+    if (dateTimeString.includes('T')) {
+      // Extraer fecha y hora por separado para evitar conversiones de zona horaria
+      const [datePart, timePartWithZ] = dateTimeString.split('T');
+      const timePart = timePartWithZ.split('.')[0]; // Remover milisegundos y Z si existen
+      
+      console.log('🕐 Partes extraídas:', { datePart, timePart });
+      
+      // Formatear fecha usando función existente
+      const formattedDate = formatDateFromDB(datePart); // "16/08/2025"
+      // Formatear hora usando función existente
+      const formattedTime = formatTimeFromDB(timePart); // "19:03:10"
+      
+      const result = `${formattedDate} ${formattedTime}`;
+      console.log('🕐 Resultado formatFullDateTime:', result);
+      return result;
+    }
+    
+    // Si viene en otro formato, intentar procesarlo
+    console.warn('🕐 Formato no reconocido en formatFullDateTime:', dateTimeString);
+    return dateTimeString;
+  } catch (error) {
+    console.error('❌ Error al formatear fecha-hora completa:', error);
+    return dateTimeString;
+  }
+}
+
 export default {
   formatLongDate,
   calculateEndDate,
@@ -304,6 +338,7 @@ export default {
   getDayOfWeekFromDB,
   isToday,
   normalizeDateFromDB,
+  formatFullDateTime, // ✅ Agregar nueva función
   debugTimeConsistency, // ✅ Agregar función de debug
 }
 

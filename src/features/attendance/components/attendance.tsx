@@ -51,6 +51,32 @@ import { AttendanceRecord, UserRole } from "@/shared/types/types"
 import { attendanceService, AdminAttendanceRecord, AdminAttendanceResponse } from "../services/attendanceService";
 import { formatTimeFromDB, formatDateFromDB } from "@/shared/utils/date";
 
+// ✅ Agregar función para formatear fecha y hora completa
+const formatFullDateTime = (dateTimeString: string): string => {
+  try {
+    if (!dateTimeString) return 'N/A';
+    
+    // Si viene en formato ISO "2025-08-16T19:03:10.034Z"
+    if (dateTimeString.includes('T')) {
+      // Extraer fecha y hora por separado para evitar conversiones
+      const [datePart, timePart] = dateTimeString.split('T');
+      const timeOnly = timePart.split('.')[0]; // Remover milisegundos si existen
+      
+      // Formatear fecha
+      const formattedDate = formatDateFromDB(datePart);
+      // Formatear hora
+      const formattedTime = formatTimeFromDB(timeOnly);
+      
+      return `${formattedDate} ${formattedTime}`;
+    }
+    
+    return dateTimeString;
+  } catch (error) {
+    console.error('Error al formatear fecha-hora completa:', error);
+    return dateTimeString;
+  }
+};
+
 export default function AttendanceRegistry() {
   // Constants
   const [userRole] = useState<UserRole>(1) // 1 = Administrador
@@ -558,7 +584,7 @@ export default function AttendanceRegistry() {
             </Card>
           )}
 
-          {/* Details Modal */}
+          {/* Details Modal - CORREGIDO */}
           <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
             <DialogContent className="max-w-3xl">
               <DialogHeader>
@@ -625,7 +651,7 @@ export default function AttendanceRegistry() {
                     </div>
                   </div>
   
-                  {/* Información de la Asistencia */}
+                  {/* Información de la Asistencia - CORREGIDO */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold border-b pb-2">Detalles de la Asistencia</h3>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -645,13 +671,15 @@ export default function AttendanceRegistry() {
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-gray-600">Fecha Registro</Label>
-                        <p>{selectedRecord.fecha_registro ? format(new Date(selectedRecord.fecha_registro), "dd/MM/yyyy HH:mm:ss") : 'N/A'}</p>
+                        {/* ✅ CORREGIDO: Usar función personalizada para evitar conversión de zona horaria */}
+                        <p className="font-mono">{formatFullDateTime(selectedRecord.fecha_registro)}</p>
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-gray-600">Última Actualización</Label>
-                        <p>
+                        {/* ✅ CORREGIDO: Usar función personalizada para evitar conversión de zona horaria */}
+                        <p className="font-mono">
                           {selectedRecord.fecha_actualizacion 
-                            ? format(new Date(selectedRecord.fecha_actualizacion), "dd/MM/yyyy HH:mm:ss")
+                            ? formatFullDateTime(selectedRecord.fecha_actualizacion)
                             : "N/A"}
                         </p>
                       </div>

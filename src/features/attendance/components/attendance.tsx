@@ -516,32 +516,6 @@ export default function AttendanceRegistry() {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              {userRole === 1 && (
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="sm" title="Eliminar registro">
-                                      <Trash2 className="h-4 w-4 text-red-600" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>¿Eliminar registro?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Esta acción cambiará el estado del registro a "Eliminado". Esta acción no se puede deshacer.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => handleDeleteRecord(Number(record.id))}
-                                        className="bg-red-600 hover:bg-red-700"
-                                      >
-                                        Eliminar
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              )}
                             </div>
                           </TableCell>
                         </TableRow>

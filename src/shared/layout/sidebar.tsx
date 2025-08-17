@@ -596,17 +596,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               <hr className="border-gray-200 dark:border-gray-600" />
             </li>
 
-            {/* ✅ Estado de permisos (solo en desarrollo) */}
-            {process.env.NODE_ENV === 'development' && (
-              <li className="mx-3 mb-2">
-                <div className="text-xs text-gray-500 text-center">
-                  <div>Permisos: {isReady ? '✅' : '⏳'}</div>
-                  <div>Módulos: {accessibleModules.length}</div>
-                  <div>V: {permissionsVersion.toString().slice(-4)}</div>
-                </div>
-              </li>
-            )}
-
             {/* ✅ Cerrar Sesión - Siempre visible */}
             <NavItem
               icon={<LogOut className="h-5 w-5 text-red-600" aria-hidden="true" />}

@@ -284,8 +284,9 @@ export const GymSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setLoading(true);
       setError(null);
       
-      // Intentar cargar desde API pública
-      const response = await fetch('http://localhost:4000/gym-settings/public');
+      // Intentar cargar desde API pública usando la URL del entorno
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/gym-settings/public`);
       if (response.ok) {
         const data = await response.json();
         setSettings(data.data);
@@ -324,7 +325,8 @@ export const GymSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       
       // Intentar actualizar en el backend
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:4000/gym-settings', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/gym-settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -377,7 +379,8 @@ export const GymSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       formData.append('image', file);
       formData.append('type', type);
 
-      const response = await fetch('http://localhost:4000/gym-settings/upload', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/gym-settings/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -458,7 +461,8 @@ export const GymSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         // Intentar resetear en el backend
         const token = localStorage.getItem('accessToken');
-        const response = await fetch('http://localhost:4000/gym-settings/reset', {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const response = await fetch(`${apiUrl}/gym-settings/reset`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`

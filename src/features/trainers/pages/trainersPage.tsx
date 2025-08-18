@@ -13,7 +13,8 @@ import {
   Eye,
   Trash2,
   Power,
-  RotateCcw
+  RotateCcw,
+  Dumbbell
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/shared/components/ui/use-toast";
@@ -201,9 +202,34 @@ export function TrainersPage() {
     }
   }
 
-  const paginatedTrainers = filteredTrainers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  // Handlers auxiliares
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      fetchTrainers(1, pagination.limit);
+    }
+  };
 
-  const totalPages = Math.ceil(filteredTrainers.length / itemsPerPage)
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+  };
+
+  const handleSearch = () => {
+    fetchTrainers(1, pagination.limit);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  const handleViewDetails = (trainer: Trainer) => {
+    setSelectedTrainer(trainer);
+    setIsDetailsModalOpen(true);
+  };
+
+  const handleEditTrainer = (trainer: Trainer) => {
+    setSelectedTrainer(trainer);
+    setIsEditModalOpen(true);
+  };
 
   if (trainers.length === 0 && !isLoading) {
     return (
@@ -213,7 +239,7 @@ export function TrainersPage() {
             <Dumbbell className="h-16 w-16 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No hay entrenadores registrados</h3>
             <p className="text-gray-500 mb-4">Comience agregando el primer entrenador al sistema</p>
-            <Button onClick={() => setIsModalOpen(true)} className="bg-black hover:bg-gray-800">
+            <Button onClick={() => setIsNewTrainerModalOpen(true)} className="bg-black hover:bg-gray-800">
               <Plus className="h-4 w-4 mr-2" />
               Agregar Entrenador
             </Button>

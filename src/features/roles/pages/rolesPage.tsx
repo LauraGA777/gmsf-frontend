@@ -155,7 +155,8 @@ export function RolesPage() {
 
     if (result.isConfirmed) {
       try {
-        await roleService.toggleRoleStatus(role.id, !role.estado)
+        // ✅ Pasar el estado deseado (opuesto al actual)
+        await roleService.toggleRoleStatus(role.id, !isActive)
         await loadRoles()
 
         Swal.fire({

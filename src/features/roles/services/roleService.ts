@@ -204,7 +204,10 @@ export function useRoleMutations() {
   const toggleRoleStatus = async (id: number, estado: boolean): Promise<Role> => {
     setLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/${id}/deactivate`, {
+      // ✅ Usar endpoint correcto según el estado deseado
+      const endpoint = estado ? `${API_BASE_URL}/${id}/activate` : `${API_BASE_URL}/${id}/deactivate`
+      
+      const response = await fetch(endpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estado }),
@@ -585,7 +588,10 @@ class RoleService {
 
   async toggleRoleStatus(id: number, estado: boolean): Promise<Role> {
     try {
-      const data = await this.makeRequest(`${API_BASE_URL}/${id}/deactivate`, {
+      // ✅ Usar endpoint correcto según el estado deseado
+      const endpoint = estado ? `${API_BASE_URL}/${id}/activate` : `${API_BASE_URL}/${id}/deactivate`
+      
+      const data = await this.makeRequest(endpoint, {
         method: "PATCH",
         body: JSON.stringify({ estado })
       })

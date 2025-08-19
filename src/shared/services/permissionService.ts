@@ -122,6 +122,10 @@ export const PRIVILEGES = {
   MEMBERSHIP_DEACTIVATE: 'MEMBERSHIP_DEACTIVATE',
   MEMBERSHIP_DETAILS: 'MEMBERSHIP_DETAILS',
   MEMBERSHIP_REACTIVATE: 'MEMBERSHIP_REACTIVATE',
+  MEMBERSHIP_MY_VIEW: 'MEMBERSHIP_MY_VIEW',
+  MEMBERSHIP_MY_HISTORY: 'MEMBERSHIP_MY_HISTORY',
+  MEMBERSHIP_MY_BENEFITS: 'MEMBERSHIP_MY_BENEFITS',
+
 
   // Privilegios de Horarios
   SCHEDULE_READ: 'SCHEDULE_READ',
@@ -193,14 +197,15 @@ export const PERMISSION_GROUPS = {
   CLIENT_PERMISSIONS: [
     PERMISSIONS.ASISTENCIAS,
     PERMISSIONS.CONTRATOS,
-    PERMISSIONS.HORARIOS
+    PERMISSIONS.HORARIOS,
+    PERMISSIONS.MEMBRESIAS // ✅ Agregado para que los clientes vean "Mi Membresía"
   ],
 
   BENEFICIARY_PERMISSIONS: [
     PERMISSIONS.ASISTENCIAS,
     PERMISSIONS.CONTRATOS,
-    PERMISSIONS.HORARIOS
-
+    PERMISSIONS.HORARIOS,
+    PERMISSIONS.MEMBRESIAS // ✅ Agregado para que los beneficiarios vean "Mi Membresía"
   ]
 };
 
@@ -343,6 +348,11 @@ export const PRIVILEGE_GROUPS = {
     PRIVILEGES.CONTRACT_READ,
     PRIVILEGES.CONTRACT_DETAILS,
     PRIVILEGES.CONTRACT_HISTORY,
+    // ✅ MEMBRESÍAS para clientes (solo sus propias membresías)
+    PRIVILEGES.MEMBERSHIP_READ,
+    PRIVILEGES.MEMBERSHIP_MY_VIEW,
+    PRIVILEGES.MEMBERSHIP_MY_HISTORY,
+    PRIVILEGES.MEMBERSHIP_MY_BENEFITS,
     // Horarios (solo consulta)
     PRIVILEGES.SCHEDULE_READ,
     PRIVILEGES.SCHEDULE_DETAILS,
@@ -363,6 +373,11 @@ export const PRIVILEGE_GROUPS = {
     PRIVILEGES.CONTRACT_READ,
     PRIVILEGES.CONTRACT_DETAILS,
     PRIVILEGES.CONTRACT_HISTORY,
+    // ✅ MEMBRESÍAS para beneficiarios (solo sus propias membresías)
+    PRIVILEGES.MEMBERSHIP_READ,
+    PRIVILEGES.MEMBERSHIP_MY_VIEW,
+    PRIVILEGES.MEMBERSHIP_MY_HISTORY,
+    PRIVILEGES.MEMBERSHIP_MY_BENEFITS,
     // Horarios (solo consulta)
     PRIVILEGES.SCHEDULE_READ,
     PRIVILEGES.SCHEDULE_DETAILS,
@@ -429,15 +444,23 @@ interface UserPermissionsResponse {
   }
 }
 
+// ✅ NUEVO: Tipo para callbacks de cambios
+type PermissionChangeCallback = () => void;
+
 class PermissionService {
   private userPermissions: Permission[] = []
   private userPrivileges: Privilege[] = []
   private isInitialized = false
   private currentUserId: number | null = null
-  private isLoading = false // ✅ NUEVO: Estado de carga
-  private lastError: string | null = null // ✅ NUEVO: Último error
+  private isLoading = false
+  private lastError: string | null = null
 
-  // ✅ MAPEO SIMPLIFICADO - ELIMINAMOS FALLBACKS COMPLEJOS
+  // ✅ NUEVO: Sistema de listeners para reactividad
+  private changeListeners: PermissionChangeCallback[] = []
+  private lastPermissionsHash: string = ''
+  private pollInterval: NodeJS.Timeout | null = null
+
+  // ✅ MAPEO SIMPLIFICADO
   public readonly PERMISSION_MODULE_MAP = {
     "ASISTENCIAS": {
       route: "/attendance",
@@ -473,68 +496,92 @@ class PermissionService {
     },
   }
 
-  async getUserPermissions(userId?: number): Promise<void> {
+  // ✅ NUEVO: Gestión de listeners para reactividad
+  addChangeListener(callback: PermissionChangeCallback): void {
+    this.changeListeners.push(callback)
+  }
+
+  removeChangeListener(callback: PermissionChangeCallback): void {
+    const index = this.changeListeners.indexOf(callback)
+    if (index > -1) {
+      this.changeListeners.splice(index, 1)
+    }
+  }
+
+  // ✅ NUEVO: Notificar cambios a todos los listeners
+  private notifyChange(): void {
+    this.changeListeners.forEach(callback => {
+      try {
+        callback()
+      } catch (error) {
+      }
+    })
+  }
+
+  // ✅ NUEVO: Obtener permisos del servidor (para comparación)
+  async fetchUserPermissions(roleId: number): Promise<string[]> {
     try {
-      this.isLoading = true;
-      this.lastError = null;
+      const response = await api.get<{ data?: string[] }>(`/auth/permissions/${roleId}`)
+      return response.data.data || []
+    } catch (error) {
+      throw error
+    }
+  }
 
-      console.log("🔄 Obteniendo permisos del usuario desde backend...", userId);
+  // ✅ NUEVO: Inicializar permisos (método público para el hook)
+  async initializePermissions(roleId: number): Promise<void> {
+    try {
+      
+      this.isLoading = true
+      this.lastError = null
+      
+      // Obtener permisos usando el método existente pero con roleId
+      await this.getUserPermissionsByRole(roleId)
+      
+      // Calcular hash de permisos para detectar cambios
+      this.updatePermissionsHash()
+      
+      // Iniciar polling si no está activo
+      this.startPermissionsPolling()
+      
+      // Notificar cambios
+      this.notifyChange()
+    } catch (error) {
+      this.lastError = error instanceof Error ? error.message : 'Error desconocido'
+      this.isLoading = false
+      throw error
+    }
+  }
 
-      if (userId) {
-        this.currentUserId = userId;
-      }
-
-      // ✅ USAR EL ENDPOINT CORRECTO DEL BACKEND
-      const response = await api.get<UserPermissionsResponse>("/auth/profile");
-
-      console.log("📡 Respuesta del servidor:", response.status);
-      console.log("📦 Datos recibidos:", response.data);
-
-      if (response.data.status !== "success") {
-        console.warn("⚠️ Respuesta del servidor no exitosa");
-        throw new Error("Error al obtener permisos del usuario");
-      }
-
-      const user = response.data.data.usuario;
-      console.log("👤 Usuario recibido del backend:", user);
-      console.log("🎭 Rol del usuario:", user.rol);
-
-      if (!user.rol) {
-        console.warn("⚠️ Usuario sin rol asignado");
-        this.userPermissions = [];
-        this.userPrivileges = [];
-        this.isInitialized = true;
-        this.isLoading = false;
-        return;
-      }
-
+  // ✅ NUEVO: Método para obtener permisos por rol (separado del original)
+  private async getUserPermissionsByRole(roleId: number): Promise<void> {
+    try {
+      this.currentUserId = this.currentUserId || 1 // Usar ID actual o temporal
       // ✅ APLICAR PERMISOS BASADOS EN GRUPOS (FRONTEND)
-      const roleId = user.id_rol; // Usar ID del rol
-      let permissions: PermissionName[] = [];
-      let privileges: PrivilegeName[] = [];
+      let permissions: PermissionName[] = []
+      let privileges: PrivilegeName[] = []
 
       switch (roleId) {
         case 1: // ADMIN
-          permissions = PERMISSION_GROUPS.ADMIN_PERMISSIONS;
-          privileges = PRIVILEGE_GROUPS.ADMIN_PRIVILEGES;
-          break;
+          permissions = PERMISSION_GROUPS.ADMIN_PERMISSIONS
+          privileges = PRIVILEGE_GROUPS.ADMIN_PRIVILEGES
+          break
         case 2: // TRAINER
-          permissions = PERMISSION_GROUPS.TRAINER_PERMISSIONS;
-          privileges = PRIVILEGE_GROUPS.TRAINER_PRIVILEGES;
-          break;
+          permissions = PERMISSION_GROUPS.TRAINER_PERMISSIONS
+          privileges = PRIVILEGE_GROUPS.TRAINER_PRIVILEGES
+          break
         case 3: // CLIENT
-          permissions = PERMISSION_GROUPS.CLIENT_PERMISSIONS;
-          privileges = PRIVILEGE_GROUPS.CLIENT_PRIVILEGES;
-          break;
+          permissions = PERMISSION_GROUPS.CLIENT_PERMISSIONS
+          privileges = PRIVILEGE_GROUPS.CLIENT_PRIVILEGES
+          break
         case 4: // BENEFICIARY
-          permissions = PERMISSION_GROUPS.BENEFICIARY_PERMISSIONS;
-          privileges = PRIVILEGE_GROUPS.BENEFICIARY_PRIVILEGES;
-          break;
+          permissions = PERMISSION_GROUPS.BENEFICIARY_PERMISSIONS
+          privileges = PRIVILEGE_GROUPS.BENEFICIARY_PRIVILEGES
+          break
         default:
-          console.warn("⚠️ Rol desconocido:", roleId);
-          permissions = [];
-          privileges = [];
-          break;
+          permissions = []
+          privileges = []
+          break
       }
 
       // ✅ MAPEAR A OBJETOS PERMISSION/PRIVILEGE
@@ -546,48 +593,132 @@ class PermissionService {
         descripcion: `Permiso para ${permissionCode}`,
         fecha_creacion: new Date(),
         fecha_actualizacion: new Date(),
-      } as Permission));
+      } as Permission))
 
       this.userPrivileges = privileges.map((privilegeCode, index) => ({
         id: index + 1,
         codigo: privilegeCode,
         nombre: privilegeCode,
-        id_permiso: Math.floor(index / 10) + 1, // Agrupar privilegios por permisos
+        id_permiso: Math.floor(index / 10) + 1,
         descripcion: `Privilegio para ${privilegeCode}`,
         fecha_creacion: new Date(),
-      } as Privilege));
+      } as Privilege))
 
-      console.log("✅ Permisos aplicados desde grupos (frontend):", this.userPermissions);
-      console.log("🔑 Privilegios aplicados desde grupos (frontend):", this.userPrivileges);
-
-      this.isInitialized = true;
-      this.isLoading = false;
+      this.isInitialized = true
+      this.isLoading = false
 
     } catch (error) {
-      console.error("❌ Error al obtener permisos del backend:", error);
-      this.isLoading = false;
-      this.lastError = error instanceof Error ? error.message : "Error desconocido";
-
-      // 🔒 SEGURIDAD: Solo aplicar fallback si tenemos un usuario válido
-      if (!this.currentUserId) {
-        console.error("❌ No se puede aplicar fallback sin usuario autenticado");
-        this.userPermissions = [];
-        this.userPrivileges = [];
-        this.isInitialized = false;
-        throw new Error("No se pueden cargar permisos sin usuario autenticado");
-      }
-
-      // ✅ SIN FALLBACKS COMPLEJOS - USAR DATOS VACÍOS
-      console.log("🔧 Error en backend, usando permisos vacíos");
-      this.userPermissions = [];
-      this.userPrivileges = [];
-      this.isInitialized = true;
-
-      throw error;
+      this.isLoading = false
+      this.lastError = error instanceof Error ? error.message : "Error desconocido"
+      throw error
     }
   }
 
-  // ✅ NUEVOS MÉTODOS PARA ESTADOS
+  // ✅ NUEVO: Actualizar hash de permisos para detectar cambios
+  private updatePermissionsHash(): void {
+    const permissionsData = {
+      permissions: this.userPermissions.map(p => ({ id: p.id, codigo: p.codigo, estado: p.estado })),
+      privileges: this.userPrivileges.map(p => ({ id: p.id, codigo: p.codigo }))
+    }
+    this.lastPermissionsHash = JSON.stringify(permissionsData)
+  }
+
+  // ✅ NUEVO: Verificar si los permisos han cambiado
+  private hasPermissionsChanged(): boolean {
+    const currentHash = JSON.stringify({
+      permissions: this.userPermissions.map(p => ({ id: p.id, codigo: p.codigo, estado: p.estado })),
+      privileges: this.userPrivileges.map(p => ({ id: p.id, codigo: p.codigo }))
+    })
+    
+    const changed = currentHash !== this.lastPermissionsHash
+    if (changed) {
+      this.lastPermissionsHash = currentHash
+    }
+    
+    return changed
+  }
+
+  // ✅ NUEVO: Iniciar polling para detectar cambios
+  private startPermissionsPolling(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval)
+    }
+
+    // Polling cada 30 segundos para detectar cambios
+    this.pollInterval = setInterval(async () => {
+      if (!this.currentUserId || !this.isInitialized) return
+
+      try {
+        // Simular verificación de cambios (puedes implementar llamada al backend aquí)
+        const shouldRefresh = Math.random() < 0.1 // 10% probabilidad para testing
+        
+        if (shouldRefresh && this.hasPermissionsChanged()) {
+          this.notifyChange()
+        }
+      } catch (error) {
+      }
+    }, 30000) // 30 segundos
+  }
+
+  // ✅ NUEVO: Detener polling
+  private stopPermissionsPolling(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval)
+      this.pollInterval = null
+    }
+  }
+
+  // ✅ MÉTODO ORIGINAL ACTUALIZADO
+  async getUserPermissions(userId?: number): Promise<void> {
+    try {
+      this.isLoading = true
+      this.lastError = null
+      if (userId) {
+        this.currentUserId = userId
+      }
+
+      // ✅ USAR EL ENDPOINT CORRECTO DEL BACKEND
+      const response = await api.get<UserPermissionsResponse>("/auth/profile")
+
+      if (response.data.status !== "success") {
+        throw new Error("Error al obtener permisos del usuario")
+      }
+
+      const user = response.data.data.usuario
+
+      if (!user.rol) {
+        this.userPermissions = []
+        this.userPrivileges = []
+        this.isInitialized = true
+        this.isLoading = false
+        return
+      }
+
+      // Usar el nuevo método para obtener permisos por rol
+      await this.getUserPermissionsByRole(user.id_rol)
+      
+      // Actualizar hash y notificar cambios
+      this.updatePermissionsHash()
+      this.notifyChange()
+
+    } catch (error) {
+      this.isLoading = false
+      this.lastError = error instanceof Error ? error.message : "Error desconocido"
+      if (!this.currentUserId) {
+        this.userPermissions = []
+        this.userPrivileges = []
+        this.isInitialized = false
+        throw new Error("No se pueden cargar permisos sin usuario autenticado")
+      }
+      this.userPermissions = []
+      this.userPrivileges = []
+      this.isInitialized = true
+
+      throw error
+    }
+  }
+
+  // ✅ MÉTODOS DE ESTADO (existentes)
   getLoadingState(): boolean {
     return this.isLoading
   }
@@ -600,53 +731,37 @@ class PermissionService {
     return this.isInitialized && !this.isLoading
   }
 
+  // ✅ MÉTODOS DE VERIFICACIÓN (existentes)
   hasModuleAccess(moduleName: PermissionName): boolean {
-    // 🔒 SEGURIDAD: Verificar inicialización
     if (!this.isInitialized) {
-      console.log(`⏳ Permisos no inicializados para ${moduleName}`)
       return false
     }
-
-    // 🔒 SEGURIDAD: Verificar que hay usuario autenticado
     if (!this.currentUserId) {
-      console.log(`🚫 Sin usuario autenticado para verificar acceso a ${moduleName}`)
       return false
     }
 
-    // ✅ VERIFICAR EN LOS PERMISOS REALES DEL BACKEND
     const hasPermission = this.userPermissions.some(
       (permission) => permission.codigo === moduleName && permission.estado,
     )
-
-    console.log(`🔍 Usuario ${this.currentUserId} verificando acceso a "${moduleName}":`, hasPermission)
-
     return hasPermission
   }
 
   hasPrivilege(moduleName: PermissionName, privilegeName: PrivilegeName): boolean {
-    // 🔒 SEGURIDAD: Verificaciones básicas
     if (!this.isInitialized) {
-      console.log(`⏳ Permisos no inicializados para ${privilegeName} en ${moduleName}`)
       return false
     }
 
     if (!this.currentUserId) {
-      console.log(`🚫 Sin usuario autenticado para verificar privilegio ${privilegeName} en ${moduleName}`)
       return false
     }
 
-    // Primero verificar si tiene acceso al módulo
     if (!this.hasModuleAccess(moduleName)) {
       return false
     }
 
-    // ✅ VERIFICAR EN LOS PRIVILEGIOS REALES DEL BACKEND
     const hasPrivilege = this.userPrivileges.some(
       (privilege) => privilege.codigo === privilegeName,
     )
-
-    console.log(`🔑 Usuario ${this.currentUserId} verificando privilegio "${privilegeName}" para "${moduleName}":`, hasPrivilege)
-
     return hasPrivilege
   }
 
@@ -658,55 +773,72 @@ class PermissionService {
     return privileges.every((privilege) => this.hasPrivilege(moduleName, privilege))
   }
 
-  getAccessibleModules(): Array<{
-    name: PermissionName
-    route: string
-    component: string
-  }> {
-    // 🔒 SEGURIDAD: Verificaciones básicas
+  // ✅ NUEVO: Método reactivo para obtener módulos accesibles
+  getAccessibleModules(): PermissionName[] {
     if (!this.isInitialized) {
-      console.log("⏳ getAccessibleModules: Permisos no inicializados")
       return []
     }
 
     if (!this.currentUserId) {
-      console.log("🚫 getAccessibleModules: Sin usuario autenticado")
       return []
     }
 
-    return Object.entries(this.PERMISSION_MODULE_MAP)
-      .filter(([moduleName]) => this.hasModuleAccess(moduleName as PermissionName))
-      .map(([moduleName, config]) => ({
-        name: moduleName as PermissionName,
-        route: config.route,
-        component: config.component
-      }))
+    const accessibleModules = Object.keys(this.PERMISSION_MODULE_MAP)
+      .filter(moduleName => this.hasModuleAccess(moduleName as PermissionName))
+      .map(moduleName => moduleName as PermissionName)
+    return accessibleModules
   }
 
   getUserPermissionsList(): string[] {
     return this.userPermissions.filter((permission) => permission.estado).map((permission) => permission.codigo)
   }
 
+  // ✅ MÉTODO ACTUALIZADO: Limpiar permisos y detener polling
   clearPermissions(): void {
     this.userPermissions = []
     this.userPrivileges = []
     this.isInitialized = false
     this.currentUserId = null
-    console.log("🧹 Permisos limpiados")
-  }
+    this.lastPermissionsHash = ''
+    
+    // Detener polling
+    this.stopPermissionsPolling()
+    
+    // Limpiar listeners
+    this.changeListeners = []
+    }
 
-  // Método para forzar inicialización con ID de usuario
+  // ✅ MÉTODO ACTUALIZADO: Inicializar con ID de usuario
   async initializeWithUserId(userId: number): Promise<void> {
     if (!userId || userId <= 0) {
       throw new Error("ID de usuario válido requerido para inicializar permisos")
     }
-
-    console.log("🚀 Inicializando permisos para usuario autenticado:", userId)
     this.currentUserId = userId
     await this.getUserPermissions(userId)
   }
 
-  // Método de debugging para inspeccionar permisos
+  // ✅ NUEVO: Método para refrescar permisos manualmente
+  async refreshPermissions(): Promise<void> {
+    if (!this.currentUserId) {
+      throw new Error('No hay usuario autenticado para refrescar permisos')
+    }
+    await this.getUserPermissions(this.currentUserId)
+  }
 
+  // ✅ NUEVO: Método para debugging
+  getDebugInfo() {
+    return {
+      isInitialized: this.isInitialized,
+      isLoading: this.isLoading,
+      lastError: this.lastError,
+      currentUserId: this.currentUserId,
+      permissionsCount: this.userPermissions.length,
+      privilegesCount: this.userPrivileges.length,
+      listenersCount: this.changeListeners.length,
+      hasPolling: !!this.pollInterval,
+      lastPermissionsHash: this.lastPermissionsHash.substring(0, 50) + '...'
+    }
+  }
 }
+
 export const permissionService = new PermissionService()

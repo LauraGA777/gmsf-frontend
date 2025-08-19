@@ -8,12 +8,13 @@ import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { Textarea } from "@/shared/components/ui/textarea";
-import { AlertTriangle, CheckCircle, Loader2, Eye, EyeOff } from "lucide-react";
+import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
 import Swal from "sweetalert2";
 import type { User } from "../types/user";
 import { userService } from "../services/userService";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { roleService } from '@/features/roles/services/roleService';
+import { Info } from "lucide-react";
 
 const userFormSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -24,23 +25,15 @@ const userFormSchema = z.object({
   numero_documento: z.string().min(5, "El documento debe tener entre 5 y 20 caracteres").max(20),
   fecha_nacimiento: z.string().refine(d => new Date(d).toString() !== 'Invalid Date', "Fecha inválida"),
   id_rol: z.number({ required_error: "Debe seleccionar un rol"}).min(1, "Debe seleccionar un rol"),
-  contrasena: z.string().optional(),
-  confirmarContrasena: z.string().optional(),
+  // ✅ Se eliminan campos de contraseña
   telefono: z.string().optional(),
   direccion: z.string().optional(),
   genero: z.enum(['M', 'F', 'O']).optional(),
 }).refine(data => data.correo === data.confirmarCorreo, {
     message: "Los correos no coinciden",
     path: ["confirmarCorreo"],
-}).refine(data => {
-    if (data.contrasena) {
-        return data.contrasena === data.confirmarContrasena;
-    }
-    return true;
-}, {
-    message: "Las contraseñas no coinciden",
-    path: ["confirmarContrasena"],
 });
+// ✅ Se elimina la validación de contraseñas
 
 type UserFormValues = z.infer<typeof userFormSchema>;
 
@@ -77,9 +70,6 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
   const debouncedDocument = useDebounce(watchedDocument, 500);
   const debouncedEmail = useDebounce(watchedEmail, 500);
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
   useEffect(() => {
     if (isOpen) {
         if (user) {
@@ -100,8 +90,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
             numero_documento: "",
             fecha_nacimiento: "",
             id_rol: undefined,
-            contrasena: "",
-            confirmarContrasena: "",
+            // ✅ Se eliminan campos de contraseña
             telefono: "",
             direccion: "",
             genero: undefined,
@@ -118,7 +107,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
         const rolesData = await roleService.getRolesForSelect();
         setRoles(rolesData);
       } catch (error) {
-        console.error('Error cargando roles:', error);
+        
       } finally {
         setIsLoadingRoles(false);
       }
@@ -179,14 +168,10 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
   }, [debouncedEmail, user?.id, setError, clearErrors]);
 
   const onSubmit = async (data: UserFormValues) => {
-    if (!user && (!data.contrasena || data.contrasena.length < 6)) {
-        setError("contrasena", { message: "La contraseña es requerida y debe tener al menos 6 caracteres" });
-        return;
-    }
-    
+    // ✅ Se elimina validación de contraseña para nuevos usuarios
     try {
       await onSave(data);
-      Swal.fire("¡Éxito!", user ? "Usuario actualizado" : "Usuario registrado", "success");
+      Swal.fire("¡Éxito!", user ? "Usuario actualizado" : "Usuario registrado correctamente. Se enviará un correo con las credenciales de acceso.", "success");
       onClose();
     } catch (error) {
       Swal.fire("Error", "Ocurrió un error", "error");
@@ -344,8 +329,8 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
             </div>
           </div>
 
-          {/* Password Fields - Solo para nuevos usuarios */}
-          {!user && (
+          {/* Password Fields - ✅ SE ELIMINAN COMPLETAMENTE */}
+          {/* {!user && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="contrasena">Contraseña</Label>
@@ -395,6 +380,19 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
                 </div>
                 {errors.confirmarContrasena && <p className="text-red-500 text-xs mt-1">{errors.confirmarContrasena.message}</p>}
               </div>
+            </div>
+          )} */}
+
+          {/* ✅ Agregar mensaje informativo sobre contraseña automática */}
+          {!user && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-blue-800">
+                <Info className="h-4 w-4" />
+                <p className="text-sm font-medium">Contraseña automática</p>
+              </div>
+              <p className="text-sm text-blue-700 mt-1">
+                La contraseña inicial será el número de documento del usuario. Se enviará un correo electrónico con las credenciales de acceso.
+              </p>
             </div>
           )}
 

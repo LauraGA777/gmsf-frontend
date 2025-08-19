@@ -160,7 +160,7 @@ export const authService = {
                 });
             }
         } catch (error) {
-            console.error('Error al cerrar sesión:', error);
+            
         } finally {
             localStorage.removeItem('accessToken');
         }
@@ -244,7 +244,7 @@ export const authService = {
             const response = await publicAxiosInstance.get<RolesResponse>(`${API_BASE_URL}`);
             return response.data.data?.roles?.map((role: IRole) => transformRole(role)) || [];
         } catch (error) {
-            console.error("Error fetching roles:", error);
+            
             throw error;
         }
     }

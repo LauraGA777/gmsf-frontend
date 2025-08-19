@@ -4,7 +4,7 @@ import type { Membership } from "@/shared/types";
 // Configuración base de axios
 const API_URL = import.meta.env.VITE_API_URL || 'https://gmsf-backend.vercel.app';
 
-// Interfaces
+// ✅ Interfaces existentes
 interface ApiResponse<T> {
   status: string;
   message: string;
@@ -43,11 +43,94 @@ interface PaginatedResponse<T> {
   };
 }
 
-// Clase base para el servicio de membresías
+// ✅ NUEVAS interfaces para clientes
+interface MyActiveMembership {
+  contrato: {
+    id: number;
+    codigo: string;
+    estado: string;
+    fecha_inicio: string;
+    fecha_fin: string;
+  };
+  membresia: {
+    id: number;
+    codigo: string;
+    nombre: string;
+    descripcion: string;
+    dias_acceso: number;
+    vigencia_dias: number;
+    precio: number;
+    precio_formato: string;
+  };
+  estado: {
+    estado_actual: string;
+    dias_transcurridos: number;
+    dias_restantes: number;
+    porcentaje_uso: number;
+    acceso_disponible: boolean;
+  };
+}
+
+interface MembershipHistoryItem {
+  contrato_id: number;
+  codigo_contrato: string;
+  membresia: {
+    nombre: string;
+    descripcion: string;
+    precio: number;
+    precio_formato: string;
+  };
+  periodo: {
+    fecha_inicio: string;
+    fecha_fin: string;
+    duracion_dias: number;
+  };
+  estado: string;
+  estado_detallado: string;
+}
+
+interface MembershipBenefits {
+  membresia: {
+    nombre: string;
+    descripcion: string;
+    acceso_total: string;
+  };
+  acceso: {
+    puede_ingresar: boolean;
+    dias_restantes: number;
+    acceso_hasta: string;
+  };
+  servicios_incluidos: string[];
+  horarios: {
+    lunes_viernes: string;
+    sabados: string;
+    domingos: string;
+    festivos: string;
+  };
+}
+
+interface ClientApiResponse<T> {
+  success: boolean;
+  status: string;
+  message: string;
+  data: T;
+}
+
+interface PaginatedHistoryResponse<T> {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  historial: T[];
+}
+
+// ✅ Clase mejorada del servicio de membresías
 class MembershipService {
   private api;
+  private clientApi;
 
   constructor() {
+    // ✅ API para administradores (membresías CRUD)
     this.api = axios.create({
       baseURL: `${API_URL}/memberships`,
       headers: {
@@ -55,33 +138,40 @@ class MembershipService {
       }
     });
 
-    // Interceptor para agregar el token
-    this.api.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('accessToken');
-        if (token && config.headers) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => {
-        return Promise.reject(error);
+    // ✅ API para clientes (mi membresía)
+    this.clientApi = axios.create({
+      baseURL: `${API_URL}/memberships`,
+      headers: {
+        'Content-Type': 'application/json'
       }
-    );
+    });
 
-    // Interceptor para manejar errores
-    this.api.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        console.error('Error en la petición:', error);
-        if (error.response?.status === 401) {
-          // Manejar error de autenticación
-          localStorage.removeItem('accessToken');
-          window.location.href = '/login';
-        }
-        return Promise.reject(error);
+    // ✅ Interceptor para agregar el token en ambas APIs
+    const authInterceptor = (config: any) => {
+      const token = localStorage.getItem('accessToken');
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
-    );
+      return config;
+    };
+
+    const errorInterceptor = (error: any) => {
+      
+      if (error.response?.status === 401) {
+        localStorage.removeItem('accessToken');
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
+    };
+
+    // Aplicar interceptors a ambas instancias
+    [this.api, this.clientApi].forEach(apiInstance => {
+      apiInstance.interceptors.request.use(authInterceptor, Promise.reject);
+      apiInstance.interceptors.response.use(
+        (response) => response,
+        errorInterceptor
+      );
+    });
   }
 
   private checkAuth(): void {
@@ -116,6 +206,7 @@ class MembershipService {
     };
   }
 
+  // ✅ MÉTODOS EXISTENTES PARA ADMINISTRADORES
   async getMemberships(params: QueryParams = {}): Promise<PaginatedResponse<Membership>> {
     try {
       this.checkAuth();
@@ -132,7 +223,7 @@ class MembershipService {
       const apiData = response.data.data;
       return {
         data: Array.isArray(apiData.memberships) 
-          ? apiData.memberships.map(this.mapApiResponseToMembership)
+          ? apiData.memberships.map(this.mapApiResponseToMembership.bind(this))
           : [],
         pagination: {
           total: apiData.total || 0,
@@ -142,7 +233,7 @@ class MembershipService {
         }
       };
     } catch (error) {
-      console.error('❌ Error en getMemberships:', error);
+      
       throw error;
     }
   }
@@ -162,7 +253,7 @@ class MembershipService {
       
       return {
         data: Array.isArray(apiData.memberships) 
-          ? apiData.memberships.map(this.mapApiResponseToMembership)
+          ? apiData.memberships.map(this.mapApiResponseToMembership.bind(this))
           : [],
         pagination: {
           total: apiData.total || 0,
@@ -172,7 +263,7 @@ class MembershipService {
         }
       };
     } catch (error) {
-      console.error('Error searching memberships:', error);
+      
       throw error;
     }
   }
@@ -183,7 +274,7 @@ class MembershipService {
       const response = await this.api.get<ApiResponse<any>>(`/${id}`);
       return this.mapApiResponseToMembership(response.data.data);
     } catch (error) {
-      console.error(`Error fetching membership ${id}:`, error);
+      
       throw error;
     }
   }
@@ -195,7 +286,7 @@ class MembershipService {
       const response = await this.api.post<ApiResponse<any>>("/new-membership", apiData);
       return this.mapApiResponseToMembership(response.data.data);
     } catch (error) {
-      console.error('Error creating membership:', error);
+      
       throw error;
     }
   }
@@ -207,7 +298,7 @@ class MembershipService {
       const response = await this.api.put<ApiResponse<any>>(`/${id}`, apiData);
       return this.mapApiResponseToMembership(response.data.data);
     } catch (error) {
-      console.error(`Error updating membership ${id}:`, error);
+      
       throw error;
     }
   }
@@ -217,13 +308,10 @@ class MembershipService {
       this.checkAuth();
       const response = await this.api.delete<ApiResponse<any>>(`/${id}`);
       
-      // Verificar si la respuesta es exitosa
       if (response.data.status === 'success') {
-        // Si la respuesta incluye datos de la membresía, los mapeamos
         if (response.data.data) {
           return this.mapApiResponseToMembership(response.data.data);
         }
-        // Si no hay datos pero la operación fue exitosa, devolvemos la membresía con estado false
         return {
           id: Number(id),
           codigo: '',
@@ -265,15 +353,133 @@ class MembershipService {
   async getActiveMemberships(): Promise<Membership[]> {
     try {
       this.checkAuth();
-      // Usar un límite más razonable o paginación
       const response = await this.getMemberships({ estado: true, limit: 50 });
       return response.data.filter(m => m.estado);
     } catch (error) {
-      console.error('Error fetching active memberships:', error);
+      
       throw error;
     }
   }
 
+  // ✅ NUEVOS MÉTODOS PARA CLIENTES
+
+  /**
+   * Obtener mi membresía activa
+   */
+  async getMyActiveMembership(): Promise<MyActiveMembership> {
+    try {
+      this.checkAuth();
+      
+      
+      const response = await this.clientApi.get<ClientApiResponse<MyActiveMembership>>(
+        '/my-membership/active'
+      );
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Error al obtener la membresía activa');
+      }
+      
+      return response.data.data;
+    } catch (error: any) {
+      
+      
+      if (error.response?.status === 404) {
+        throw new Error('No tienes una membresía activa');
+      }
+      
+      if (error.response?.status === 403) {
+        throw new Error('No tienes permisos para acceder a esta información');
+      }
+      
+      throw new Error(error.response?.data?.message || error.message || 'Error al obtener la membresía activa');
+    }
+  }
+
+  /**
+   * Obtener mi historial de membresías
+   */
+  async getMyMembershipHistory(page: number = 1, limit: number = 10): Promise<PaginatedHistoryResponse<MembershipHistoryItem>> {
+    try {
+      this.checkAuth();
+    
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString()
+      });
+      
+      const response = await this.clientApi.get<ClientApiResponse<PaginatedHistoryResponse<MembershipHistoryItem>>>(
+        `/my-membership/history?${queryParams.toString()}`
+      );
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Error al obtener el historial de membresías');
+      }
+      
+      return response.data.data;
+    } catch (error: any) {
+      
+      if (error.response?.status === 403) {
+        throw new Error('No tienes permisos para acceder a esta información');
+      }
+      
+      throw new Error(error.response?.data?.message || error.message || 'Error al obtener el historial de membresías');
+    }
+  }
+
+  /**
+   * Obtener beneficios de mi membresía
+   */
+  async getMyMembershipBenefits(): Promise<MembershipBenefits> {
+    try {
+      this.checkAuth();
+      
+      const response = await this.clientApi.get<ClientApiResponse<MembershipBenefits>>(
+        '/my-membership/benefits'
+      );
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Error al obtener los beneficios');
+      }
+      
+      return response.data.data;
+    } catch (error: any) {
+      
+      if (error.response?.status === 404) {
+        throw new Error('No tienes una membresía activa para consultar beneficios');
+      }
+      
+      if (error.response?.status === 403) {
+        throw new Error('No tienes permisos para acceder a esta información');
+      }
+      
+      throw new Error(error.response?.data?.message || error.message || 'Error al obtener los beneficios');
+    }
+  }
+
+  /**
+   * Obtener estadísticas básicas de mi membresía (método adicional)
+   */
+  async getMyMembershipStats(): Promise<{
+    dias_restantes: number;
+    porcentaje_uso: number;
+    estado_acceso: boolean;
+    proxima_renovacion?: string;
+  }> {
+    try {
+      const activeMembership = await this.getMyActiveMembership();
+      
+      return {
+        dias_restantes: activeMembership.estado.dias_restantes,
+        porcentaje_uso: activeMembership.estado.porcentaje_uso,
+        estado_acceso: activeMembership.estado.acceso_disponible,
+        proxima_renovacion: activeMembership.contrato.fecha_fin
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  // ✅ MÉTODO DE VALIDACIÓN EXISTENTE
   validateMembershipData(data: Partial<Membership>): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 
@@ -306,6 +512,26 @@ class MembershipService {
       errors
     };
   }
+
+  // ✅ MÉTODO AUXILIAR PARA DEBUGGING
+  getApiConfig() {
+    return {
+      adminBaseURL: this.api.defaults.baseURL,
+      clientBaseURL: this.clientApi.defaults.baseURL,
+      hasToken: !!localStorage.getItem('accessToken')
+    };
+  }
 }
 
-export const membershipService = new MembershipService(); 
+// ✅ Exportar instancia y tipos
+export const membershipService = new MembershipService();
+
+export type {
+  Membership,
+  MyActiveMembership,
+  MembershipHistoryItem,
+  MembershipBenefits,
+  PaginatedResponse,
+  QueryParams,
+  SearchParams
+};

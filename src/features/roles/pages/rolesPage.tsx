@@ -78,7 +78,6 @@ export function RolesPage() {
       const data = await roleService.getRoles()
       setRoles(data)
     } catch (error) {
-      console.error("Error loading roles:", error)
       setError("Error al cargar los roles")
     } finally {
       setIsLoading(false)
@@ -129,7 +128,6 @@ export function RolesPage() {
           showConfirmButton: false,
         })
       } catch (error) {
-        console.error("Error deleting role:", error)
         Swal.fire({
           title: "Error",
           text: "No se pudo eliminar el rol. Puede que tenga usuarios asignados.",
@@ -157,7 +155,8 @@ export function RolesPage() {
 
     if (result.isConfirmed) {
       try {
-        await roleService.toggleRoleStatus(role.id, !role.estado)
+        // ✅ Pasar el estado deseado (opuesto al actual)
+        await roleService.toggleRoleStatus(role.id, !isActive)
         await loadRoles()
 
         Swal.fire({
@@ -168,7 +167,6 @@ export function RolesPage() {
           showConfirmButton: false,
         })
       } catch (error) {
-        console.error("Error toggling role status:", error)
         Swal.fire({
           title: "Error",
           text: "No se pudo cambiar el estado del rol",

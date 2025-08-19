@@ -68,10 +68,10 @@ export const trainerService = {
     return response.data.data;
   },
   
-  // Verificar si un usuario existe por documento (usando el endpoint genérico de usuarios)
-  checkUserByDocument: async (tipo_documento: string, numero_documento: string): Promise<{ userExists: boolean; isTrainer: boolean; userData: User | null }> => {
+  // Verificar si un usuario existe por documento (usando el endpoint de usuarios con path parameters)
+  checkUserByDocument: async (tipo_documento: string, numero_documento: string): Promise<{ userExists: boolean; isTrainer: boolean; userData: User | null; message?: string }> => {
     trainerService.checkAuth();
-    const response = await api.get<{success: boolean, message: string, data: { userExists: boolean; isTrainer: boolean; userData: User | null }}>(`/users/check-document`, { params: { tipo_documento, numero_documento } });
+    const response = await api.get<{success: boolean, message: string, data: { userExists: boolean; isTrainer: boolean; userData: User | null; message?: string }}>(`/users/check-user/${tipo_documento}/${numero_documento}`);
     return response.data.data;
   },
 }; 

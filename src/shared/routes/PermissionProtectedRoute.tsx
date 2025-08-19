@@ -69,7 +69,6 @@ export function PermissionProtectedRoute({
 
     // ❌ Error state SOLO después de intentar cargar
     if (hasErrors) {
-        console.error("🚨 Error en PermissionProtectedRoute:", { error, permissionsError })
         return (
             <div className="flex items-center justify-center min-h-screen bg-red-50">
                 <div className="text-center max-w-md p-6">
@@ -99,19 +98,16 @@ export function PermissionProtectedRoute({
 
     // 🚫 Not authenticated
     if (!isAuthenticated) {
-        console.log("🚫 Usuario no autenticado, redirigiendo a login")
         return <Navigate to="/login" state={{ from: location }} replace />
     }
 
     // 🔍 Verificación de usuario válido
     if (!user) {
-        console.error("❌ Usuario autenticado pero datos de usuario no disponibles")
         return <Navigate to="/login" state={{ from: location, error: "Datos de usuario no disponibles" }} replace />
     }
 
     // 🎭 Verificación de rol válido
     if (!user.id_rol) {
-        console.warn("⚠️ Usuario sin rol asignado:", user.id)
         return (
             <div className="flex items-center justify-center min-h-screen bg-yellow-50">
                 <div className="text-center max-w-md p-6">
@@ -129,16 +125,13 @@ export function PermissionProtectedRoute({
 
     // 1. 🔍 Verificar acceso al módulo requerido (OBLIGATORIO)
     const hasModulePermission = hasModuleAccess(requiredModule)
-    console.log(`🔍 [BD] Verificando acceso al módulo "${requiredModule}":`, hasModulePermission)
 
     if (!hasModulePermission) {
         // 🚨 BYPASS DE EMERGENCIA SOLO PARA ADMIN (usar con extrema precaución)
         if (emergencyBypass && user.id_rol === BACKEND_ROLES.ADMINISTRADOR) {
-            console.warn(`⚠️ [EMERGENCIA] Bypass activado para admin en módulo "${requiredModule}" - REVISAR PERMISOS EN BD`)
             return <>{children}</>
         }
 
-        console.log(`❌ [BD] Acceso denegado: sin permisos para el módulo "${requiredModule}"`)
         return <Navigate to="/not-authorized" replace />
     }
 
@@ -152,30 +145,23 @@ export function PermissionProtectedRoute({
 
             if (requireAllPrivileges) {
                 hasRequiredPrivilege = hasAllPrivileges(requiredModule, privilegeList)
-                console.log(`🔑 [BD] Verificando TODOS los privilegios [${privilegeList.join(', ')}] para "${requiredModule}":`, hasRequiredPrivilege)
-            } else {
+                } else {
                 hasRequiredPrivilege = hasAnyPrivilege(requiredModule, privilegeList)
-                console.log(`🔑 [BD] Verificando ALGÚN privilegio [${privilegeList.join(', ')}] para "${requiredModule}":`, hasRequiredPrivilege)
-            }
+                }
         } else {
             // Si se pasa un solo privilegio
             hasRequiredPrivilege = hasPrivilege(requiredModule, requiredPrivilege)
-            console.log(`🔑 [BD] Verificando privilegio "${requiredPrivilege}" para "${requiredModule}":`, hasRequiredPrivilege)
-        }
+            }
 
         if (!hasRequiredPrivilege) {
             // 🚨 BYPASS DE EMERGENCIA SOLO PARA ADMIN (usar con extrema precaución)
             if (emergencyBypass && user.id_rol === BACKEND_ROLES.ADMINISTRADOR) {
-                console.warn(`⚠️ [EMERGENCIA] Bypass activado para admin en privilegio "${requiredPrivilege}" - REVISAR PERMISOS EN BD`)
                 return <>{children}</>
             }
-
-            console.log(`❌ [BD] Acceso denegado: sin privilegios requeridos para "${requiredModule}"`)
             return <Navigate to="/not-authorized" replace />
         }
     }
 
     // 3. ✅ Acceso concedido basado en permisos de BD
-    console.log(`✅ [BD] Acceso concedido a "${requiredModule}" para usuario ${user.id} con rol ${user.id_rol} - Permisos verificados en BD`)
     return <>{children}</>
 }

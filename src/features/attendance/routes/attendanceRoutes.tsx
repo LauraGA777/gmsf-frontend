@@ -10,14 +10,13 @@ export const attendanceRoutes: RouteObject[] = [
             <PermissionProtectedRoute 
                 requiredModule="ASISTENCIAS" 
                 requiredPrivilege="ASIST_READ"
-                // ✅ Solo permisos de BD - Sin fallbacks
             >
                 <AttendanceRegistry />
             </PermissionProtectedRoute>
         )
     },
     {
-        path: "/my-attendance/:id",
+        path: "/my-attendances/:userId",
         element: (
             <PermissionProtectedRoute 
                 requiredModule="ASISTENCIAS" 

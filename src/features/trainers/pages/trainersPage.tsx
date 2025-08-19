@@ -231,6 +231,7 @@ export function TrainersPage() {
     setIsEditModalOpen(true);
   };
 
+  /* No funciona correctamente - Comentado temporalmente
   if (trainers.length === 0 && !isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
@@ -248,6 +249,7 @@ export function TrainersPage() {
       </div>
     )
   }
+  */
 
   return (
     <div className="container mx-auto px-4 py-6">

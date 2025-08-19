@@ -63,27 +63,17 @@ export default function UsersPage() {
       ? await userService.searchUsers(query, page, itemsPerPage)
       : await userService.getUsers(page, itemsPerPage);
 
-    // Agregar logs para debuggear
-    console.log('Response completa:', response);
-    console.log('Response.data:', response?.data);
-    console.log('Es array response.data?', Array.isArray(response?.data));
 
     if (response?.data && Array.isArray(response.data)) {
       setUsers(response.data);
       setFilteredUsers(response.data);
       setTotalPages(response.totalPages || 1);
     } else {
-      // Agregar más información sobre por qué falla
-      console.log('La respuesta no tiene la estructura esperada');
-      console.log('Tipo de response:', typeof response);
-      console.log('Tipo de response.data:', typeof response?.data);
-      
       setUsers([]);
       setFilteredUsers([]);
       setTotalPages(1);
     }
   } catch (err: any) {
-    console.error('Error completo:', err);
   } finally {
     setIsLoading(false);
   }
@@ -104,36 +94,32 @@ export default function UsersPage() {
   useEffect(() => {
     const loadRoles = async () => {
       try {
-        console.log('Iniciando carga de roles...');
         const roles = await roleService.getRolesForSelect();
-        console.log('Roles cargados:', roles);
         setRoles(roles);
       } catch (error) {
-        console.error('Error cargando roles:', error);
       }
     };
     loadRoles();
   }, []);
 
   const getRoleName = (id_rol: number | null | undefined) => {
-    console.log('Buscando rol con ID:', id_rol);
-    console.log('Roles disponibles:', roles);
+    
     
     if (!id_rol || !Array.isArray(roles) || roles.length === 0) {
-      console.log('ID de rol inválido o roles no cargados');
+      
       return "Cargando...";
     }
     
     const rol = roles.find(r => r?.id === id_rol);
     if (!rol) {
-      console.log('Rol no encontrado para ID:', id_rol);
+      
       return "Desconocido";
     }
     return rol.nombre || "Sin nombre";
   };
 
   const getRoleBadge = (id_rol: number | null | undefined) => {
-    console.log('ID del rol recibido:', id_rol); // Para debugging
+    
     const roleName = getRoleName(id_rol);
     const isLoading = roleName === "Cargando...";
     
@@ -174,7 +160,7 @@ export default function UsersPage() {
       await handleSaveUser();
       Swal.fire('¡Éxito!', 'Usuario creado correctamente', 'success');
     } catch (error) {
-      console.error('Error creating user:', error);
+      
       throw error;
     }
   };
@@ -186,14 +172,12 @@ export default function UsersPage() {
       await handleSaveUser();
       Swal.fire('¡Éxito!', 'Usuario actualizado correctamente', 'success');
     } catch (error) {
-      console.error('Error updating user:', error);
       throw error;
     }
   };
 
   const handleToggleUserStatus = async (id: number, currentStatus: boolean) => {
     if (!id || id <= 0) {
-      console.error('ID de usuario inválido:', id);
       return;
     }
 
@@ -223,7 +207,6 @@ export default function UsersPage() {
           icon: "success",
         });
       } catch (error: any) {
-        console.error('Error toggling user status:', error);
         Swal.fire({
           title: 'Error',
           text: error.response?.data?.message || 'No se puede desactivar el usuario porque tiene contratos activos',
@@ -236,12 +219,10 @@ export default function UsersPage() {
   
   const handleDeleteUserPermanently = async (id: number, user: User) => {
     if (!id || id <= 0) {
-      console.error('ID de usuario inválido:', id);
       return;
     }
 
     if (!user) {
-      console.error('Datos de usuario inválidos');
       return;
     }
 
@@ -291,7 +272,6 @@ export default function UsersPage() {
           icon: "success",
         });
       } catch (error: any) {
-        console.error('Error deleting user permanently:', error);
         Swal.fire({
           title: 'Error',
           text: error.response?.data?.message || 'Error al eliminar el usuario permanentemente',
@@ -301,26 +281,6 @@ export default function UsersPage() {
       }
     }
   };
-
-  // No necesitamos paginación local porque los datos ya vienen paginados del servidor
-/* 
-  if (users.length === 0 && !isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <Card className="w-full max-w-md">
-          <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-            <Users className="h-16 w-16 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No hay usuarios registrados</h3>
-            <p className="text-gray-500 mb-4">Comience agregando el primer usuario al sistema</p>
-            <Button onClick={() => setIsNewUserOpen(true)} className="bg-black hover:bg-gray-800">
-              <Plus className="h-4 w-4 mr-2" />
-              Agregar Usuario
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    ); 
-  }*/
 
   return (
     <div className="container mx-auto px-4 py-6">

@@ -19,7 +19,7 @@ export const useMemberships = () => {
   useEffect(() => {
     const loadInitialMemberships = async () => {
       if (!membershipsLoaded && memberships.length === 0 && !membershipsLoading) {
-        console.log('🔄 Cargando membresías automáticamente...');
+        
         await refreshMemberships();
         setMembershipsLoaded(true);
       }

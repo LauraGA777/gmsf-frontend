@@ -101,7 +101,12 @@ export function NewTrainerForm({ isOpen, onCreateTrainer, onClose }: NewTrainerF
                 const response = await trainerService.checkUserByDocument(tipoDocumento, debouncedNumeroDocumento);
         
                 if (response.isTrainer) {
-                    setUserCheckResult({ exists: true, isTrainer: true, message: "Este usuario ya está registrado como entrenador.", variant: "destructive" });
+                    setUserCheckResult({ 
+                        exists: true, 
+                        isTrainer: true, 
+                        message: response.message || "Este usuario ya está registrado como entrenador.", 
+                        variant: "destructive" 
+                    });
                 } else if (response.userExists && response.userData) {
                     const { userData } = response;
                     // Cambia el tipo de id a string | number para evitar el error de asignación
@@ -116,8 +121,14 @@ export function NewTrainerForm({ isOpen, onCreateTrainer, onClose }: NewTrainerF
                     if (parsedDate && !isNaN(parsedDate.getTime())) {
                         form.setValue("usuario.fecha_nacimiento", format(parsedDate, 'yyyy-MM-dd'));
                     }
-                    setUserCheckResult({ exists: true, isTrainer: false, message: "Usuario encontrado. Datos autocompletados.", variant: "success" });
+                    setUserCheckResult({ 
+                        exists: true, 
+                        isTrainer: false, 
+                        message: response.message || "Usuario encontrado. Los datos se han autocompletado. Solo complete la especialidad para registrarlo como entrenador.", 
+                        variant: "success" 
+                    });
                 } else {
+                    // Limpiar el formulario para usuario nuevo
                     form.setValue("usuario.id", undefined);
                     form.setValue("usuario.nombre", "");
                     form.setValue("usuario.apellido", "");
@@ -126,10 +137,21 @@ export function NewTrainerForm({ isOpen, onCreateTrainer, onClose }: NewTrainerF
                     form.setValue("usuario.direccion", "");
                     form.setValue("usuario.fecha_nacimiento", "");
                     form.setValue("usuario.genero", undefined);
-                    setUserCheckResult({ exists: false, isTrainer: false, message: "Usuario no encontrado. Complete el formulario para registrarlo. La contraseña por defecto será su número de documento.", variant: "info" });
+                    setUserCheckResult({ 
+                        exists: false, 
+                        isTrainer: false, 
+                        message: response.message || "Usuario no encontrado. Complete todos los campos para registrar un nuevo usuario y entrenador. La contraseña por defecto será su número de documento.", 
+                        variant: "info" 
+                    });
                 }
             } catch (error) {
-                setUserCheckResult({ exists: false, isTrainer: false, message: "Error al verificar el usuario.", variant: "destructive" });
+                console.error("Error al verificar usuario:", error);
+                setUserCheckResult({ 
+                    exists: false, 
+                    isTrainer: false, 
+                    message: "Error al verificar el usuario. Intente nuevamente.", 
+                    variant: "destructive" 
+                });
             } finally {
                 setIsCheckingUser(false);
             }

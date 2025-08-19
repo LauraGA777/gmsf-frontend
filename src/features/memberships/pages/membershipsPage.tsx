@@ -87,7 +87,7 @@ function MembershipForm({ membership, onSave, onCancel }: MembershipFormProps) {
     try {
       await onSave(formData);
     } catch (error) {
-      console.error('Error saving membership:', error);
+      
       setErrors(['Error al guardar la membresía']);
     } finally {
       setIsLoading(false);
@@ -205,7 +205,7 @@ export function MembershipsPage() {
   useEffect(() => {
     // Cargar membresías al montar el componente si no hay datos
     if (memberships.length === 0 && !membershipsLoading) {
-      console.log('🔄 Cargando membresías al montar la página...');
+      
       refreshMemberships();
     }
   }, []);
@@ -286,7 +286,7 @@ export function MembershipsPage() {
         confirmButtonColor: '#000',
       });
     } catch (error) {
-      console.error('Error creating membership:', error);
+      
       throw error;
     }
   };
@@ -307,7 +307,7 @@ export function MembershipsPage() {
         confirmButtonColor: '#000',
       });
     } catch (error) {
-      console.error('Error updating membership:', error);
+      
       throw error;
     }
   };
@@ -364,7 +364,7 @@ export function MembershipsPage() {
         }
       }
     } catch (error: any) {
-      console.error('Error inesperado:', error);
+      
       Swal.fire({
         title: 'Error',
         text: 'Ha ocurrido un error inesperado',

@@ -433,7 +433,7 @@ export default function UsersPage() {
                                   className="text-red-600 focus:text-red-600"
                                 >
                                   <Trash2 className="w-4 h-4 mr-2" />
-                                  Eliminar permanentemente
+                                  Eliminar
                                 </DropdownMenuItem>
                               </>
                             )}

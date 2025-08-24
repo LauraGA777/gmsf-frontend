@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom"; // ✅ Cambio aquí
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card"
@@ -23,7 +23,10 @@ export default function ResetPasswordCard() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
     const { toast } = useToast()
     const navigate = useNavigate()
-    const { token } = useParams()
+    
+    // ✅ Cambio: usar useSearchParams en lugar de useParams
+    const [searchParams] = useSearchParams()
+    const token = searchParams.get('token')
 
     const form = useForm<FormValuesReset>({
         resolver: zodResolver(formSchemaReset),
@@ -38,7 +41,7 @@ export default function ResetPasswordCard() {
         if (!token) {
             toast({
                 title: "Error",
-                description: "Token no válido",
+                description: "Token no válido o faltante en la URL",
                 variant: "destructive",
             });
             return;
@@ -70,12 +73,33 @@ export default function ResetPasswordCard() {
         }
     }
 
+    // ✅ Mostrar mensaje si no hay token
+    if (!token) {
+        return (
+            <Card className="w-full max-w-md shadow-lg">
+                <CardHeader className="space-y-1 text-center">
+                    <CardTitle className="text-2xl font-bold text-red-600">Token inválido</CardTitle>
+                    <CardDescription>
+                        El enlace de restablecimiento no es válido o ha expirado.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Link to="/forgot-password">
+                        <Button className="w-full">
+                            Solicitar nuevo enlace
+                        </Button>
+                    </Link>
+                </CardContent>
+            </Card>
+        )
+    }
+
     return (
         <>
             <Card className="w-full max-w-md shadow-lg">
                 <CardHeader className="space-y-1 text-center">
                     <div className="flex justify-start mb-4">
-                        <Link to="/" className="flex items-center text-sm text-primary hover:underline">
+                        <Link to="/login" className="flex items-center text-sm text-primary hover:underline">
                             <ArrowLeft className="mr-1 h-4 w-4" />
                             Volver al login
                         </Link>

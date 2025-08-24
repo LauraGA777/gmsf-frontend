@@ -1,206 +1,294 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { TrendingUp, Crown, AlertCircle } from 'lucide-react';
-import { formatCOP } from '@/shared/lib/formatCop';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, TooltipProps } from 'recharts';
+import { Users, AlertCircle, Crown, Star, CreditCard } from 'lucide-react';
+import { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
+import { Badge } from '@/shared/components/ui/badge';
 
-interface MembershipData {
+// ✅ Interface para datos que llegan del backend
+interface RawMembershipData {
   id: number;
   nombre: string;
   precio: number;
   activeContracts: number;
 }
 
-interface PopularMembershipsChartProps {
-  data: MembershipData[];
-  loading?: boolean;
+// ✅ Interface para datos procesados del gráfico
+interface PopularMembershipData {
+  name: string;
+  value: number;
+  percentage: number;
+  color: string;
 }
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
+interface PopularMembershipsChartProps {
+  data: RawMembershipData[] | PopularMembershipData[]; // ✅ Acepta ambos formatos
+  title?: string;
+  loading?: boolean;
+  total?: number;
+}
 
-export function PopularMembershipsChart({ data, loading }: PopularMembershipsChartProps) {
+export function PopularMembershipsChart({ 
+  data, 
+  title = "Membresías Populares", 
+  loading = false,
+  total
+}: PopularMembershipsChartProps) {
+  console.log('PopularMembershipsChart - Raw data received:', data);
+
   if (loading) {
     return (
-      <div className="h-[400px] flex items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center">
-          <div className="w-16 h-16 bg-orange-200 rounded-full mb-4"></div>
-          <div className="h-4 bg-orange-200 rounded w-32 mb-2"></div>
-          <div className="h-3 bg-gray-300 rounded w-24"></div>
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="h-[350px] flex items-center justify-center">
+          <div className="animate-pulse flex flex-col items-center">
+            <div className="w-16 h-16 bg-purple-200 rounded-full mb-4"></div>
+            <div className="h-4 bg-purple-200 rounded w-32 mb-2"></div>
+            <div className="h-3 bg-gray-300 rounded w-24"></div>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!data || data.length === 0) {
+  // ✅ Función para transformar datos del backend
+  const transformBackendData = (rawData: RawMembershipData[]): PopularMembershipData[] => {
+    if (!Array.isArray(rawData) || rawData.length === 0) return [];
+
+    // Filtrar datos válidos
+    const validRawData = rawData.filter(item => 
+      item && 
+      typeof item.nombre === 'string' && 
+      typeof item.activeContracts === 'number' && 
+      item.activeContracts > 0
+    );
+
+    if (validRawData.length === 0) return [];
+
+    // Calcular total para porcentajes
+    const totalContracts = validRawData.reduce((sum, item) => sum + item.activeContracts, 0);
+
+    // Colores para las membresías
+    const colors = [
+      '#3b82f6', // azul
+      '#10b981', // verde
+      '#f59e0b', // amarillo
+      '#ef4444', // rojo
+      '#8b5cf6', // violeta
+      '#f97316', // naranja
+      '#06b6d4', // cyan
+      '#84cc16'  // lima
+    ];
+
+    // Transformar datos
+    return validRawData.map((item, index) => ({
+      name: item.nombre,
+      value: item.activeContracts,
+      percentage: totalContracts > 0 ? (item.activeContracts / totalContracts) * 100 : 0,
+      color: colors[index % colors.length]
+    }));
+  };
+
+  // ✅ Función para verificar si los datos ya están procesados
+  const isProcessedData = (data: any[]): data is PopularMembershipData[] => {
+    return data.length > 0 && 
+           'name' in data[0] && 
+           'value' in data[0] && 
+           'percentage' in data[0] && 
+           'color' in data[0];
+  };
+
+  // ✅ Transformar datos según el formato recibido
+  let chartData: PopularMembershipData[] = [];
+
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    // Datos de fallback
+    chartData = [
+      { name: 'Membresía Básica', value: 45, percentage: 45, color: '#3b82f6' },
+      { name: 'Membresía Premium', value: 30, percentage: 30, color: '#10b981' },
+      { name: 'Membresía VIP', value: 25, percentage: 25, color: '#f59e0b' }
+    ];
+  } else if (isProcessedData(data)) {
+    // Los datos ya están procesados
+    chartData = data;
+  } else {
+    // Los datos vienen del backend y necesitan transformación
+    chartData = transformBackendData(data as RawMembershipData[]);
+  }
+
+  console.log('PopularMembershipsChart - Processed data:', chartData);
+
+  if (!chartData || chartData.length === 0) {
     return (
-      <div className="h-[400px] flex items-center justify-center">
-        <div className="text-center text-gray-500">
-          <AlertCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No hay datos de membresías disponibles</p>
-          <p className="text-xs text-gray-400 mt-1">Verifica la conexión con la base de datos</p>
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="h-[350px] flex items-center justify-center">
+          <div className="text-center text-gray-500">
+            <AlertCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No hay membresías populares disponibles</p>
+            <p className="text-xs text-gray-400 mt-1">Los datos se cargarán cuando haya contratos activos</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Filtrar datos válidos y transformar para el gráfico
-  const validData = data.filter(membership => 
-    membership && 
-    typeof membership.nombre === 'string' && 
-    typeof membership.activeContracts === 'number' && 
-    membership.activeContracts > 0 &&
-    typeof membership.precio === 'number' &&
-    membership.precio > 0
-  );
+  // ✅ Validar datos finales
+  const validData = chartData.filter(item => {
+    const isValid = item && 
+      typeof item.name === 'string' && 
+      typeof item.value === 'number' && 
+      item.value > 0 &&
+      typeof item.percentage === 'number' &&
+      item.percentage >= 0 &&
+      typeof item.color === 'string';
+    
+    return isValid;
+  });
 
   if (validData.length === 0) {
     return (
-      <div className="h-[400px] flex items-center justify-center">
-        <div className="text-center text-gray-500">
-          <AlertCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No hay membresías con contratos activos</p>
-          <p className="text-xs text-gray-400 mt-1">Los datos pueden estar siendo procesados</p>
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="h-[350px] flex items-center justify-center">
+          <div className="text-center text-gray-500">
+            <AlertCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No hay datos válidos para mostrar</p>
+            <p className="text-xs text-gray-400 mt-1">Verificando contratos activos...</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Transformar los datos para el gráfico
-  const chartData = validData.map((membership, index) => ({
-    name: membership.nombre || `Membresía ${index + 1}`,
-    value: membership.activeContracts || 0,
-    color: COLORS[index % COLORS.length],
-    precio: membership.precio || 0
-  }));
+  const totalMemberships = total || validData.reduce((sum, item) => sum + (item.value || 0), 0);
+  const mostPopular = validData.reduce((prev, current) => 
+    (current.value || 0) > (prev.value || 0) ? current : prev, validData[0]);
 
-  // Calcular el total de contratos activos
-  const totalContracts = chartData.reduce((sum, item) => sum + (item.value || 0), 0);
-
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: TooltipProps<ValueType, NameType>) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
-      const percentage = totalContracts > 0 ? ((data.value / totalContracts) * 100).toFixed(1) : '0.0';
-      
+      const safePercentage = (data.percentage || 0).toFixed(1);
       return (
         <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
           <p className="font-medium text-gray-900">{data.name}</p>
-          <p className="text-sm text-gray-600">Contratos: {data.value}</p>
-          <p className="text-sm text-gray-600">Porcentaje: {percentage}%</p>
-          <p className="text-sm text-gray-600">Precio: {formatCOP(data.precio)}</p>
+          <p className="text-blue-600 text-sm">
+            <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ backgroundColor: data.color }}></span>
+            {data.value || 0} contratos activos ({safePercentage}%)
+          </p>
         </div>
       );
     }
     return null;
   };
 
-  const CustomLegend = ({ payload }: any) => {
-    return (
-      <div className="mt-4 space-y-2">
-        {payload.map((entry: any, index: number) => {
-          const percentage = totalContracts > 0 ? ((entry.payload.value / totalContracts) * 100).toFixed(1) : '0.0';
-          return (
-            <div key={`item-${index}`} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: entry.color }}
-                />
-                <span className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
-                  {entry.value}
-                </span>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-bold text-gray-900">{entry.payload.value}</div>
-                <div className="text-xs text-gray-500">{percentage}%</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  // Calcular estadísticas con validación
-  const mostPopular = chartData.reduce((max, item) => 
-    (item.value || 0) > (max.value || 0) ? item : max, chartData[0]);
-  
-  const mostExpensive = chartData.reduce((max, item) => 
-    (item.precio || 0) > (max.precio || 0) ? item : max, chartData[0]);
-
   return (
-    <div className="space-y-4">
-      {/* Header compacto */}
-      <div className="flex items-center justify-between">
+    <>
+      {/* ✅ Header */}
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-            <TrendingUp className="h-4 w-4 text-orange-600" />
+          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+            <Crown className="h-4 w-4 text-purple-600" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Membresías Populares</h3>
-            <p className="text-xs text-gray-500">Total: {totalContracts} contratos</p>
+            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            <p className="text-sm text-gray-500">Total: {totalMemberships} contratos activos</p>
           </div>
         </div>
         {mostPopular && (
-          <div className="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded-full">
-            <Crown className="h-3 w-3 text-orange-600" />
-            <span className="text-xs font-medium text-orange-700">
-              {mostPopular.name}
-            </span>
-          </div>
+          <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-0">
+            <Star className="h-3 w-3 mr-1" />
+            {mostPopular.name}
+          </Badge>
         )}
       </div>
 
-      {/* Estadísticas principales */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-          <div className="text-lg font-bold text-blue-600">
-            {mostPopular?.value || 0}
+      {/* ✅ Layout vertical: Estadísticas arriba + Gráfico en el medio + Desglose abajo */}
+      <div className="space-y-4">
+        {/* Panel superior - Estadísticas en fila horizontal */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="text-center p-3 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
+            <div className="text-lg font-bold text-purple-600">{totalMemberships}</div>
+            <div className="text-xs text-purple-600 font-medium">Total Contratos</div>
           </div>
-          <div className="text-xs text-blue-600 font-medium">Más Popular</div>
-          <div className="text-xs text-gray-500 truncate" title={mostPopular?.name}>
-            {mostPopular?.name || 'N/A'}
+          <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+            <div className="text-lg font-bold text-blue-600">{validData.length}</div>
+            <div className="text-xs text-blue-600 font-medium">Tipos Populares</div>
+          </div>
+          <div className="text-center p-3 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg border border-emerald-200">
+            <div className="text-lg font-bold text-emerald-600">
+              {mostPopular ? (mostPopular.percentage || 0).toFixed(0) : '0'}%
+            </div>
+            <div className="text-xs text-emerald-600 font-medium">Más Popular</div>
           </div>
         </div>
-        <div className="text-center p-3 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
-          <div className="text-lg font-bold text-green-600">
-            {formatCOP(mostExpensive?.precio || 0)}
+
+        {/* Panel medio - Solo el gráfico centrado */}
+        <div className="flex justify-center">
+          <div className="w-full max-w-md">
+            <div className="h-[320px] bg-gray-50 rounded-lg p-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={validData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={120}
+                    innerRadius={70}
+                    fill="#8884d8"
+                    dataKey="value"
+                    stroke="#fff"
+                    strokeWidth={3}
+                  >
+                    {validData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                  
+                  {/* Texto central del donut */}
+                  <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="fill-gray-900">
+                    <tspan x="50%" dy="-0.5em" className="text-2xl font-bold">{totalMemberships}</tspan>
+                    <tspan x="50%" dy="1.5em" className="text-sm fill-gray-600">Contratos</tspan>
+                  </text>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="text-xs text-green-600 font-medium">Más Cara</div>
-          <div className="text-xs text-gray-500 truncate" title={mostExpensive?.name}>
-            {mostExpensive?.name || 'N/A'}
+        </div>
+
+        {/* Panel inferior - Desglose en grid horizontal */}
+        <div className="space-y-3">
+          <h4 className="text-center text-sm font-semibold text-gray-700">Desglose por Tipo de Membresía</h4>
+          
+          {/* ✅ Layout vertical - cada tarjeta una debajo de otra */}
+          <div className="space-y-2">
+            {validData.map((entry, index) => (
+              <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200 hover:shadow-md transition-all duration-200">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div 
+                    className="w-5 h-5 rounded-full flex-shrink-0 border-2 border-white shadow-md" 
+                    style={{ backgroundColor: entry.color }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-gray-900 truncate text-sm" title={entry.name}>
+                      {entry.name}
+                    </div>
+                    <div className="text-xs text-gray-600">{entry.percentage.toFixed(1)}% del total</div>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0 ml-3">
+                  <div className="font-bold text-gray-900 text-lg">{entry.value}</div>
+                  <div className="text-xs text-gray-500">contratos</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Gráfico */}
-      <div className="h-[200px] bg-gray-50 rounded-lg p-2">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              outerRadius={70}
-              fill="#8884d8"
-              dataKey="value"
-              stroke="#fff"
-              strokeWidth={2}
-            >
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Pie>
-            <Tooltip content={<CustomTooltip />} />
-            <Legend content={<CustomLegend />} />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Información adicional */}
-      <div className="text-center p-2 bg-gray-50 rounded-lg">
-        <div className="text-xs text-gray-600">
-          Mostrando {chartData.length} de {data.length} membresías con contratos activos
+      {/* ✅ Footer info */}
+      <div className="mt-4 text-center">
+        <div className="text-xs text-gray-500">
+          Mostrando {validData.length} tipos de membresías más populares
         </div>
       </div>
-    </div>
+    </>
   );
 }

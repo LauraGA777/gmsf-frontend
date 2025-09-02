@@ -278,6 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id_rol: normalizedUser.id_rol!,
         roleCode: "usuario",
         roleName: "Usuario",
+  personId: normalizedUser.id_persona ? normalizedUser.id_persona.toString() : undefined,
         clientId: (normalizedUser.id_rol === ROLES.CLIENT || normalizedUser.id_rol === ROLES.BENEFICIARY) && normalizedUser.id_persona
           ? normalizedUser.id_persona.toString()
           : (normalizedUser.id_rol === ROLES.CLIENT || normalizedUser.id_rol === ROLES.BENEFICIARY)

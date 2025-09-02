@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useAuth } from './authContext';
+import { useAuth } from '@/shared/contexts/authContext';
 import Swal from 'sweetalert2';
 
 export interface GymSettings {

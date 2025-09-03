@@ -15,7 +15,6 @@ import {
   CalendarDays,
   Plus,
 } from "lucide-react";
-import Swal from "sweetalert2";
 import { Training } from "@/shared/types/training";
 import { format, isSameDay, addDays, subDays } from "date-fns";
 import { es } from "date-fns/locale";
@@ -24,77 +23,53 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Input } from "@/shared/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { ScheduleComponent } from "@/features/schedule/components/ScheduleComponent";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
-import { TrainingForm } from "@/features/schedule/components/TrainingForm";
-import { TrainingDetailsForm } from "@/features/schedule/components/TrainingDetailsForm";
+import { ClientBookingForm } from "@/features/schedule/components/ClientBookingForm";
 import { scheduleService } from "@/features/schedule/services/schedule.service";
 import { useToast } from "@/shared/components/ui/use-toast";
 
-interface Option {
-  id: number;
-  name: string;
-}
+// Tipos auxiliares removidos por no uso
 
-interface ActiveClient {
-  id: number;
-  codigo: string;
-  estado: boolean;
-  usuario: {
-    id: number;
-    nombre: string;
-    apellido: string;
-    correo: string;
-    telefono?: string;
-  };
-}
-
-interface ActiveTrainer {
-  id: number;
-  codigo: string;
-  especialidad: string;
-  estado: boolean;
-  usuario: {
-    id: number;
-    nombre: string;
-    apellido: string;
-    correo: string;
-    telefono?: string;
-  };
-}
 
 export function ClientSchedulePage() {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedTraining, setSelectedTraining] = useState<Training | null>(null);
+  // Estado de entrenamiento seleccionado no requerido en vista limitada
   const [viewMode, setViewMode] = useState<"calendar" | "daily">("daily");
   const [searchTerm, setSearchTerm] = useState("");
   const [fetchedTrainings, setFetchedTrainings] = useState<Training[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentMonth, _setCurrentMonth] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  const [showBookingForm, setShowBookingForm] = useState(false);
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
-    if (!user?.personId) {
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
       
-      // Siempre obtener solo los entrenamientos del cliente
-      const trainingsResponse = await scheduleService.getClientSchedule(parseInt(user.personId, 10));
-
-      // Si no hay datos, establecer array vacío en lugar de error
-      if (trainingsResponse.data && Array.isArray(trainingsResponse.data)) {
-        setFetchedTrainings(trainingsResponse.data);
-      } else {
-        // Si no hay datos, establecer array vacío
-        setFetchedTrainings([]);
+      // Para clientes, obtener su agenda desde el endpoint dedicado si tenemos clientId (personId)
+      if (user?.clientId) {
+        const personId = parseInt(user.clientId, 10);
+        if (!isNaN(personId)) {
+          const trainingsResponse = await scheduleService.getClientSchedule(personId);
+          if (trainingsResponse.data && Array.isArray(trainingsResponse.data)) {
+            setFetchedTrainings(trainingsResponse.data);
+          } else {
+            setFetchedTrainings([]);
+          }
+          setError(null);
+          return;
+        }
       }
 
-      setError(null)
+      // Fallback: usar el endpoint general, que en backend ya filtra por rol de cliente
+      const genericResponse = await scheduleService.getTrainings({});
+      if (genericResponse?.data && Array.isArray(genericResponse.data)) {
+        setFetchedTrainings(genericResponse.data);
+      } else {
+        setFetchedTrainings([]);
+      }
+      setError(null);
     } catch (err) {
       console.error("Error fetching data:", err);
       // En caso de error, establecer array vacío para mostrar el mensaje informativo
@@ -112,11 +87,7 @@ export function ClientSchedulePage() {
   const displayedTrainings = useMemo(() => {
     let filtered = [...fetchedTrainings];
 
-    // For clients, filter to show only their own trainings
-    if (user?.personId) {
-      const personId = parseInt(user.personId, 10);
-      filtered = filtered.filter(t => t.id_cliente === personId);
-    }
+    // El backend ya filtra automáticamente por rol de cliente
 
     if (viewMode === "daily") {
       filtered = filtered.filter((training) => isSameDay(new Date(training.fecha_inicio), selectedDate));
@@ -133,9 +104,11 @@ export function ClientSchedulePage() {
     }
 
     // Refuerzo: solo mostrar entrenamientos del cliente
-    if ((user?.id_rol === 3 || user?.id_rol === 4) && user?.personId) {
-      const personId = parseInt(user.personId, 10);
-      filtered = filtered.filter(t => t.id_cliente === personId);
+    if ((user?.id_rol === 3 || user?.id_rol === 4) && user?.clientId) {
+      const personId = parseInt(user.clientId, 10);
+      if (!isNaN(personId)) {
+        filtered = filtered.filter(t => t.id_cliente === personId);
+      }
     }
     return filtered;
   }, [user, fetchedTrainings, selectedDate, viewMode, searchTerm]);
@@ -154,43 +127,42 @@ export function ClientSchedulePage() {
 
 
 
-  // Los clientes no pueden crear, editar o eliminar entrenamientos
-  const handleSubmitTraining = async () => {
-    toast({
-      title: "Acceso Denegado",
-      description: "Los clientes no pueden modificar entrenamientos. Contacta a tu entrenador.",
-      variant: "destructive",
-    });
-  }
-
-  // Los clientes no pueden agregar entrenamientos
+  // Los clientes pueden agendar entrenamientos usando los nuevos endpoints
   const handleAddTraining = () => {
-    toast({
-      title: "Acceso Denegado",
-      description: "Los clientes no pueden agendar entrenamientos. Contacta a tu entrenador.",
-      variant: "destructive",
-    });
+    if (user?.id_rol === 3 || user?.id_rol === 4) {
+      // Clientes y beneficiarios pueden usar el formulario de booking
+      setShowBookingForm(true);
+    } else {
+      toast({
+        title: "Acceso Denegado",
+        description: "Los clientes no pueden agendar entrenamientos. Contacta a tu entrenador.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Los clientes solo pueden ver detalles, no editar
   const handleTrainingClick = (training: Training) => {
-    setSelectedTraining(training);
-    // Mostrar solo información de lectura
+    // Mostrar información detallada sin opciones de edición
+    const trainerFirst = (training as any)?.entrenador?.usuario?.nombre || training?.entrenador?.nombre || '';
+    const trainerLast = (training as any)?.entrenador?.usuario?.apellido || training?.entrenador?.apellido || '';
     toast({
       title: "Información del Entrenamiento",
-      description: `${training.titulo} - ${training.entrenador?.nombre} ${training.entrenador?.apellido}`,
+      description: `${training.titulo} - ${trainerFirst} ${trainerLast}`.trim(),
       variant: "default",
     });
   };
 
-  // Los clientes no pueden eliminar entrenamientos
-  const handleDeleteTraining = async (id: number) => {
+  // Función para manejar intentos de modificación (siempre denegados para clientes)
+  // Función para manejar el éxito del booking
+  const handleBookingSuccess = () => {
+    fetchData(); // Recargar los datos
     toast({
-      title: "Acceso Denegado",
-      description: "Los clientes no pueden cancelar entrenamientos. Contacta a tu entrenador.",
-      variant: "destructive",
+      title: "¡Entrenamiento agendado!",
+      description: "Tu sesión ha sido programada exitosamente.",
+      variant: "default",
     });
-  }
+  };
 
   const getStatusBadge = (estado: "Programado" | "Completado" | "Cancelado" | "En proceso") => {
     const config = {
@@ -231,9 +203,13 @@ export function ClientSchedulePage() {
             </TabsList>
           </Tabs>
           {/* Solo mostrar el botón Agendar si NO es cliente o beneficiario */}
-          {user?.id_rol !== 3 && user?.id_rol !== 4 && (
+          {user?.id_rol !== 3 && user?.id_rol !== 4 ? (
             <Button onClick={handleAddTraining} className="flex items-center gap-1 whitespace-nowrap">
               <Plus className="h-4 w-4" />Agendar
+            </Button>
+          ) : (
+            <Button onClick={handleAddTraining} className="flex items-center gap-1 whitespace-nowrap">
+              <Plus className="h-4 w-4" />Reservar Sesión
             </Button>
           )}
         </div>
@@ -266,7 +242,11 @@ export function ClientSchedulePage() {
                             <h3 className="font-medium">{training.titulo}</h3>
                             <div className="flex items-center text-sm text-gray-500 mt-1">
                               <Dumbbell className="h-3.5 w-3.5 mr-1" />
-                              <span>{training.entrenador?.nombre} {training.entrenador?.apellido}</span>
+                              <span>{
+                                ((training as any)?.entrenador?.usuario?.nombre || training?.entrenador?.nombre || '') +
+                                ' ' +
+                                ((training as any)?.entrenador?.usuario?.apellido || training?.entrenador?.apellido || '')
+                              }</span>
                             </div>
                           </div>
                           {getStatusBadge(training.estado as any)}
@@ -293,8 +273,10 @@ export function ClientSchedulePage() {
                   </p>
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p className="text-sm text-blue-800">
-                      Los entrenamientos serán agendados por tu entrenador. 
-                      Contacta con él para programar tus sesiones.
+                      {(user?.id_rol === 3 || user?.id_rol === 4) ? 
+                        "Usa el botón 'Reservar Sesión' para agendar tus entrenamientos." :
+                        "Los entrenamientos serán agendados por tu entrenador. Contacta con él para programar tus sesiones."
+                      }
                     </p>
                   </div>
                 </div>
@@ -345,6 +327,13 @@ export function ClientSchedulePage() {
 
       {/* Los clientes no pueden crear, editar o eliminar entrenamientos */}
       {/* Los diálogos han sido removidos para evitar modificaciones */}
+      
+      {/* Formulario específico para que los clientes agenden entrenamientos */}
+      <ClientBookingForm 
+        isOpen={showBookingForm}
+        onClose={() => setShowBookingForm(false)}
+        onSuccess={handleBookingSuccess}
+      />
     </div>
   );
 }

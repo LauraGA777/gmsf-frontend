@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { authService, DatosPerfil, DatosCambioContrasena } from '../services/authService';
 import { AlertCircle, Check, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import { BirthDateInput } from '@/shared/components/ui/birth-date-input';
 
 // Componentes de UI
 const Card = ({ className, children }: { className?: string; children: React.ReactNode }) => (
@@ -435,15 +436,15 @@ export default function ProfileManagement() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="fechaNacimiento" className="text-sm font-medium text-gray-700">
-                                        Fecha de Nacimiento
-                                    </Label>
-                                    <Input
+                                    <BirthDateInput
+                                        value={profileData.fecha_nacimiento || ""}
+                                        onChange={(value) => handleProfileChange("fecha_nacimiento", value)}
+                                        role="cliente"
+                                        minAge={13}
+                                        required={false}
+                                        showRealTimeValidation={true}
                                         id="fechaNacimiento"
-                                        type="date"
-                                        value={profileData.fecha_nacimiento}
-                                        onChange={(e) => handleProfileChange("fecha_nacimiento", e.target.value)}
-                                        className="focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        label="Fecha de Nacimiento"
                                     />
                                 </div>
 

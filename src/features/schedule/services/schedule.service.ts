@@ -23,6 +23,12 @@ export const scheduleService = {
     return response.data;
   },
 
+  // Get schedule for a specific client (used in client view)
+  getClientSchedule: async (clientPersonId: number) => {
+    const response = await api.get<{ data: any[]; success: boolean; message: string }>(`/schedules/client/${clientPersonId}`);
+    return response.data;
+  },
+
   // Create new training session
   createTraining: async (data: Partial<Training>) => {
     const response = await api.post<TrainingResponse>('/schedules', data);
@@ -57,11 +63,6 @@ export const scheduleService = {
     return response.data;
   },
 
-  // Get client schedule
-  getClientSchedule: async (id: number) => {
-    const response = await api.get<TrainingsResponse>(`/schedules/client/${id}`);
-    return response.data;
-  },
 
   // Get daily schedule
   getDailySchedule: async (date: string) => {
@@ -138,5 +139,63 @@ export const scheduleService = {
       console.error('Error fetching active clients:', error);
       return { data: [] };
     }
-  }
+  },
+
+  // === MÉTODOS ESPECÍFICOS PARA CLIENTES ===
+
+  // Get available time slots for clients to book
+  getAvailableTimeSlots: async (fecha: string, id_entrenador?: number) => {
+    try {
+      const params: any = { fecha };
+      if (id_entrenador) {
+        params.id_entrenador = id_entrenador;
+      }
+
+      const response = await api.get<{
+        data: Array<{
+          hora: string;
+          disponible: boolean;
+          razon?: string;
+          entrenadores: Array<{
+            id: number;
+            codigo: string;
+            especialidad: string;
+            estado: boolean;
+            usuario: {
+              id: number;
+              nombre: string;
+              apellido: string;
+              correo: string;
+              telefono?: string;
+            };
+          }>;
+        }>;
+        success: boolean;
+        message: string;
+      }>('/schedules/client/available-slots', { params });
+
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching available time slots:', error);
+      throw error;
+    }
+  },
+
+  // Book training for client (restricted)
+  bookTrainingForClient: async (data: {
+    titulo?: string;
+    descripcion?: string;
+    fecha_inicio: string;
+    fecha_fin: string;
+    id_entrenador: number;
+    notas?: string;
+  }) => {
+    try {
+      const response = await api.post<TrainingResponse>('/schedules/client/book', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error booking training for client:', error);
+      throw error;
+    }
+  },
 };

@@ -85,11 +85,16 @@ export const clientService = {
   },
 
   // Check if a user exists by document
-  checkUserByDocument: async (tipo_documento: string, numero_documento: string) => {
+  checkUserByDocument: async (tipo_documento: string, numero_documento: string): Promise<{ userExists: boolean; userData: any | null }> => {
     clientService.checkAuth();
-    // La URL ahora incluye los parámetros directamente
-    const response = await api.get<{ data: any }>(`/clients/check-user/${tipo_documento}/${numero_documento}`);
-    return response.data.data;
+    try {
+      const response = await api.get<{ data: { userExists: boolean; userData: any | null } }>(`/clients/check-user/${tipo_documento}/${numero_documento}`);
+      return response.data.data;
+    } catch (error) {
+      // Si hay error, asumir que el usuario no existe
+      console.warn('Error checking user by document:', error);
+      return { userExists: false, userData: null };
+    }
   },
 
   // Get client emergency contacts

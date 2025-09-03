@@ -1,89 +1,29 @@
 import { useState, useEffect } from "react";
 import { useForm, useFieldArray, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog";
-import { User, Plus, Trash2, Users, RefreshCw, CheckCircle, AlertTriangle, ShieldCheck, Info } from "lucide-react";
+import { User, Plus, Trash2, Users, RefreshCw, CheckCircle, AlertTriangle, ShieldCheck, Info, ArrowRight, ArrowLeft, Check } from "lucide-react";
 import { format } from "date-fns";
 import { clientService } from "@/features/clients/services/client.service";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { useToast } from "@/shared/components/ui/use-toast";
 import { useDebounce } from "@/shared/hooks/useDebounce";
+import { DocumentInput } from "@/shared/components/ui/document-input";
+import { BirthDateInput } from "@/shared/components/BirthDateInput";
+import { AddressInput } from "@/shared/components/AddressInput";
+import { EmailInput } from "@/shared/components/EmailInput";
+import { PhoneInput } from "@/shared/components/PhoneInput";
+import { 
+  createClientSchema, 
+  CreateClientFormValues as ImportedCreateClientFormValues
+} from "@/shared/validators/document.validator";
+import { formatDateForBackend } from "@/shared/utils/dateUtils";
 
-const emergencyContactSchema = z.object({
-  nombre_contacto: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-  telefono_contacto: z.string()
-    .refine(
-      (val) => /^\d{7,15}$/.test(val),
-      "El teléfono debe tener entre 7 y 15 dígitos"
-    ),
-  relacion_contacto: z.string().min(3, "La relación debe tener al menos 3 caracteres"),
-  es_mismo_beneficiario: z.boolean(),
-});
-
-const userDataSchema = z.object({
-  id: z.number().optional(),
-  nombre: z.string()
-    .min(3, "El nombre debe tener al menos 3 caracteres")
-    .max(100, "El nombre no puede tener más de 100 caracteres"),
-  apellido: z.string()
-    .min(3, "El apellido debe tener al menos 3 caracteres")
-    .max(100, "El apellido no puede tener más de 100 caracteres"),
-  correo: z.string()
-    .email("Correo electrónico inválido")
-    .min(5, "El correo es demasiado corto")
-    .max(100, "El correo no puede tener más de 100 caracteres"),
-  contrasena: z.string().optional().or(z.literal("")), // La contraseña es opcional para clientes
-  telefono: z.string()
-    .refine(
-      (val) => val === "" || /^\d{7,15}$/.test(val),
-      "El teléfono debe tener entre 7 y 15 dígitos"
-    )
-    .optional()
-    .or(z.literal(""))
-    .or(z.undefined()),
-  direccion: z.string()
-    .max(200, "La dirección no puede tener más de 200 caracteres")
-    .optional(),
-  genero: z.enum(['M', 'F', 'O']).optional(),
-  tipo_documento: z.enum(['CC', 'CE', 'TI', 'PP', 'DIE']),
-  numero_documento: z.string()
-    .min(5, "El número de documento debe tener al menos 5 caracteres")
-    .max(20, "El número de documento no puede tener más de 20 caracteres"),
-  fecha_nacimiento: z.string().refine(
-    (date) => {
-      const birthDate = new Date(date);
-      const today = new Date();
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const m = today.getMonth() - birthDate.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-      }
-      return age >= 13;
-    },
-    { message: "El cliente debe tener al menos 13 años" }
-  ),
-});
-
-const beneficiarySchema = z.object({
-  usuario: userDataSchema,
-  relacion: z.string().min(3, "La relación debe tener al menos 3 caracteres"),
-});
-
-const createClientSchema = z.object({
-  usuario: userDataSchema,
-  contactos_emergencia: z.array(emergencyContactSchema)
-    .min(1, "Se requiere al menos un contacto de emergencia"),
-  beneficiarios: z.array(beneficiarySchema).optional(),
-  es_beneficiario_propio: z.boolean(),
-});
-
-export type CreateClientFormValues = z.infer<typeof createClientSchema>;
+export type CreateClientFormValues = ImportedCreateClientFormValues;
 
 interface NewClientFormProps {
   isOpen: boolean;
@@ -98,6 +38,10 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
   const [isUserFound, setIsUserFound] = useState(false);
   const [isAlreadyClient, setIsAlreadyClient] = useState(false);
   const [userNotFound, setUserNotFound] = useState(false);
+  
+  // Estados para navegación paso a paso
+  const [currentStep, setCurrentStep] = useState(1);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
 
   const { toast } = useToast();
   
@@ -154,38 +98,42 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
       // No reseteamos los estados aquí para evitar parpadeos
       
       try {
-        const response: any = await clientService.checkUserByDocument(tipoDocumento, debouncedNumeroDocumento);
+        const response = await clientService.checkUserByDocument(tipoDocumento, debouncedNumeroDocumento);
         
-        if (response.isAlreadyClient) {
-          setIsAlreadyClient(true);
-          setIsUserFound(true);
-          setUserNotFound(false); // Nos aseguramos que otros estados estén correctos
-          toast({ title: "Usuario ya registrado", description: "Este usuario ya figura como cliente.", variant: "destructive" });
-        } else {
-          // Usuario encontrado, pero no es cliente. Autocompletar.
-          setValue("usuario.id", response.id);
-          setValue("usuario.nombre", response.nombre);
-          setValue("usuario.apellido", response.apellido);
-          setValue("usuario.correo", response.correo);
-          setValue("usuario.telefono", response.telefono || "");
-          setValue("usuario.direccion", response.direccion || "");
-          setValue("usuario.genero", response.genero || undefined);
-          setValue("usuario.tipo_documento", response.tipo_documento);
-
-          const parsedDate = response.fecha_nacimiento ? new Date(response.fecha_nacimiento) : null;
-          if (parsedDate && !isNaN(parsedDate.getTime())) {
-            setValue("usuario.fecha_nacimiento", format(parsedDate, 'yyyy-MM-dd'));
-          } else {
-            setValue("usuario.fecha_nacimiento", "");
-          }
+        if (response.userExists && response.userData) {
+          const userData = response.userData;
           
-          setIsUserFound(true);
-          setUserNotFound(false);
-          setIsAlreadyClient(false);
-          toast({ title: "Usuario Encontrado", description: "Datos del usuario autocompletados.", variant: "success" });
-        }
-      } catch (error: any) {
-        if (error.response && error.response.status === 404) {
+          // Verificar si ya es cliente
+          if (userData.isAlreadyClient) {
+            setIsAlreadyClient(true);
+            setIsUserFound(true);
+            setUserNotFound(false);
+            toast({ title: "Usuario ya registrado", description: "Este usuario ya figura como cliente.", variant: "destructive" });
+          } else {
+            // Usuario encontrado, pero no es cliente. Autocompletar.
+            setValue("usuario.id", userData.id);
+            setValue("usuario.nombre", userData.nombre);
+            setValue("usuario.apellido", userData.apellido);
+            setValue("usuario.correo", userData.correo);
+            setValue("usuario.telefono", userData.telefono || "");
+            setValue("usuario.direccion", userData.direccion || "");
+            setValue("usuario.genero", userData.genero || undefined);
+            setValue("usuario.tipo_documento", userData.tipo_documento);
+
+            const parsedDate = userData.fecha_nacimiento ? new Date(userData.fecha_nacimiento) : null;
+            if (parsedDate && !isNaN(parsedDate.getTime())) {
+              setValue("usuario.fecha_nacimiento", format(parsedDate, 'yyyy-MM-dd'));
+            } else {
+              setValue("usuario.fecha_nacimiento", "");
+            }
+            
+            setIsUserFound(true);
+            setUserNotFound(false);
+            setIsAlreadyClient(false);
+            toast({ title: "Usuario Encontrado", description: "Datos del usuario autocompletados.", variant: "success" });
+          }
+        } else {
+          // Usuario no encontrado
           setUserNotFound(true);
           setIsUserFound(false);
           setIsAlreadyClient(false);
@@ -199,9 +147,26 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
           setValue("usuario.fecha_nacimiento", "");
           setValue("usuario.genero", undefined);
           setValue("usuario.contrasena", debouncedNumeroDocumento);
-        } else {
-          toast({ title: "Error de red", description: "No se pudo conectar con el servidor.", variant: "destructive" });
+          toast({ title: "Usuario no encontrado", description: "Puede proceder a registrar el nuevo usuario.", variant: "default" });
         }
+      } catch (error: any) {
+        // Error en la consulta - asumir que el usuario no existe
+        setUserNotFound(true);
+        setIsUserFound(false);
+        setIsAlreadyClient(false);
+        // Limpiamos los campos
+        setValue("usuario.id", undefined);
+        setValue("usuario.nombre", "");
+        setValue("usuario.apellido", "");
+        setValue("usuario.correo", "");
+        setValue("usuario.telefono", "");
+        setValue("usuario.direccion", "");
+        setValue("usuario.fecha_nacimiento", "");
+        setValue("usuario.genero", undefined);
+        setValue("usuario.contrasena", debouncedNumeroDocumento);
+        
+        console.warn('Error checking user by document:', error);
+        toast({ title: "Error de red", description: "No se pudo conectar con el servidor.", variant: "destructive" });
       } finally {
         setIsCheckingUser(false);
       }
@@ -222,11 +187,99 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
 
   const watchedGenero = watch("usuario.genero");
 
+  // Funciones de validación para cada sección
+  const validateSection1 = () => {
+    const values = watch();
+    const requiredFields = [
+      values.usuario?.tipo_documento,
+      values.usuario?.numero_documento,
+      values.usuario?.nombre,
+      values.usuario?.apellido,
+      values.usuario?.correo,
+      values.usuario?.fecha_nacimiento
+    ];
+    
+    const hasErrors = !!(
+      errors.usuario?.tipo_documento ||
+      errors.usuario?.numero_documento ||
+      errors.usuario?.nombre ||
+      errors.usuario?.apellido ||
+      errors.usuario?.correo ||
+      errors.usuario?.fecha_nacimiento
+    );
+    
+    const allFieldsFilled = requiredFields.every(field => field && field.trim() !== "");
+    return allFieldsFilled && !hasErrors && !isAlreadyClient;
+  };
+
+  const validateSection2 = () => {
+    const contacts = watch("contactos_emergencia") || [];
+    if (contacts.length === 0) return false;
+    
+    const validContacts = contacts.every(contact => 
+      contact.nombre_contacto && 
+      contact.telefono_contacto && 
+      contact.relacion_contacto &&
+      contact.nombre_contacto.trim() !== "" &&
+      contact.telefono_contacto.trim() !== "" &&
+      contact.relacion_contacto.trim() !== ""
+    );
+    
+    const hasContactErrors = errors.contactos_emergencia && 
+      Array.isArray(errors.contactos_emergencia) &&
+      errors.contactos_emergencia.some(contactError => contactError);
+    
+    return validContacts && !hasContactErrors;
+  };
+
+  // Navegación entre secciones
+  const goToNextSection = () => {
+    if (currentStep === 1 && validateSection1()) {
+      setCompletedSteps(prev => [...prev.filter(step => step !== 1), 1]);
+      setCurrentStep(2);
+    } else if (currentStep === 2 && validateSection2()) {
+      setCompletedSteps(prev => [...prev.filter(step => step !== 2), 2]);
+      setCurrentStep(3);
+    }
+  };
+
+  const goToPreviousSection = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const goToSection = (section: number) => {
+    if (section === 1) {
+      setCurrentStep(1);
+    } else if (section === 2 && completedSteps.includes(1)) {
+      setCurrentStep(2);
+    } else if (section === 3 && completedSteps.includes(1) && completedSteps.includes(2)) {
+      setCurrentStep(3);
+    }
+  };
+
   const onSubmit: SubmitHandler<CreateClientFormValues> = async (formData) => {
     console.log("Datos del formulario a enviar:", JSON.stringify(formData, null, 2));
     setIsLoading(true);
     try {
-      await onCreateClient(formData);
+      // Asegurar que las fechas estén en formato correcto para el backend
+      const processedData = {
+        ...formData,
+        usuario: {
+          ...formData.usuario,
+          fecha_nacimiento: formData.usuario.fecha_nacimiento ? formatDateForBackend(formData.usuario.fecha_nacimiento) : formData.usuario.fecha_nacimiento
+        },
+        beneficiarios: formData.beneficiarios?.map(beneficiario => ({
+          ...beneficiario,
+          usuario: {
+            ...beneficiario.usuario,
+            fecha_nacimiento: beneficiario.usuario.fecha_nacimiento ? formatDateForBackend(beneficiario.usuario.fecha_nacimiento) : beneficiario.usuario.fecha_nacimiento
+          }
+        }))
+      };
+      
+      await onCreateClient(processedData);
       toast({
         title: '¡Éxito!',
         description: 'Cliente creado correctamente',
@@ -246,20 +299,6 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleClose = () => {
-    reset();
-    setIsUserFound(false);
-    setUserNotFound(false);
-    setIsAlreadyClient(false);
-    onClose();
-  };
-
-  const handleDocumentFocus = () => {
-    setIsUserFound(false);
-    setUserNotFound(false);
-    setIsAlreadyClient(false);
   };
 
 
@@ -294,45 +333,77 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
             variant: 'destructive',
           });
         })} className="space-y-4">
-          <Tabs defaultValue="titular" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="titular">1. Titular</TabsTrigger>
-              <TabsTrigger value="contactos">2. Contactos</TabsTrigger>
-              <TabsTrigger value="beneficiarios">3. Beneficiarios</TabsTrigger>
-            </TabsList>
+          
+          {/* Indicador de progreso */}
+          <div className="flex items-center justify-center space-x-4 mb-6">
+            {[1, 2, 3].map((step) => (
+              <div key={step} className="flex items-center">
+                <div 
+                  className={`flex items-center justify-center w-8 h-8 rounded-full border-2 cursor-pointer transition-all duration-200 ${
+                    currentStep === step 
+                      ? 'bg-black text-white border-black' 
+                      : completedSteps.includes(step)
+                      ? 'bg-green-500 text-white border-green-500'
+                      : 'bg-gray-100 text-gray-400 border-gray-300'
+                  }`}
+                  onClick={() => goToSection(step)}
+                >
+                  {completedSteps.includes(step) ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    step
+                  )}
+                </div>
+                <span className={`ml-2 text-sm font-medium ${
+                  currentStep === step 
+                    ? 'text-black' 
+                    : completedSteps.includes(step)
+                    ? 'text-green-600'
+                    : 'text-gray-400'
+                }`}>
+                  {step === 1 && 'Titular'}
+                  {step === 2 && 'Contactos'}
+                  {step === 3 && 'Beneficiaros'}
+                </span>
+                {step < 3 && (
+                  <ArrowRight className={`ml-4 h-4 w-4 ${
+                    completedSteps.includes(step) ? 'text-green-500' : 'text-gray-300'
+                  }`} />
+                )}
+              </div>
+            ))}
+          </div>
 
-            <TabsContent value="titular" className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Información del Titular</CardTitle>
-                  <CardDescription>
-                    Ingresa el documento para buscar un usuario existente o registrar uno nuevo.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+          {/* Sección 1: Titular */}
+          {currentStep === 1 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Sección 1: Información del Titular</CardTitle>
+                <CardDescription>
+                  Ingresa el documento para buscar un usuario existente o registrar uno nuevo.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                   <div className="p-3 bg-gray-50 rounded-lg border">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <Label htmlFor="tipo_documento">Tipo de Documento</Label>
-                        <Select onValueChange={(value) => setValue("usuario.tipo_documento", value as 'CC' | 'CE' | 'TI' | 'PP' | 'DIE')} defaultValue="CC">
-                          <SelectTrigger><SelectValue/></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="CC">Cédula de Ciudadanía</SelectItem>
-                            <SelectItem value="CE">Cédula de Extranjería</SelectItem>
-                            <SelectItem value="TI">Tarjeta de Identidad</SelectItem>
-                            <SelectItem value="PP">Pasaporte</SelectItem>
-                            <SelectItem value="DIE">Doc. de Identificación Extranjero</SelectItem>
-                          </SelectContent>
-                        </Select>
+                    <DocumentInput
+                      tipoDocumento={watch("usuario.tipo_documento")}
+                      numeroDocumento={watch("usuario.numero_documento")}
+                      onTipoDocumentoChange={(tipo) => setValue("usuario.tipo_documento", tipo)}
+                      onNumeroDocumentoChange={(numero) => setValue("usuario.numero_documento", numero)}
+                      showLabels={true}
+                      required={true}
+                      errors={{
+                        tipo_documento: errors.usuario?.tipo_documento?.message,
+                        numero_documento: errors.usuario?.numero_documento?.message
+                      }}
+                      showRealTimeValidation={true}
+                      disabled={isCheckingUser}
+                    />
+                    {isCheckingUser && (
+                      <div className="flex justify-center mt-2">
+                        <RefreshCw className="h-4 w-4 animate-spin text-gray-400" />
                       </div>
-                      <div className="space-y-1 relative">
-                        <Label htmlFor="numero_documento">Número de Documento</Label>
-                        <Input id="numero_documento" {...register("usuario.numero_documento")} onFocus={handleDocumentFocus} />
-                        {isCheckingUser && (
-                          <RefreshCw className="absolute right-3 top-8 h-4 w-4 animate-spin text-gray-400" />
-                        )}
-                      </div>
-                    </div>
+                    )}
                   </div>
 
                   {isUserFound && !isAlreadyClient && (
@@ -371,6 +442,8 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                       <Input 
                         {...register("usuario.nombre")} 
                         placeholder="Ej: Juan David"
+                        className="h-10"
+                        required
                       />
                       {errors.usuario?.nombre && (
                         <p className="text-sm text-red-500 flex items-center gap-1 mt-1">
@@ -384,6 +457,8 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                       <Input 
                         {...register("usuario.apellido")} 
                         placeholder="Ej: Pérez Gómez"
+                        className="h-10"
+                        required
                       />
                       {errors.usuario?.apellido && (
                         <p className="text-sm text-red-500 flex items-center gap-1 mt-1">
@@ -393,61 +468,50 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                       )}
                     </div>
                     <div className="space-y-1">
-                      <Label>Correo Electrónico *</Label>
-                      <Input 
-                        type="email" 
-                        {...register("usuario.correo")} 
-                        placeholder="Ej: juan.perez@email.com"
-                      />
-                      {errors.usuario?.correo && (
-                        <p className="text-sm text-red-500 flex items-center gap-1 mt-1">
-                          <AlertTriangle className="h-4 w-4"/>
-                          {errors.usuario.correo.message}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Teléfono</Label>
-                      <Input 
-                        type="tel"
-                        {...register("usuario.telefono")} 
-                        placeholder="Ej: 3001234567"
-                      />
-                      {errors.usuario?.telefono && (
-                        <p className="text-sm text-red-500 flex items-center gap-1 mt-1">
-                          <AlertTriangle className="h-4 w-4"/>
-                          {errors.usuario.telefono.message}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Fecha de Nacimiento *</Label>
-                      <Input 
-                        type="date" 
-                        {...register("usuario.fecha_nacimiento")}
-                        max={new Date().toISOString().split('T')[0]}
-                      />
-                      {errors.usuario?.fecha_nacimiento && (
-                        <p className="text-sm text-red-500 flex items-center gap-1 mt-1">
-                          <AlertTriangle className="h-4 w-4"/>
-                          {errors.usuario.fecha_nacimiento.message}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Dirección</Label>
-                      <Input 
-                        {...register("usuario.direccion")} 
-                        placeholder="Ej: Calle 123 #45-67, Barrio"
+                      <EmailInput
+                        value={watch("usuario.correo") || ""}
+                        onChange={(value) => setValue("usuario.correo", value)}
+                        label="Correo Electrónico"
+                        required={true}
+                        forceShowError={!!errors.usuario?.correo}
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label>Género</Label>
+                      <PhoneInput
+                        value={watch("usuario.telefono") || ""}
+                        onChange={(value) => setValue("usuario.telefono", value)}
+                        label="Teléfono *"
+                        required={false}
+                        forceShowError={!!errors.usuario?.telefono}
+                      />
+                    </div>
+                    {/* Dirección después del teléfono */}
+                    <div className="space-y-1">
+                      <AddressInput
+                        value={watch("usuario.direccion") || ""}
+                        onChange={(value) => setValue("usuario.direccion", value)}
+                        label="Dirección *"
+                        required={false}
+                        forceShowError={!!errors.usuario?.direccion}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <BirthDateInput
+                        value={watch("usuario.fecha_nacimiento") || ""}
+                        onChange={(value) => setValue("usuario.fecha_nacimiento", value)}
+                        role="cliente"
+                        required={true}
+                        forceShowError={!!errors.usuario?.fecha_nacimiento}
+                        label="Fecha de Nacimiento"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Género *</Label>
                       <Select 
                         value={watchedGenero || ''} 
                         onValueChange={(value) => setValue("usuario.genero", value as 'M' | 'F' | 'O')}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-10">
                           <SelectValue placeholder="Seleccione género" />
                         </SelectTrigger>
                         <SelectContent>
@@ -459,22 +523,47 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                     </div>
                   </div>
                 </CardContent>
+                
+                {/* Botón siguiente para sección 1 */}
+                <div className="px-6 pb-6">
+                  <div className="flex justify-end">
+                    <Button 
+                      type="button" 
+                      onClick={goToNextSection}
+                      disabled={!validateSection1()}
+                      className={`${
+                        validateSection1() 
+                          ? 'bg-black hover:bg-gray-800 text-white' 
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      Siguiente: Contactos
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                  {!validateSection1() && (
+                    <p className="text-sm text-gray-500 text-center mt-2">
+                      Complete todos los campos obligatorios para continuar
+                    </p>
+                  )}
+                </div>
               </Card>
-            </TabsContent>
+            )}
 
-            <TabsContent value="contactos">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ShieldCheck className="h-5 w-5"/>
-                    Contactos de Emergencia
-                  </CardTitle>
-                  <CardDescription>
-                    Agregue al menos un contacto de emergencia. Todos los campos son obligatorios.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
+          {/* Sección 2: Contactos */}
+          {currentStep === 2 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5"/>
+                  Sección 2: Contactos de Emergencia
+                </CardTitle>
+                <CardDescription>
+                  Agregue al menos un contacto de emergencia. Todos los campos son obligatorios.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
                     {emergencyContacts.map((field, index) => (
                       <div key={field.id} className="p-4 border rounded-md space-y-3">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -492,18 +581,13 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                             )}
                           </div>
                           <div className="space-y-1">
-                            <Label>Teléfono *</Label>
-                            <Input 
-                              type="tel"
-                              {...register(`contactos_emergencia.${index}.telefono_contacto`)}
-                              placeholder="Ej: 3001234567"
+                            <PhoneInput
+                              value={watch(`contactos_emergencia.${index}.telefono_contacto`) || ""}
+                              onChange={(value) => setValue(`contactos_emergencia.${index}.telefono_contacto`, value)}
+                              label="Teléfono"
+                              required={true}
+                              forceShowError={!!errors.contactos_emergencia?.[index]?.telefono_contacto}
                             />
-                            {errors.contactos_emergencia?.[index]?.telefono_contacto && (
-                              <p className="text-sm text-red-500 flex items-center gap-1 mt-1">
-                                <AlertTriangle className="h-4 w-4"/>
-                                {errors.contactos_emergencia[index].telefono_contacto.message}
-                              </p>
-                            )}
                           </div>
                           <div className="space-y-1">
                             <Label>Relación *</Label>
@@ -555,21 +639,68 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                     Agregar Contacto de Emergencia
                   </Button>
                 </CardContent>
+                
+                {/* Botones de navegación para sección 2 */}
+                <div className="px-6 pb-6">
+                  <div className="flex justify-between">
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      onClick={goToPreviousSection}
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Anterior: Titular
+                    </Button>
+                    <div className="flex space-x-2">
+                      <Button 
+                        type="button" 
+                        onClick={goToNextSection}
+                        disabled={!validateSection2()}
+                        variant="outline"
+                        className={`${
+                          validateSection2() 
+                            ? 'border-gray-300 hover:bg-gray-50' 
+                            : 'opacity-50 cursor-not-allowed'
+                        }`}
+                      >
+                        Siguiente: Información Opcional
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        disabled={isLoading || isAlreadyClient || !validateSection1() || !validateSection2()}
+                        className={`${
+                          (validateSection1() && validateSection2() && !isAlreadyClient) 
+                            ? 'bg-black hover:bg-gray-800 text-white' 
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        {isLoading ? "Creando..." : "Crear Cliente"}
+                      </Button>
+                    </div>
+                  </div>
+                  {!validateSection2() && (
+                    <p className="text-sm text-gray-500 text-center mt-2">
+                      Agregue al menos un contacto de emergencia completo para continuar o crear el cliente
+                    </p>
+                  )}
+                </div>
               </Card>
-            </TabsContent>
-            
-            <TabsContent value="beneficiarios">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5"/>
-                    Beneficiarios
-                  </CardTitle>
-                  <CardDescription>
-                    Agregue los beneficiarios del titular. Los campos marcados con * son obligatorios.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
+            )}
+
+          {/* Sección 3: Información Opcional (Beneficiarios) */}
+          {currentStep === 3 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5"/>
+                  Sección 3: Información Opcional - Beneficiarios
+                </CardTitle>
+                <CardDescription>
+                  Agregue los beneficiarios del titular. Esta sección es opcional.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
                   {beneficiaries.map((field, index) => (
                     <div key={field.id} className="p-4 border rounded-md space-y-3">
                       <div className="flex justify-between items-center">
@@ -613,76 +744,48 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                           )}
                         </div>
                         <div className="space-y-1">
-                          <Label>Correo Electrónico *</Label>
-                          <Input 
-                            type="email"
-                            {...register(`beneficiarios.${index}.usuario.correo`)} 
-                            placeholder="Ej: maria.perez@email.com"
+                          <EmailInput
+                            value={watch(`beneficiarios.${index}.usuario.correo`) || ""}
+                            onChange={(value) => setValue(`beneficiarios.${index}.usuario.correo`, value)}
+                            label="Correo Electrónico"
+                            required={true}
+                            forceShowError={!!errors.beneficiarios?.[index]?.usuario?.correo}
                           />
-                          {errors.beneficiarios?.[index]?.usuario?.correo && (
-                            <p className="text-sm text-red-500 flex items-center gap-1 mt-1">
-                              <AlertTriangle className="h-4 w-4"/>
-                              {errors.beneficiarios[index].usuario?.correo?.message}
-                            </p>
-                          )}
                         </div>
                         <div className="space-y-1">
-                          <Label>Teléfono</Label>
-                          <Input 
-                            type="tel"
-                            {...register(`beneficiarios.${index}.usuario.telefono`)} 
-                            placeholder="Ej: 3001234567"
+                          <PhoneInput
+                            value={watch(`beneficiarios.${index}.usuario.telefono`) || ""}
+                            onChange={(value) => setValue(`beneficiarios.${index}.usuario.telefono`, value)}
+                            label="Teléfono"
+                            required={false}
+                            forceShowError={!!errors.beneficiarios?.[index]?.usuario?.telefono}
                           />
-                          {errors.beneficiarios?.[index]?.usuario?.telefono && (
-                            <p className="text-sm text-red-500 flex items-center gap-1 mt-1">
-                              <AlertTriangle className="h-4 w-4"/>
-                              {errors.beneficiarios[index].usuario?.telefono?.message}
-                            </p>
-                          )}
+                        </div>
+                        {/* Documentos del beneficiario */}
+                        <div className="col-span-full">
+                          <DocumentInput
+                            tipoDocumento={watch(`beneficiarios.${index}.usuario.tipo_documento`) || 'CC'}
+                            numeroDocumento={watch(`beneficiarios.${index}.usuario.numero_documento`) || ''}
+                            onTipoDocumentoChange={(tipo) => setValue(`beneficiarios.${index}.usuario.tipo_documento`, tipo)}
+                            onNumeroDocumentoChange={(numero) => setValue(`beneficiarios.${index}.usuario.numero_documento`, numero)}
+                            showLabels={true}
+                            required={true}
+                            errors={{
+                              tipo_documento: errors.beneficiarios?.[index]?.usuario?.tipo_documento?.message,
+                              numero_documento: errors.beneficiarios?.[index]?.usuario?.numero_documento?.message
+                            }}
+                            showRealTimeValidation={true}
+                          />
                         </div>
                         <div className="space-y-1">
-                          <Label>Tipo de Documento *</Label>
-                          <Select 
-                            onValueChange={(v) => setValue(`beneficiarios.${index}.usuario.tipo_documento`, v as 'CC' | 'CE' | 'TI' | 'PP' | 'DIE')}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Seleccione tipo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="CC">Cédula de Ciudadanía</SelectItem>
-                              <SelectItem value="TI">Tarjeta de Identidad</SelectItem>
-                              <SelectItem value="CE">Cédula de Extranjería</SelectItem>
-                              <SelectItem value="PP">Pasaporte</SelectItem>
-                              <SelectItem value="DIE">Doc. de Identificación Extranjero</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label>Número de Documento *</Label>
-                          <Input 
-                            {...register(`beneficiarios.${index}.usuario.numero_documento`)} 
-                            placeholder="Ej: 1234567890"
+                          <BirthDateInput
+                            value={watch(`beneficiarios.${index}.usuario.fecha_nacimiento`) || ""}
+                            onChange={(value) => setValue(`beneficiarios.${index}.usuario.fecha_nacimiento`, value)}
+                            role="cliente"
+                            required={true}
+                            forceShowError={!!errors.beneficiarios?.[index]?.usuario?.fecha_nacimiento}
+                            label="Fecha de Nacimiento"
                           />
-                          {errors.beneficiarios?.[index]?.usuario?.numero_documento && (
-                            <p className="text-sm text-red-500 flex items-center gap-1 mt-1">
-                              <AlertTriangle className="h-4 w-4"/>
-                              {errors.beneficiarios[index].usuario?.numero_documento?.message}
-                            </p>
-                          )}
-                        </div>
-                        <div className="space-y-1">
-                          <Label>Fecha de Nacimiento *</Label>
-                          <Input 
-                            type="date" 
-                            {...register(`beneficiarios.${index}.usuario.fecha_nacimiento`)}
-                            max={new Date().toISOString().split('T')[0]}
-                          />
-                          {errors.beneficiarios?.[index]?.usuario?.fecha_nacimiento && (
-                            <p className="text-sm text-red-500 flex items-center gap-1 mt-1">
-                              <AlertTriangle className="h-4 w-4"/>
-                              {errors.beneficiarios[index].usuario?.fecha_nacimiento?.message}
-                            </p>
-                          )}
                         </div>
                         <div className="space-y-1">
                           <Label>Relación con el Titular *</Label>
@@ -728,16 +831,36 @@ export function NewClientForm({ isOpen, onCreateClient, onClose, onSuccess }: Ne
                     Agregar Beneficiario
                   </Button>
                 </CardContent>
+                
+                {/* Botones de navegación para sección 3 */}
+                <div className="px-6 pb-6">
+                  <div className="flex justify-between">
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      onClick={goToPreviousSection}
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Anterior: Contactos
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={isLoading || isAlreadyClient || !validateSection1() || !validateSection2()}
+                      className={`${
+                        (validateSection1() && validateSection2() && !isAlreadyClient) 
+                          ? 'bg-black hover:bg-gray-800 text-white' 
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {isLoading ? "Creando..." : "Crear Cliente"}
+                    </Button>
+                  </div>
+                  <p className="text-sm text-gray-500 text-center mt-2">
+                    Los beneficiarios son opcionales. Puede crear el cliente sin agregarlos.
+                  </p>
+                </div>
               </Card>
-            </TabsContent>
-          </Tabs>
-
-          <div className="flex justify-end space-x-2 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
-            <Button type="submit" disabled={isLoading || isAlreadyClient} className="bg-black hover:bg-gray-800">
-              {isLoading ? "Guardando..." : "Crear Cliente"}
-            </Button>
-          </div>
+            )}
         </form>
       </DialogContent>
     </Dialog>

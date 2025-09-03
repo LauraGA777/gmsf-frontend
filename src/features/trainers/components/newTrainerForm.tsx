@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
@@ -13,40 +12,18 @@ import { format } from "date-fns";
 import { trainerService } from "../services/trainer.service";
 import { useToast } from "@/shared/components/ui/use-toast";
 import { useDebounce } from "@/shared/hooks/useDebounce";
+import { DocumentInput } from "@/shared/components/ui/document-input";
+import { BirthDateInput } from "@/shared/components/BirthDateInput";
+import { AddressInput } from "@/shared/components/AddressInput";
+import { EmailInput } from "@/shared/components/EmailInput";
+import { PhoneInput } from "@/shared/components/PhoneInput";
+import { 
+  createTrainerSchema, 
+  CreateTrainerFormValues as ImportedCreateTrainerFormValues 
+} from "@/shared/validators/document.validator";
+import { formatDateForBackend } from "@/shared/utils/dateUtils";
 
-const userDataSchema = z.object({
-  id: z.number().optional(),
-  nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-  apellido: z.string().min(3, "El apellido debe tener al menos 3 caracteres"),
-  correo: z.string().email("Correo electrónico inválido"),
-  contrasena: z.string().optional(),
-  telefono: z.string().regex(/^\d{7,15}$/, "El teléfono debe tener entre 7 y 15 dígitos").optional().or(z.literal("")),
-  direccion: z.string().optional(),
-  genero: z.enum(['M', 'F', 'O']).optional(),
-  tipo_documento: z.enum(['CC', 'CE', 'TI', 'PP', 'DIE']),
-  numero_documento: z.string().min(5, "El número de documento debe tener al menos 5 caracteres"),
-  fecha_nacimiento: z.string().refine(
-    (date) => {
-      const birthDate = new Date(date);
-      const today = new Date();
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const m = today.getMonth() - birthDate.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-      }
-      return age >= 15;
-    },
-    { message: "El entrenador debe tener al menos 15 años" }
-  ),
-});
-
-export const createTrainerSchema = z.object({
-  usuario: userDataSchema,
-  especialidad: z.string().min(3, "La especialidad es requerida y debe tener al menos 3 caracteres"),
-  estado: z.boolean().optional().default(true),
-});
-
-export type CreateTrainerFormValues = z.infer<typeof createTrainerSchema>;
+export type CreateTrainerFormValues = ImportedCreateTrainerFormValues;
 
 interface NewTrainerFormProps {
   isOpen: boolean;
@@ -109,7 +86,7 @@ export function NewTrainerForm({ isOpen, onCreateTrainer, onClose }: NewTrainerF
                     });
                 } else if (response.userExists && response.userData) {
                     const { userData } = response;
-                    // Cambia el tipo de id a string | number para evitar el error de asignación
+                    // Usuario encontrado pero no es entrenador - autocompletar
                     form.setValue("usuario.id", userData.id ? Number(userData.id) : undefined);
                     form.setValue("usuario.nombre", userData.nombre || "");
                     form.setValue("usuario.apellido", userData.apellido || "");
@@ -124,11 +101,11 @@ export function NewTrainerForm({ isOpen, onCreateTrainer, onClose }: NewTrainerF
                     setUserCheckResult({ 
                         exists: true, 
                         isTrainer: false, 
-                        message: response.message || "Usuario encontrado. Los datos se han autocompletado. Solo complete la especialidad para registrarlo como entrenador.", 
+                        message: "Usuario encontrado. Los datos se han autocompletado. Solo complete la especialidad para registrarlo como entrenador.", 
                         variant: "success" 
                     });
                 } else {
-                    // Limpiar el formulario para usuario nuevo
+                    // Usuario no encontrado - permitir crear nuevo usuario
                     form.setValue("usuario.id", undefined);
                     form.setValue("usuario.nombre", "");
                     form.setValue("usuario.apellido", "");
@@ -137,10 +114,11 @@ export function NewTrainerForm({ isOpen, onCreateTrainer, onClose }: NewTrainerF
                     form.setValue("usuario.direccion", "");
                     form.setValue("usuario.fecha_nacimiento", "");
                     form.setValue("usuario.genero", undefined);
+                    form.setValue("usuario.contrasena", debouncedNumeroDocumento);
                     setUserCheckResult({ 
                         exists: false, 
                         isTrainer: false, 
-                        message: response.message || "Usuario no encontrado. Complete todos los campos para registrar un nuevo usuario y entrenador. La contraseña por defecto será su número de documento.", 
+                        message: "Usuario no encontrado. Puede proceder a registrar el nuevo entrenador.", 
                         variant: "info" 
                     });
                 }
@@ -170,13 +148,22 @@ export function NewTrainerForm({ isOpen, onCreateTrainer, onClose }: NewTrainerF
             return;
         }
 
+        // Asegurar que la fecha esté en formato correcto para el backend
+        const processedFormData = {
+            ...formData,
+            usuario: {
+                ...formData.usuario,
+                fecha_nacimiento: formData.usuario.fecha_nacimiento ? formatDateForBackend(formData.usuario.fecha_nacimiento) : formData.usuario.fecha_nacimiento
+            }
+        };
+
         // Para usuarios nuevos, establecer la contraseña como el número de documento
         if (!userCheckResult?.exists) {
             const trainerData = {
-                ...formData,
+                ...processedFormData,
                 usuario: {
-                    ...formData.usuario,
-                    contrasena: formData.usuario.numero_documento
+                    ...processedFormData.usuario,
+                    contrasena: processedFormData.usuario.numero_documento
                 }
             };
             
@@ -193,7 +180,7 @@ export function NewTrainerForm({ isOpen, onCreateTrainer, onClose }: NewTrainerF
             // Para usuarios existentes, no enviar contraseña
             setIsLoading(true);
             try {
-                await onCreateTrainer(formData);
+                await onCreateTrainer(processedFormData);
                 handleClose();
             } catch (error) {
                 // El error ya se maneja en la página principal
@@ -232,29 +219,25 @@ export function NewTrainerForm({ isOpen, onCreateTrainer, onClose }: NewTrainerF
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="p-3 bg-gray-50 rounded-lg border">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <Label htmlFor="tipo_documento">Tipo de Documento</Label>
-                                        <Select onValueChange={(value) => form.setValue("usuario.tipo_documento", value as 'CC' | 'CE' | 'TI' | 'PP' | 'DIE')} defaultValue="CC">
-                                            <SelectTrigger><SelectValue/></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="CC">Cédula de Ciudadanía</SelectItem>
-                                                <SelectItem value="CE">Cédula de Extranjería</SelectItem>
-                                                <SelectItem value="TI">Tarjeta de Identidad</SelectItem>
-                                                <SelectItem value="PP">Pasaporte</SelectItem>
-                                                <SelectItem value="DIE">Doc. de Identificación Extranjero</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                <DocumentInput
+                                    tipoDocumento={form.watch("usuario.tipo_documento")}
+                                    numeroDocumento={form.watch("usuario.numero_documento")}
+                                    onTipoDocumentoChange={(tipo) => form.setValue("usuario.tipo_documento", tipo)}
+                                    onNumeroDocumentoChange={(numero) => form.setValue("usuario.numero_documento", numero)}
+                                    showLabels={true}
+                                    required={true}
+                                    errors={{
+                                        tipo_documento: form.formState.errors.usuario?.tipo_documento?.message,
+                                        numero_documento: form.formState.errors.usuario?.numero_documento?.message
+                                    }}
+                                    showRealTimeValidation={true}
+                                    disabled={isCheckingUser}
+                                />
+                                {isCheckingUser && (
+                                    <div className="flex justify-center mt-2">
+                                        <RefreshCw className="h-4 w-4 animate-spin text-gray-400" />
                                     </div>
-                                    <div className="space-y-1 relative">
-                                        <Label htmlFor="numero_documento">Número de Documento</Label>
-                                        <Input id="numero_documento" {...form.register("usuario.numero_documento")} />
-                                        {form.formState.errors.usuario?.numero_documento && <p className="text-sm text-red-500">{form.formState.errors.usuario.numero_documento.message}</p>}
-                                        {isCheckingUser && (
-                                            <RefreshCw className="absolute right-3 top-8 h-4 w-4 animate-spin text-gray-400" />
-                                        )}
-                                    </div>
-                                </div>
+                                )}
                             </div>
                     
                             {userCheckResult && (
@@ -271,37 +254,67 @@ export function NewTrainerForm({ isOpen, onCreateTrainer, onClose }: NewTrainerF
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                                 <div className="space-y-1">
                                     <Label>Nombre *</Label>
-                                    <Input {...form.register("usuario.nombre")} />
+                                    <Input 
+                                        {...form.register("usuario.nombre")} 
+                                        className="h-10" 
+                                        placeholder="Ej: Juan Carlos"
+                                        required 
+                                    />
                                     {form.formState.errors.usuario?.nombre && <p className="text-sm text-red-500">{form.formState.errors.usuario.nombre.message}</p>}
                                 </div>
                                 <div className="space-y-1">
                                     <Label>Apellido *</Label>
-                                    <Input {...form.register("usuario.apellido")} />
+                                    <Input 
+                                        {...form.register("usuario.apellido")} 
+                                        className="h-10" 
+                                        placeholder="Ej: Rodríguez García"
+                                        required 
+                                    />
                                     {form.formState.errors.usuario?.apellido && <p className="text-sm text-red-500">{form.formState.errors.usuario.apellido.message}</p>}
                                 </div>
                                 <div className="space-y-1">
-                                    <Label>Correo Electrónico *</Label>
-                                    <Input type="email" {...form.register("usuario.correo")} />
-                                    {form.formState.errors.usuario?.correo && <p className="text-sm text-red-500">{form.formState.errors.usuario.correo.message}</p>}
+                                    <EmailInput
+                                        value={form.watch("usuario.correo") || ""}
+                                        onChange={(value) => form.setValue("usuario.correo", value)}
+                                        label="Correo Electrónico"
+                                        required={true}
+                                        forceShowError={!!form.formState.errors.usuario?.correo}
+                                    />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label>Teléfono</Label>
-                                    <Input type="tel" {...form.register("usuario.telefono")} />
-                                    {form.formState.errors.usuario?.telefono && <p className="text-sm text-red-500">{form.formState.errors.usuario.telefono.message}</p>}
+                                    <PhoneInput
+                                        value={form.watch("usuario.telefono") || ""}
+                                        onChange={(value) => form.setValue("usuario.telefono", value)}
+                                        label="Teléfono *"
+                                        required={false}
+                                        forceShowError={!!form.formState.errors.usuario?.telefono}
+                                    />
+                                </div>
+                                {/* Dirección después del teléfono */}
+                                <div className="space-y-1">
+                                    <AddressInput
+                                        value={form.watch("usuario.direccion") || ""}
+                                        onChange={(value) => form.setValue("usuario.direccion", value)}
+                                        label="Dirección *"
+                                        required={false}
+                                        forceShowError={!!form.formState.errors.usuario?.direccion}
+                                    />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label>Fecha de Nacimiento *</Label>
-                                    <Input type="date" {...form.register("usuario.fecha_nacimiento")} />
-                                    {form.formState.errors.usuario?.fecha_nacimiento && <p className="text-sm text-red-500">{form.formState.errors.usuario.fecha_nacimiento.message}</p>}
+                                    <BirthDateInput
+                                        value={form.watch("usuario.fecha_nacimiento") || ""}
+                                        onChange={(value) => form.setValue("usuario.fecha_nacimiento", value)}
+                                        role="entrenador"
+                                        required={true}
+                                        forceShowError={!!form.formState.errors.usuario?.fecha_nacimiento}
+                                        label="Fecha de Nacimiento"
+                                        placeholder="dd/mm/aaaa"
+                                    />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label>Dirección</Label>
-                                    <Input {...form.register("usuario.direccion")} />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label>Género</Label>
+                                    <Label>Género *</Label>
                                     <Select value={watchedGenero || ''} onValueChange={(value) => form.setValue("usuario.genero", value as 'M' | 'F' | 'O')}>
-                                        <SelectTrigger><SelectValue placeholder="Seleccione género" /></SelectTrigger>
+                                        <SelectTrigger className="h-10"><SelectValue placeholder="Seleccione género" /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="M">Masculino</SelectItem>
                                             <SelectItem value="F">Femenino</SelectItem>
@@ -311,7 +324,12 @@ export function NewTrainerForm({ isOpen, onCreateTrainer, onClose }: NewTrainerF
                                 </div>
                                 <div className="space-y-1">
                                     <Label>Especialidad *</Label>
-                                    <Input {...form.register("especialidad")} />
+                                    <Input 
+                                        {...form.register("especialidad")} 
+                                        className="h-10" 
+                                        placeholder="Ej: Fitness, Yoga, CrossFit, Pilates"
+                                        required 
+                                    />
                                     {form.formState.errors.especialidad && <p className="text-sm text-red-500">{form.formState.errors.especialidad.message}</p>}
                                 </div>
                             </div>

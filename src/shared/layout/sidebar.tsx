@@ -145,10 +145,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     if (path.includes("/dashboard")) {
       setActiveItem("dashboard")
       setActiveGroup(null)
-    } else if (path.includes("/roles")) {
+    } /* else if (path.includes("/roles")) {
       setActiveItem("roles")
-      setActiveGroup(null)
-    } else if (path.includes("/landing-settings")) {
+      setActiveGroup(null) 
+    }*/ else if (path.includes("/landing-settings")) {
       setActiveItem("landing-settings")
       setActiveGroup(null)
     } else if (path.includes("/users")) {
@@ -376,7 +376,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   />
                 )}
 
-                {/* Gestión de roles - Solo si tiene acceso al sistema */}
+                {/* Gestión de roles - Solo si tiene acceso al sistema 
                 {(hasModuleAccess(PERMISSIONS.SISTEMA) || user?.id_rol === 1) && (
                   <NavItem
                     icon={<BadgeCheck className="h-5 w-5" aria-hidden="true" />}
@@ -387,7 +387,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     onClose={onClose}
                     id="nav-roles"
                   />
-                )}
+                )}*/}
 
                 {/* Configuración de Landing Page - Solo para administradores */}
                 {user?.id_rol === 1 && (

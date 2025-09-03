@@ -4,7 +4,7 @@ import { contractService } from '@/features/contracts/services/contract.service'
 import { membershipService } from '@/features/memberships/services/membership.service';
 import type { Client, Contract, Membership } from '@/shared/types';
 import Swal from 'sweetalert2';
-import { useAuth } from './authContext';
+import { useAuth, ROLES } from './authContext';
 
 interface GymContextType {
   // Data
@@ -81,7 +81,7 @@ export const useGym = () => {
 };
 
 export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   
   // State
   const [clients, setClients] = useState<Client[]>([]);
@@ -190,12 +190,20 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const refreshAll = useCallback(async () => {
+    // Evitar llamadas protegidas para clientes/beneficiarios
+    const isClient = user?.id_rol === ROLES.CLIENT || user?.id_rol === ROLES.BENEFICIARY;
+    if (isClient) {
+      // Para clientes solo refrescar contratos propios
+      await refreshContracts();
+      return;
+    }
+
     await Promise.all([
       refreshClients(),
       refreshContracts(),
       refreshMemberships()
     ]);
-  }, [refreshClients, refreshContracts, refreshMemberships]);
+  }, [refreshClients, refreshContracts, refreshMemberships, user?.id_rol]);
 
   // Client actions
   const createClient = useCallback(async (data: any): Promise<Client> => {
@@ -393,14 +401,20 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Load initial data only when authenticated (excluding memberships)
   useEffect(() => {
-    if (isAuthenticated) {
-      // Solo cargar clientes y contratos inicialmente
+    if (!isAuthenticated) return;
+
+    const isClient = user?.id_rol === ROLES.CLIENT || user?.id_rol === ROLES.BENEFICIARY;
+    if (isClient) {
+      // Clientes: solo cargar contratos propios
+      refreshContracts();
+    } else {
+      // Admin/Entrenador: cargar clientes y contratos
       Promise.all([
         refreshClients(),
         refreshContracts()
       ]);
     }
-  }, [isAuthenticated, refreshClients, refreshContracts]);
+  }, [isAuthenticated, user?.id_rol, refreshClients, refreshContracts]);
 
   const value: GymContextType = {
     // Data

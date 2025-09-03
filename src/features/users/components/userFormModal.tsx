@@ -15,6 +15,8 @@ import { userService } from "../services/userService";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { roleService } from '@/features/roles/services/roleService';
 import { Info } from "lucide-react";
+import { EmailInput } from "@/shared/components/EmailInput";
+import { PhoneInput } from "@/shared/components/PhoneInput";
 
 const userFormSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -45,7 +47,7 @@ interface UserFormModalProps {
 }
 
 export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalProps) {
-  const { register, handleSubmit, control, watch, reset, setError, clearErrors, formState: { errors, isSubmitting } } = useForm<UserFormValues>({
+  const { register, handleSubmit, control, watch, reset, setValue, setError, clearErrors, formState: { errors, isSubmitting } } = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
     defaultValues: {
         nombre: '',
@@ -215,6 +217,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
                   id="numero_documento"
                   {...register("numero_documento")}
                   placeholder="Ingrese el número de documento"
+                  maxLength={20}
                   className={documentValidation.exists ? "border-red-500" : documentValidation.message && !documentValidation.exists ? "border-green-500" : ""}
                 />
                 {documentValidation.isChecking && (
@@ -282,28 +285,19 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
           {/* Contact Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="correo">Correo Electrónico</Label>
-              <div className="relative">
-                <Input
-                  id="correo"
-                  type="email"
-                  {...register("correo")}
-                  placeholder="ejemplo@correo.com"
-                  className={emailValidation.exists ? "border-red-500" : emailValidation.message && !emailValidation.exists ? "border-green-500" : ""}
-                />
-                {emailValidation.isChecking && (
-                  <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
-                )}
-                {!emailValidation.isChecking && emailValidation.message && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    {emailValidation.exists ? (
-                      <AlertTriangle className="h-4 w-4 text-red-500" />
-                    ) : (
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                    )}
-                  </div>
-                )}
-              </div>
+              <EmailInput
+                value={watch("correo") || ""}
+                onChange={(value) => setValue("correo", value)}
+                label="Correo Electrónico"
+                required={true}
+                forceShowError={!!errors.correo}
+              />
+              {emailValidation.isChecking && (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Verificando disponibilidad...
+                </div>
+              )}
               {emailValidation.message && (
                 <p className={`text-xs mt-1 flex items-center gap-1 ${emailValidation.exists ? 'text-red-500' : 'text-green-600'}`}>
                   {emailValidation.exists ? (
@@ -314,18 +308,16 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
                   {emailValidation.message}
                 </p>
               )}
-              {errors.correo && <p className="text-red-500 text-xs mt-1">{errors.correo.message}</p>}
             </div>
 
             <div>
-              <Label htmlFor="confirmarCorreo">Confirmar Correo Electrónico</Label>
-              <Input
-                id="confirmarCorreo"
-                type="email"
-                {...register("confirmarCorreo")}
-                placeholder="ejemplo@correo.com"
+              <EmailInput
+                value={watch("confirmarCorreo") || ""}
+                onChange={(value) => setValue("confirmarCorreo", value)}
+                label="Confirmar Correo Electrónico"
+                required={true}
+                forceShowError={!!errors.confirmarCorreo}
               />
-              {errors.confirmarCorreo && <p className="text-red-500 text-xs mt-1">{errors.confirmarCorreo.message}</p>}
             </div>
           </div>
 
@@ -398,13 +390,13 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
 
           {/* Optional Fields */}
           <div>
-            <Label htmlFor="telefono">Teléfono</Label>
-            <Input
-              id="telefono"
-              {...register("telefono")}
-              placeholder="Ingrese número de teléfono"
+            <PhoneInput
+              value={watch("telefono") || ""}
+              onChange={(value) => setValue("telefono", value)}
+              label="Teléfono"
+              required={false}
+              forceShowError={!!errors.telefono}
             />
-            {errors.telefono && <p className="text-red-500 text-xs mt-1">{errors.telefono.message}</p>}
           </div>
 
           <div>

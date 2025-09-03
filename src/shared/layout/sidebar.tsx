@@ -105,7 +105,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
   const [activeItem, setActiveItem] = useState<string | null>(null)
   const [activeGroup, setActiveGroup] = useState<string | null>(null)
-  const { logout, user, client } = useAuth()
+  const { logout, user } = useAuth()
   
   // ✅ Usar el nuevo contexto de permisos
   const {
@@ -113,7 +113,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     isLoading,
     isReady,
     lastError,
-    accessibleModules,
+  // accessibleModules,
     permissionsVersion, // Para forzar re-renders
     refreshPermissions
   } = usePermissionsContext()
@@ -160,10 +160,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     } else if (path.includes("/calendar")) {
       setActiveItem("calendar")
       setActiveGroup(null)
-    } else if (path.includes("/my-contract")) {
-      setActiveItem("my-contract")
-      setActiveGroup(null)
-    } else if (path.includes("/my-attendance")) {
+  } else if (path.includes("/my-attendance")) {
       setActiveItem("my-attendance")
       setActiveGroup(null)
     } else if (path.includes("/my-membership")) {
@@ -274,7 +271,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <div className="flex gap-3 items-center w-full">
             <Link
               to="/dashboard" 
-              className="flex items-center gap-3 text-2xl font-bold text-black-800 font-gmsf font-normal not-italic hover:text-black-800 transition-colors duration-200 cursor-pointer"
+              className="flex items-center gap-3 text-2xl font-bold text-black-800 font-gmsf not-italic hover:text-black-800 transition-colors duration-200 cursor-pointer"
               onClick={() => {
                 handleItemClick("dashboard")
                 if (window.innerWidth < 768) onClose()
@@ -318,18 +315,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   />
                 )}
 
-                {/* Mi Contrato */}
-                {hasModuleAccess(PERMISSIONS.CONTRATOS) && (
-                  <NavItem
-                    icon={<FileSignature className="h-5 w-5" aria-hidden="true" />}
-                    label="Mi Contrato"
-                    active={activeItem === "my-contract"}
-                    onClick={() => handleItemClick("my-contract")}
-                    to="/my-contract"
-                    onClose={onClose}
-                    id="nav-my-contract"
-                  />
-                )}
+                {/* Mi Contrato eliminado */}
 
                 {/* Mi Membresía */}
                 {hasModuleAccess(PERMISSIONS.MEMBRESIAS) && (

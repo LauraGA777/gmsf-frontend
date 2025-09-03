@@ -188,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // ✅ Usar constantes ROLES para legibilidad
       if (roleId === ROLES.CLIENT || roleId === ROLES.BENEFICIARY) {
-        path = "/my-contract"
+        path = "/my-membership"
       } else if (roleId === ROLES.TRAINER) {
         path = "/calendar"
       }

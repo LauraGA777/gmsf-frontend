@@ -17,6 +17,7 @@ import { roleService } from '@/features/roles/services/roleService';
 import { Info } from "lucide-react";
 import { EmailInput } from "@/shared/components/EmailInput";
 import { PhoneInput } from "@/shared/components/PhoneInput";
+import { BirthDateInput } from "@/shared/components/BirthDateInput";
 
 const userFormSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -69,6 +70,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
 
   const watchedDocument = watch("numero_documento");
   const watchedEmail = watch("correo");
+  const watchedConfirmEmail = watch("confirmarCorreo");
   const debouncedDocument = useDebounce(watchedDocument, 500);
   const debouncedEmail = useDebounce(watchedEmail, 500);
 
@@ -169,14 +171,40 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
     checkEmail();
   }, [debouncedEmail, user?.id, setError, clearErrors]);
 
+  // Email confirmation validation
+  useEffect(() => {
+    if (!watchedConfirmEmail || watchedConfirmEmail.length === 0) {
+      clearErrors("confirmarCorreo");
+      return;
+    }
+
+    if (watchedEmail && watchedConfirmEmail && watchedEmail !== watchedConfirmEmail) {
+      setError("confirmarCorreo", { 
+        type: "manual", 
+        message: "Los correos no coinciden" 
+      });
+    } else if (watchedEmail && watchedConfirmEmail && watchedEmail === watchedConfirmEmail) {
+      clearErrors("confirmarCorreo");
+    }
+  }, [watchedEmail, watchedConfirmEmail, setError, clearErrors]);
+
   const onSubmit = async (data: UserFormValues) => {
     // ✅ Se elimina validación de contraseña para nuevos usuarios
     try {
-      await onSave(data);
+      // Ensure fecha_nacimiento is always a string
+      const formData = {
+        ...data,
+        fecha_nacimiento: typeof data.fecha_nacimiento === 'string' 
+          ? data.fecha_nacimiento 
+          : String(data.fecha_nacimiento)
+      };
+      
+      await onSave(formData);
       Swal.fire("¡Éxito!", user ? "Usuario actualizado" : "Usuario registrado correctamente. Se enviará un correo con las credenciales de acceso.", "success");
       onClose();
-    } catch (error) {
-      Swal.fire("Error", "Ocurrió un error", "error");
+    } catch (error: any) {
+      // El error ya fue manejado en la página padre, no mostrar alert aquí
+      console.error('Error en formulario:', error);
     }
   };
 
@@ -249,11 +277,13 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
 
           {!user && (
             <div className="space-y-2">
-              <Label htmlFor="fecha_nacimiento">Fecha de Nacimiento</Label>
-              <Input
-                id="fecha_nacimiento"
-                type="date"
-                {...register("fecha_nacimiento")}
+              <BirthDateInput
+                value={watch("fecha_nacimiento") || ""}
+                onChange={(value) => setValue("fecha_nacimiento", value)}
+                label="Fecha de Nacimiento"
+                required={true}
+                forceShowError={!!errors.fecha_nacimiento}
+                role="cliente"
               />
               {errors.fecha_nacimiento && <p className="text-red-500 text-sm">{errors.fecha_nacimiento.message}</p>}
             </div>
@@ -318,6 +348,12 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
                 required={true}
                 forceShowError={!!errors.confirmarCorreo}
               />
+              {errors.confirmarCorreo && (
+                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  {errors.confirmarCorreo.message}
+                </p>
+              )}
             </div>
           </div>
 

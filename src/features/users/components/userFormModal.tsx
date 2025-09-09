@@ -15,8 +15,8 @@ import { userService } from "../services/userService";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { roleService } from '@/features/roles/services/roleService';
 import { Info } from "lucide-react";
-import { EmailInput } from "@/shared/components/EmailInput";
-import { PhoneInput } from "@/shared/components/PhoneInput";
+import { EmailInput } from "@/shared/components/ui/email-input";
+import { PhoneInput } from "@/shared/components/ui/phone-input";
 
 const userFormSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),

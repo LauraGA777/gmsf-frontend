@@ -1,127 +1,108 @@
 import { z } from "zod";
 
-// Esquema completo de usuario con validación de documentos integrada
-export const createUserDocumentSchema = () => {
-  return z.object({
-    id: z.number().optional(),
-    nombre: z.string()
-      .min(3, "El nombre debe tener al menos 3 caracteres")
-      .max(100, "El nombre no puede tener más de 100 caracteres"),
-    apellido: z.string()
-      .min(3, "El apellido debe tener al menos 3 caracteres")
-      .max(100, "El apellido no puede tener más de 100 caracteres"),
-    correo: z.string()
-      .email("Correo electrónico inválido")
-      .min(5, "El correo es demasiado corto")
-      .max(100, "El correo no puede tener más de 100 caracteres"),
-    contrasena: z.string().optional().or(z.literal("")),
-    telefono: z.string()
-      .refine(
-        (val) => val === "" || /^\d{7,15}$/.test(val),
-        "El teléfono debe tener entre 7 y 15 dígitos"
-      )
-      .optional()
-      .or(z.literal(""))
-      .or(z.undefined()),
-    direccion: z.string()
-      .min(5, "La dirección debe tener al menos 5 caracteres")
-      .max(200, "La dirección no puede tener más de 200 caracteres")
-      .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s#\-]+$/, "La dirección contiene caracteres no permitidos")
-      .refine(
-        (address) => {
-          if (!address || address.trim().length === 0) return true; // Opcional
-          const trimmed = address.trim().toLowerCase();
-          const roadTypes = ['calle', 'carrera', 'diagonal', 'transversal', 'avenida', 'autopista', 'cl', 'cra', 'dg', 'tv', 'av', 'aut'];
-          return roadTypes.some(type => trimmed.startsWith(type));
-        },
-        { message: "La dirección debe comenzar con un tipo de vía válido (Calle, Carrera, Diagonal, etc.)" }
-      )
-      .refine(
-        (address) => {
-          if (!address || address.trim().length === 0) return true; // Opcional
-          return /\d/.test(address);
-        },
-        { message: "La dirección debe contener números" }
-      )
-      .optional(),
-    genero: z.enum(['M', 'F', 'O']).optional(),
-    tipo_documento: z.enum(["CC", "CE", "TI", "PP", "DIE"], {
-      required_error: "El tipo de documento es requerido",
-    }),
-    numero_documento: z.string()
-      .min(5, "El número de documento debe tener al menos 5 caracteres")
-      .max(20, "El número de documento no puede tener más de 20 caracteres"),
-    fecha_nacimiento: z.string().refine(
-      (date) => {
-        if (!date) return false;
-        const birthDate = new Date(date);
-        if (isNaN(birthDate.getTime())) return false;
-        
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-          age--;
-        }
-        return age >= 13;
-      },
-      { message: "El cliente debe tener al menos 13 años" }
-    ).refine(
-      (date) => {
-        if (!date) return false;
-        const birthDate = new Date(date);
-        if (isNaN(birthDate.getTime())) return false;
-        
-        // No permitir fechas futuras
-        const today = new Date();
-        return birthDate <= today;
-      },
-      { message: "La fecha de nacimiento no puede ser una fecha futura" }
-    ).refine(
-      (date) => {
-        if (!date) return false;
-        const birthDate = new Date(date);
-        if (isNaN(birthDate.getTime())) return false;
-        
-        // Validar fechas inconsistentes (como 31/02)
-        const day = birthDate.getDate();
-        const month = birthDate.getMonth();
-        const year = birthDate.getFullYear();
-        
-        const reconstructedDate = new Date(year, month, day);
-        return reconstructedDate.getDate() === day && 
-               reconstructedDate.getMonth() === month && 
-               reconstructedDate.getFullYear() === year;
-      },
-      { message: "Fecha inconsistente o inválida" }
-    ),
-  }).refine(
-    (data) => {
-      const { tipo_documento, numero_documento } = data;
-      
-      if (!tipo_documento || !numero_documento) return true;
-      
-      // Validaciones específicas por tipo de documento
-      switch (tipo_documento) {
-        case 'CC': // Cédula de ciudadanía: solo números
-        case 'CE': // Cédula de extranjería: solo números
-        case 'TI': // Tarjeta de identidad: solo números
-          return /^\d+$/.test(numero_documento);
-        case 'PP': // Pasaporte: números y letras
-        case 'DIE': // Documento de identificación extranjera: números y letras
-          return /^[A-Za-z0-9]+$/.test(numero_documento);
-        default:
-          return true;
-      }
-    }, {
-      message: "El formato del número de documento no es válido para el tipo seleccionado",
-      path: ["numero_documento"]
-    }
-  );
+// Validaciones personalizadas
+const validateEmail = (email: string): boolean => {
+  if (!email) return false;
+  
+  // Verificar longitud total del email (máximo 64 caracteres)
+  if (email.length > 64) return false;
+  
+  // Verificar que no tenga espacios en blanco
+  if (/\s/.test(email)) return false;
+  
+  // Verificar que tenga exactamente un @
+  const atCount = (email.match(/@/g) || []).length;
+  if (atCount !== 1) return false;
+  
+  // Separar parte local y dominio
+  const [localPart, domain] = email.split('@');
+  
+  // Validar parte local
+  if (!localPart || localPart.length === 0 || localPart.length > 80) return false;
+  if (!/^[a-zA-Z0-9._-]+$/.test(localPart)) return false;
+  if (localPart.startsWith('.') || localPart.endsWith('.')) return false;
+  if (/\.{2,}/.test(localPart)) return false;
+  
+  // Validar dominio
+  if (!domain || domain.length === 0) return false;
+  if (!domain.includes('.')) return false;
+  if (!/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain)) return false;
+  if (/^[.-]|[.-]$/.test(domain)) return false;
+  
+  // Validar formato completo del email
+  const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
 };
 
-// Función de validación de documentos independiente para uso directo
-export const validateDocumentFormat = (tipo: string, numero: string): boolean => {
+const validatePhone = (phone: string): boolean => {
+  if (!phone) return false;
+  
+  // Verificar que solo contenga números
+  if (!/^\d+$/.test(phone)) return false;
+  
+  // Verificar longitud (5-20 caracteres)
+  if (phone.length < 5 || phone.length > 20) return false;
+  
+  // Verificar que no tenga 4 o más dígitos consecutivos iguales
+  if (/(\d)\1{3,}/.test(phone)) return false;
+  
+  return true;
+};
+
+const validateBirthDate = (date: string, minAge: number): boolean => {
+  if (!date) return false;
+  
+  const birthDate = new Date(date);
+  if (isNaN(birthDate.getTime())) return false;
+  
+  const today = new Date();
+  
+  // No permitir fechas futuras
+  if (birthDate > today) return false;
+  
+  // Calcular edad
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  // Verificar edad mínima y máxima (120 años)
+  return age >= minAge && age <= 120;
+};
+
+const validateColombianAddress = (address: string): boolean => {
+  if (!address || address.trim().length === 0) return true; // Opcional
+  
+  const trimmedAddress = address.trim();
+  
+  // Validar longitud mínima
+  if (trimmedAddress.length < 5) return false;
+  
+  // Caracteres permitidos
+  const allowedChars = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s#\-ABCDEFGHIJKLMNOPQRSTUVWXYZ]+$/;
+  if (!allowedChars.test(trimmedAddress)) return false;
+  
+  // Tipos de vía válidos
+  const roadTypes = ['calle', 'cl', 'carrera', 'cra', 'cr', 'diagonal', 'dg', 'transversal', 'tv', 'avenida', 'av', 'autopista'];
+  const startsWithValidRoad = roadTypes.some(type => 
+    trimmedAddress.toLowerCase().startsWith(type.toLowerCase())
+  );
+  
+  if (!startsWithValidRoad) return false;
+  
+  // Debe contener números
+  if (!/\d/.test(trimmedAddress)) return false;
+  
+  // Formato básico (flexible para permitir direcciones variadas)
+  const hasBasicFormat = /\d+.*#.*\d+.*-.*\d+/i.test(trimmedAddress) || 
+                        /\d+.*#.*\d+[a-zA-Z]*.*-.*\d+/i.test(trimmedAddress) ||
+                        /\d+[a-zA-Z]*.*#.*\d+.*-.*\d+/i.test(trimmedAddress);
+  
+  return hasBasicFormat;
+};
+
+const validateDocumentFormat = (tipo: string, numero: string): boolean => {
   if (!tipo || !numero) return false;
   
   switch (tipo) {
@@ -137,21 +118,74 @@ export const validateDocumentFormat = (tipo: string, numero: string): boolean =>
   }
 };
 
+// Esquema completo de usuario con validación de documentos integrada
+export const createUserDocumentSchema = () => {
+  return z.object({
+    id: z.number().optional(),
+    nombre: z.string()
+      .min(3, "El nombre debe tener al menos 3 caracteres")
+      .max(100, "El nombre no puede tener más de 100 caracteres"),
+    apellido: z.string()
+      .min(3, "El apellido debe tener al menos 3 caracteres")
+      .max(100, "El apellido no puede tener más de 100 caracteres"),
+    correo: z.string()
+      .min(5, "El correo electrónico debe tener mínimo 5 caracteres")
+      .max(64, "El correo electrónico debe tener máximo 64 caracteres")
+      .refine(validateEmail, "Formato de correo electrónico inválido"),
+    contrasena: z.string().optional().or(z.literal("")),
+    telefono: z.string()
+      .refine((val) => val === "" || validatePhone(val), "El teléfono debe tener entre 5-20 dígitos y no puede contener 4 o más dígitos consecutivos iguales")
+      .optional()
+      .or(z.literal("")),
+    direccion: z.string()
+      .min(5, "La dirección debe tener al menos 5 caracteres")
+      .max(200, "La dirección no puede tener más de 200 caracteres")
+      .refine(validateColombianAddress, "Formato de dirección inválido. Use formato colombiano: Tipo vía + número # número - número")
+      .optional(),
+    genero: z.enum(['M', 'F', 'O']).optional(),
+    tipo_documento: z.enum(["CC", "CE", "TI", "PP", "DIE"], {
+      required_error: "El tipo de documento es requerido",
+    }),
+    numero_documento: z.string()
+      .min(5, "El número de documento debe tener al menos 5 caracteres")
+      .max(20, "El número de documento no puede tener más de 20 caracteres"),
+    fecha_nacimiento: z.string()
+      .refine((date) => validateBirthDate(date, 13), "El cliente debe tener entre 13 y 120 años. No se permiten fechas futuras"),
+  }).refine(
+    (data) => {
+      const { tipo_documento, numero_documento } = data;
+      
+      if (!tipo_documento || !numero_documento) return true;
+      
+      return validateDocumentFormat(tipo_documento, numero_documento);
+    }, {
+      message: "El formato del número de documento no es válido para el tipo seleccionado",
+      path: ["numero_documento"]
+    }
+  );
+};
+
+// Función de validación de documentos independiente para uso directo
+export { validateDocumentFormat };
+
 // Esquemas específicos para clientes
 export const emergencyContactSchema = z.object({
-  nombre_contacto: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
+  nombre_contacto: z.string()
+    .min(3, "El nombre debe tener al menos 3 caracteres")
+    .max(100, "El nombre no puede tener más de 100 caracteres"),
   telefono_contacto: z.string()
-    .refine(
-      (val) => /^\d{7,15}$/.test(val),
-      "El teléfono debe tener entre 7 y 15 dígitos"
-    ),
-  relacion_contacto: z.string().min(3, "La relación debe tener al menos 3 caracteres"),
+    .refine(validatePhone, "El teléfono debe tener entre 5-20 dígitos y no puede contener 4 o más dígitos consecutivos iguales"),
+  relacion_contacto: z.string()
+    .min(3, "La relación debe tener al menos 3 caracteres")
+    .max(50, "La relación no puede tener más de 50 caracteres"),
   es_mismo_beneficiario: z.boolean(),
 });
 
 export const beneficiarySchema = z.object({
   usuario: createUserDocumentSchema(),
-  relacion: z.string().min(3, "La relación debe tener al menos 3 caracteres"),
+  relacion: z.string()
+    .min(3, "La relación debe tener al menos 3 caracteres")
+    .max(50, "La relación no puede tener más de 50 caracteres"),
 });
 
 export const createClientSchema = z.object({
@@ -173,38 +207,18 @@ export const createTrainerUserSchema = () => {
       .min(3, "El apellido debe tener al menos 3 caracteres")
       .max(100, "El apellido no puede tener más de 100 caracteres"),
     correo: z.string()
-      .email("Correo electrónico inválido")
-      .min(5, "El correo es demasiado corto")
-      .max(100, "El correo no puede tener más de 100 caracteres"),
+      .min(5, "El correo electrónico debe tener mínimo 5 caracteres")
+      .max(64, "El correo electrónico debe tener máximo 64 caracteres")
+      .refine(validateEmail, "Formato de correo electrónico inválido"),
     contrasena: z.string().optional().or(z.literal("")),
     telefono: z.string()
-      .refine(
-        (val) => val === "" || /^\d{7,15}$/.test(val),
-        "El teléfono debe tener entre 7 y 15 dígitos"
-      )
+      .refine((val) => val === "" || validatePhone(val), "El teléfono debe tener entre 5-20 dígitos y no puede contener 4 o más dígitos consecutivos iguales")
       .optional()
-      .or(z.literal(""))
-      .or(z.undefined()),
+      .or(z.literal("")),
     direccion: z.string()
       .min(5, "La dirección debe tener al menos 5 caracteres")
       .max(200, "La dirección no puede tener más de 200 caracteres")
-      .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s#\-]+$/, "La dirección contiene caracteres no permitidos")
-      .refine(
-        (address) => {
-          if (!address || address.trim().length === 0) return true; // Opcional
-          const trimmed = address.trim().toLowerCase();
-          const roadTypes = ['calle', 'carrera', 'diagonal', 'transversal', 'avenida', 'autopista', 'cl', 'cra', 'dg', 'tv', 'av', 'aut'];
-          return roadTypes.some(type => trimmed.startsWith(type));
-        },
-        { message: "La dirección debe comenzar con un tipo de vía válido (Calle, Carrera, Diagonal, etc.)" }
-      )
-      .refine(
-        (address) => {
-          if (!address || address.trim().length === 0) return true; // Opcional
-          return /\d/.test(address);
-        },
-        { message: "La dirección debe contener números" }
-      )
+      .refine(validateColombianAddress, "Formato de dirección inválido. Use formato colombiano: Tipo vía + número # número - número")
       .optional(),
     genero: z.enum(['M', 'F', 'O']).optional(),
     tipo_documento: z.enum(["CC", "CE", "TI", "PP", "DIE"], {
@@ -213,68 +227,15 @@ export const createTrainerUserSchema = () => {
     numero_documento: z.string()
       .min(5, "El número de documento debe tener al menos 5 caracteres")
       .max(20, "El número de documento no puede tener más de 20 caracteres"),
-    fecha_nacimiento: z.string().refine(
-      (date) => {
-        if (!date) return false;
-        const birthDate = new Date(date);
-        if (isNaN(birthDate.getTime())) return false;
-        
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-          age--;
-        }
-        return age >= 16;
-      },
-      { message: "El entrenador debe tener al menos 16 años" }
-    ).refine(
-      (date) => {
-        if (!date) return false;
-        const birthDate = new Date(date);
-        if (isNaN(birthDate.getTime())) return false;
-        
-        // No permitir fechas futuras
-        const today = new Date();
-        return birthDate <= today;
-      },
-      { message: "La fecha de nacimiento no puede ser una fecha futura" }
-    ).refine(
-      (date) => {
-        if (!date) return false;
-        const birthDate = new Date(date);
-        if (isNaN(birthDate.getTime())) return false;
-        
-        // Validar fechas inconsistentes (como 31/02)
-        const day = birthDate.getDate();
-        const month = birthDate.getMonth();
-        const year = birthDate.getFullYear();
-        
-        const reconstructedDate = new Date(year, month, day);
-        return reconstructedDate.getDate() === day && 
-               reconstructedDate.getMonth() === month && 
-               reconstructedDate.getFullYear() === year;
-      },
-      { message: "Fecha inconsistente o inválida" }
-    ),
+    fecha_nacimiento: z.string()
+      .refine((date) => validateBirthDate(date, 16), "El entrenador debe tener entre 16 y 120 años. No se permiten fechas futuras"),
   }).refine(
-    (data: any) => {
+    (data) => {
       const { tipo_documento, numero_documento } = data;
       
       if (!tipo_documento || !numero_documento) return true;
       
-      // Validaciones específicas por tipo de documento
-      switch (tipo_documento) {
-        case 'CC': // Cédula de ciudadanía: solo números
-        case 'CE': // Cédula de extranjería: solo números
-        case 'TI': // Tarjeta de identidad: solo números
-          return /^\d+$/.test(numero_documento);
-        case 'PP': // Pasaporte: números y letras
-        case 'DIE': // Documento de identificación extranjera: números y letras
-          return /^[A-Za-z0-9]+$/.test(numero_documento);
-        default:
-          return true;
-      }
+      return validateDocumentFormat(tipo_documento, numero_documento);
     }, {
       message: "El formato del número de documento no es válido para el tipo seleccionado",
       path: ["numero_documento"]
@@ -296,7 +257,9 @@ export const createTrainerUserSchema = () => {
 
 export const createTrainerSchema = z.object({
   usuario: createTrainerUserSchema(),
-  especialidad: z.string().min(3, "La especialidad es requerida y debe tener al menos 3 caracteres"),
+  especialidad: z.string()
+    .min(3, "La especialidad es requerida y debe tener al menos 3 caracteres")
+    .max(100, "La especialidad no puede tener más de 100 caracteres"),
   estado: z.boolean().optional().default(true),
 });
 

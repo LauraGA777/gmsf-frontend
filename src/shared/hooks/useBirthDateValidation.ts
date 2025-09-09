@@ -73,6 +73,15 @@ export const useBirthDateValidation = (options: BirthDateValidationOptions): Bir
     // Calcular edad usando la utilidad
     const age = calculateAge(dateString);
 
+    // Validar edad máxima (120 años)
+    if (age > 120) {
+      return {
+        isValid: false,
+        error: 'La edad no puede ser mayor a 120 años',
+        age
+      };
+    }
+
     // Validar edad mínima
     if (age < minAge) {
       const roleText = role === 'cliente' ? 'cliente' : 'entrenador';
@@ -117,7 +126,7 @@ export const useBirthDateValidation = (options: BirthDateValidationOptions): Bir
   // Obtener fecha mínima permitida (para el atributo min del input)
   const getMinDate = useCallback((): string => {
     const today = new Date();
-    const minYear = today.getFullYear() - 100; // Máximo 100 años atrás
+    const minYear = today.getFullYear() - 120; // Máximo 120 años atrás
     return `${minYear}-01-01`;
   }, []);
 

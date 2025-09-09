@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
+import { Input } from './input';
+import { Label } from './label';
 import { AlertTriangle, CheckCircle, MapPin } from 'lucide-react';
 import { useColombianAddressValidation } from '@/shared/hooks/useColombianAddressValidation';
 
@@ -98,7 +98,7 @@ export const AddressInput: React.FC<AddressInputProps> = ({
           className={`pl-10 ${inputClassName}`}
           placeholder={placeholder || getPlaceholder()}
           required={required}
-          maxLength={100}
+          maxLength={200}
         />
         
         {shouldShowSuccess && (
@@ -126,7 +126,7 @@ export const AddressInput: React.FC<AddressInputProps> = ({
 
       {!hasInteracted && (
         <p className="text-xs text-gray-500 mt-1">
-          Ejemplo: Calle 45 #120B-12, Carrera 7 #32-10, Diagonal 25 #15-30
+          Ejemplo: Calle 45 #120B-12, Carrera 23AA #20-245, Diagonal 2 #243-123
         </p>
       )}
 

@@ -26,8 +26,8 @@ export const useColombianAddressValidation = (): ColombianAddressHookReturn => {
     'autopista': ['autopista', 'aut', 'auto']
   };
 
-  // Regex para caracteres permitidos (letras, números, espacios, #, -)
-  const allowedCharacters = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s#\-]+$/;
+  // Regex para caracteres permitidos (letras, números, espacios, #, -, letras especiales)
+  const allowedCharacters = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s#\-ABCDEFGHIJKLMNOPQRSTUVWXYZ]+$/;
 
   // Validar dirección completa
   const validateAddress = useCallback((address: string): ColombianAddressValidationResult => {
@@ -81,12 +81,15 @@ export const useColombianAddressValidation = (): ColombianAddressHookReturn => {
       };
     }
 
-    // Validar formato completo (opcional - puede ser más flexible)
-    const hasBasicFormat = /\d+.*#.*\d+.*-.*\d+/i.test(trimmedAddress);
+    // Validar formato completo (más flexible para permitir direcciones variadas)
+    const hasBasicFormat = /\d+.*#.*\d+.*-.*\d+/i.test(trimmedAddress) || 
+                          /\d+.*#.*\d+[a-zA-Z]*.*-.*\d+/i.test(trimmedAddress) ||
+                          /\d+[a-zA-Z]*.*#.*\d+.*-.*\d+/i.test(trimmedAddress);
+    
     if (!hasBasicFormat) {
       return {
         isValid: false,
-        error: 'Formato de dirección incorrecto. Use el formato: Tipo de vía + número # número - número (Ej: Calle 45 #120B-12)',
+        error: 'Formato de dirección incorrecto. Use el formato: Tipo de vía + número # número - número (Ej: Calle 45 #120B-12, Carrera 23AA #20-245)',
         formattedAddress: null
       };
     }
@@ -123,7 +126,7 @@ export const useColombianAddressValidation = (): ColombianAddressHookReturn => {
 
   // Obtener placeholder
   const getPlaceholder = useCallback((): string => {
-    return 'Ej: Calle 45 #120B-12';
+    return 'Ej: Calle 45 #120B-12, Carrera 23AA #20-245';
   }, []);
 
   // Obtener regex de caracteres permitidos

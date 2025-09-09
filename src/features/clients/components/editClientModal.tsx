@@ -11,10 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/compo
 import { User, Plus, Trash2, Users, ShieldCheck, AlertTriangle, ArrowRight, ArrowLeft, Check } from "lucide-react";
 import type { Client } from "@/shared/types";
 import { useToast } from "@/shared/components/ui/use-toast";
-import { EmailInput } from "@/shared/components/EmailInput";
-import { PhoneInput } from "@/shared/components/PhoneInput";
-import { BirthDateInput } from "@/shared/components/BirthDateInput";
-import { AddressInput } from "@/shared/components/AddressInput";
+import { EmailInput } from "@/shared/components/ui/email-input";
+import { PhoneInput } from "@/shared/components/ui/phone-input";
+import { BirthDateInput } from "@/shared/components/ui/birth-date-input";
+import { AddressInput } from "@/shared/components/ui/address-input";
 import { formatDateForInput, formatDateForBackend } from "@/shared/utils/dateUtils";
 
 // Función para validar fecha de nacimiento con edad mínima

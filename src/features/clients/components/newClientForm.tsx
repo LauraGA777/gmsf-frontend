@@ -13,10 +13,10 @@ import { clientService } from "@/features/clients/services/client.service";
 import { useToast } from "@/shared/components/ui/use-toast";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { DocumentInput } from "@/shared/components/ui/document-input";
-import { BirthDateInput } from "@/shared/components/BirthDateInput";
-import { AddressInput } from "@/shared/components/AddressInput";
-import { EmailInput } from "@/shared/components/EmailInput";
-import { PhoneInput } from "@/shared/components/PhoneInput";
+import { BirthDateInput } from "@/shared/components/ui/birth-date-input";
+import { AddressInput } from "@/shared/components/ui/address-input";
+import { EmailInput } from "@/shared/components/ui/email-input";
+import { PhoneInput } from "@/shared/components/ui/phone-input";
 import { 
   createClientSchema, 
   CreateClientFormValues as ImportedCreateClientFormValues

@@ -48,6 +48,14 @@ export const usePhoneValidation = (): PhoneHookReturn => {
       };
     }
 
+    // Verificar que no tenga 4 o más dígitos consecutivos iguales
+    if (/(\d)\1{3,}/.test(phone)) {
+      return {
+        isValid: false,
+        error: 'El teléfono no puede contener 4 o más dígitos consecutivos iguales'
+      };
+    }
+
     return {
       isValid: true,
       error: null

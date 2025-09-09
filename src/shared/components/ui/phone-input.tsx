@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { Input } from './input';
+import { Label } from './label';
 import { usePhoneValidation } from '@/shared/hooks/usePhoneValidation';
 
 interface PhoneInputProps {

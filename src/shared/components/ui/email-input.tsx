@@ -138,11 +138,7 @@ export const EmailInput: React.FC<EmailInputProps> = ({
         </p>
       )}
       
-      {!shouldShowError && value.length > 0 && validation.isValid && (
-        <p className="text-sm text-green-600 mt-1">
-          ✓ Correo electrónico válido
-        </p>
-      )}
+      {/* ✅ Removed success message: ✓ Correo electrónico válido */}
     </div>
   );
 };

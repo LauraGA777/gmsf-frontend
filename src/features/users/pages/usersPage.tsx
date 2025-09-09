@@ -159,8 +159,10 @@ export default function UsersPage() {
       await userService.createUser(data);
       await handleSaveUser();
       Swal.fire('¡Éxito!', 'Usuario creado correctamente', 'success');
-    } catch (error) {
-      
+    } catch (error: any) {
+      // Mostrar el mensaje específico del backend
+      const errorMessage = error.response?.data?.message || 'Error al crear el usuario';
+      Swal.fire('Error', errorMessage, 'error');
       throw error;
     }
   };
@@ -171,7 +173,10 @@ export default function UsersPage() {
       await userService.updateUser(editingUser.id, data);
       await handleSaveUser();
       Swal.fire('¡Éxito!', 'Usuario actualizado correctamente', 'success');
-    } catch (error) {
+    } catch (error: any) {
+      // Mostrar el mensaje específico del backend
+      const errorMessage = error.response?.data?.message || 'Error al actualizar el usuario';
+      Swal.fire('Error', errorMessage, 'error');
       throw error;
     }
   };

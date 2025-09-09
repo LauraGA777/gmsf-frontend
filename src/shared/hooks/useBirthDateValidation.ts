@@ -83,6 +83,15 @@ export const useBirthDateValidation = (options: BirthDateValidationOptions): Bir
       };
     }
 
+    // Validar edad máxima (no más de 100 años)
+    if (age > 100) {
+      return {
+        isValid: false,
+        error: 'La edad no puede ser superior a los 100 años',
+        age
+      };
+    }
+
     return {
       isValid: true,
       error: null,

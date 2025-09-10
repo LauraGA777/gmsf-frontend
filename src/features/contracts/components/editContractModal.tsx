@@ -14,8 +14,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useAuth } from "@/shared/contexts/authContext"
 import { Card, CardHeader, CardTitle, CardContent } from "@/shared/components/ui/card"
-import { membershipService } from "@/features/memberships/services/membership.service"
-import { useToast } from "@/shared/components/ui/use-toast"
 
 const updateContractFormSchema = z.object({
   id_membresia: z.number({ required_error: "Debe seleccionar una membresía" }),
@@ -34,16 +32,15 @@ interface EditContractModalProps {
 
 export function EditContractModal({ contract, memberships, onUpdateContract, onClose }: EditContractModalProps) {
   const { user } = useAuth()
-  const { toast } = useToast()
   const [localMemberships, setLocalMemberships] = useState<Membership[]>(memberships)
-  const [loadingMemberships, setLoadingMemberships] = useState(false)
 
-  // Debug: Log memberships data
-  console.log('🔍 EditContractModal - Memberships received:', {
-    totalMemberships: memberships.length,
-    localMemberships: localMemberships.length,
-    memberships: memberships.map(m => ({ id: m.id, nombre: m.nombre, estado: m.estado, tipo: typeof m.estado })),
-    activeMembershipsCount: memberships.filter(m => m.estado).length
+  // Debug: Log contract and memberships data
+  console.log('🔍 EditContractModal - Debug data:', {
+    contractId: contract.id,
+    contractMembershipId: contract.id_membresia,
+    contractMembership: contract.membresia,
+    membershipsCount: memberships.length,
+    memberships: memberships.map(m => ({ id: m.id, nombre: m.nombre }))
   });
 
   const {
@@ -65,50 +62,12 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
   const watchStartDate = watch("fecha_inicio")
   const watchStatus = watch("estado")
 
-  // Load memberships if empty
-  useEffect(() => {
-    const loadMemberships = async () => {
-      if (localMemberships.length === 0 && !loadingMemberships) {
-        console.log('🔄 EditContractModal - Loading memberships because they are empty');
-        setLoadingMemberships(true);
-        try {
-          const response = await membershipService.getMemberships({ estado: true });
-          if (response.data) {
-            console.log('✅ EditContractModal - Loaded memberships:', response.data);
-            setLocalMemberships(response.data);
-          }
-        } catch (error) {
-          console.error('❌ EditContractModal - Error loading memberships:', error);
-          toast({
-            title: 'Error',
-            description: 'Error al cargar las membresías.',
-            variant: 'destructive',
-          });
-        } finally {
-          setLoadingMemberships(false);
-        }
-      }
-    };
-
-    loadMemberships();
-  }, [localMemberships.length, loadingMemberships, toast]);
-
   // Update local memberships when prop changes
   useEffect(() => {
     if (memberships.length > 0) {
       setLocalMemberships(memberships);
     }
   }, [memberships]);
-
-  const activeMemberships = useMemo(() => {
-    const filtered = localMemberships.filter(m => m.estado);
-    console.log('🔍 EditContractModal - Active memberships filtered:', {
-      originalCount: localMemberships.length,
-      filteredCount: filtered.length,
-      filtered: filtered.map(m => ({ id: m.id, nombre: m.nombre, estado: m.estado }))
-    });
-    return filtered;
-  }, [localMemberships]);
 
 
   const summaryData = useMemo(() => {
@@ -220,42 +179,43 @@ export function EditContractModal({ contract, memberships, onUpdateContract, onC
             {errors.estado && <p className="text-red-500 text-sm">{errors.estado.message}</p>}
           </div>
           
-          {/* Membership */}
+          {/* Membership - Read Only */}
           <div className="space-y-2">
             <Label htmlFor="id_membresia" className="flex items-center gap-2"><User className="h-4 w-4" />Membresía</Label>
              <Controller
               name="id_membresia"
               control={control}
-              render={({ field }) => (
-                <Select
-                  onValueChange={(value) => field.onChange(Number(value))}
-                  defaultValue={String(field.value)}
-                  disabled={activeMemberships.length === 0 || loadingMemberships}
-                >
-                  <SelectTrigger id="id_membresia">
-                    <SelectValue placeholder={
-                      loadingMemberships 
-                        ? "Cargando membresías..." 
-                        : activeMemberships.length === 0 
-                          ? "No hay membresías activas" 
-                          : "Seleccionar"
-                    }/>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeMemberships.map((m) => (
-                      <SelectItem key={m.id} value={String(m.id)}>{m.nombre}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              render={({ field }) => {
+                const selectedMembership = localMemberships.find(m => m.id === field.value);
+                // Si no encontramos la membresía en la lista, usar la información del contrato
+                const membershipName = selectedMembership?.nombre || 
+                                     contract.membresia?.nombre || 
+                                     "Membresía";
+                
+                return (
+                  <Select
+                    onValueChange={(value) => field.onChange(Number(value))}
+                    value={String(field.value)}
+                    disabled={true}
+                  >
+                    <SelectTrigger id="id_membresia" className="bg-gray-50">
+                      <SelectValue>
+                        {membershipName}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {localMemberships.map((m) => (
+                        <SelectItem key={m.id} value={String(m.id)}>{m.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                );
+              }}
             />
-            {errors.id_membresia && <p className="text-red-500 text-sm">{errors.id_membresia.message}</p>}
-             {!loadingMemberships && activeMemberships.length === 0 && (
-                <p className="text-xs text-yellow-600 flex items-center gap-1 mt-1"><Info className="h-3 w-3"/> No hay otras membresías activas para seleccionar.</p>
-            )}
-            {loadingMemberships && (
-                <p className="text-xs text-blue-600 flex items-center gap-1 mt-1"><Info className="h-3 w-3"/> Cargando membresías...</p>
-            )}
+            <p className="text-xs text-gray-600 flex items-center gap-1 mt-1">
+              <Info className="h-3 w-3"/> 
+              La membresía no puede ser modificada en contratos existentes.
+            </p>
           </div>
         </div>
         

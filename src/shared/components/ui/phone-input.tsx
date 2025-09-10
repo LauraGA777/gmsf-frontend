@@ -124,11 +124,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
         </p>
       )}
       
-      {!shouldShowError && value.length > 0 && validation.isValid && (
-        <p className="text-sm text-green-600 mt-1">
-          ✓ Número de teléfono válido
-        </p>
-      )}
+      {/* ✅ Removed success message: ✓ Número de teléfono válido */}
     </div>
   );
 };

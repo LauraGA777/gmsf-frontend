@@ -101,12 +101,7 @@ export const BirthDateInput: React.FC<BirthDateInputProps> = ({
         </p>
       )}
 
-      {shouldShowSuccess && validation.age !== null && (
-        <p className="text-sm text-green-600 flex items-center gap-1 mt-1">
-          <CheckCircle className="h-4 w-4 flex-shrink-0" />
-          Edad válida: {validation.age} años
-        </p>
-      )}
+      {/* ✅ Removed success message: Edad válida */}
 
       {internalValue && hasInteracted && (
         <p className="text-xs text-gray-500 mt-1">

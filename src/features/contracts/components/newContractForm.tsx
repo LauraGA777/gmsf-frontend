@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -19,7 +19,7 @@ import { mapDbClientToUiClient } from "@/shared/types";
 import { useToast } from "@/shared/components/ui/use-toast";
 
 const contractSchema = z.object({
-  id_persona: z.number().min(1, "Debe seleccionar un cliente"),
+  numero_documento: z.string().min(1, "El número de documento es requerido"),
   id_membresia: z.number().min(1, "Debe seleccionar una membresía"),
   fecha_inicio: z.string().min(1, "La fecha de inicio es requerida"),
 });
@@ -37,10 +37,17 @@ export function NewContractForm({
   onClose,
   onSuccess,
 }: NewContractFormProps) {
+  const [selectedClient, setSelectedClient] = useState<UIClient | null>(null);
   const [clients, setClients] = useState<UIClient[]>([]);
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [searchingClient, setSearchingClient] = useState(false);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [checkingActiveContract, setCheckingActiveContract] = useState(false);
+  const [clientHasActiveContract, setClientHasActiveContract] = useState(false);
+  const [activeContractInfo, setActiveContractInfo] = useState<any>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   const {
@@ -54,7 +61,7 @@ export function NewContractForm({
     resolver: zodResolver(contractSchema),
     mode: "onChange",
     defaultValues: {
-      id_persona: 0,
+      numero_documento: "",
       id_membresia: 0,
       fecha_inicio: format(new Date(), "yyyy-MM-dd"),
     },
@@ -62,6 +69,7 @@ export function NewContractForm({
 
   const watchedIdMembresia = watch("id_membresia");
   const watchedFechaInicio = watch("fecha_inicio");
+  const watchedNumeroDocumento = watch("numero_documento");
 
   const selectedMembership = useMemo(() => 
     memberships.find((m) => m.id === watchedIdMembresia),
@@ -72,23 +80,7 @@ export function NewContractForm({
     const loadData = async () => {
       try {
         setLoadingData(true);
-        const [clientsResponse, membershipsResponse] = await Promise.all([
-          clientService.getActiveClients(),
-          membershipService.getMemberships({ estado: true })
-        ]);
-
-        if (clientsResponse.data) {
-          const mappedClients = clientsResponse.data
-            .map(client => {
-              try {
-                return mapDbClientToUiClient(client);
-              } catch (err) {
-                return null;
-              }
-            })
-            .filter((client): client is UIClient => client !== null);
-          setClients(mappedClients);
-        }
+        const membershipsResponse = await membershipService.getMemberships({ estado: true });
 
         if (membershipsResponse.data) {
           setMemberships(membershipsResponse.data);
@@ -97,7 +89,7 @@ export function NewContractForm({
       } catch (error) {
         toast({
           title: 'Error',
-          description: 'Error al cargar los datos necesarios para el formulario.',
+          description: 'Error al cargar las membresías.',
           variant: 'destructive',
         });
       } finally {
@@ -122,13 +114,144 @@ export function NewContractForm({
     return { calculatedEndDate: null, calculatedPrice: 0 };
   }, [selectedMembership, watchedFechaInicio]);
 
-  const handleClientChange = (value: string) => {
-    setValue("id_persona", parseInt(value, 10) || 0, { shouldValidate: true });
+  const searchClientByDocument = async (numeroDocumento: string) => {
+    if (!numeroDocumento || numeroDocumento.length < 2) {
+      setSelectedClient(null);
+      setClients([]);
+      return;
+    }
+
+    setSearchingClient(true);
+    try {
+      console.log('Searching for clients with:', numeroDocumento);
+      
+      // Usar getClients con filtro de búsqueda en lugar de searchClients
+      const clientsResponse = await clientService.getClients({
+        search: numeroDocumento,
+        estado: true,
+        limit: 20
+      });
+      
+      console.log('Search response:', clientsResponse);
+      
+      if (clientsResponse.data) {
+        const mappedClients = clientsResponse.data
+          .map(client => {
+            try {
+              return mapDbClientToUiClient(client);
+            } catch (err) {
+              console.error('Error mapping client:', err);
+              return null;
+            }
+          })
+          .filter((client): client is UIClient => client !== null);
+        
+        console.log('Mapped clients:', mappedClients);
+        setClients(mappedClients);
+
+        // Si hay una coincidencia exacta por número de documento, seleccionarla automáticamente
+        const exactMatch = mappedClients.find(client => 
+          client.documentNumber === numeroDocumento
+        );
+        
+        if (exactMatch) {
+          console.log('Found exact match:', exactMatch);
+          setSelectedClient(exactMatch);
+          // Check if client has active contracts
+          checkClientActiveContracts(parseInt(exactMatch.id));
+        } else {
+          setSelectedClient(null);
+          setClientHasActiveContract(false);
+          setActiveContractInfo(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error searching clients:', error);
+      toast({
+        title: 'Error',
+        description: 'Error al buscar clientes. Verifica la consola para más detalles.',
+        variant: 'destructive',
+      });
+      setClients([]);
+      setSelectedClient(null);
+      setClientHasActiveContract(false);
+      setActiveContractInfo(null);
+    } finally {
+      setSearchingClient(false);
+    }
   };
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (watchedNumeroDocumento) {
+        searchClientByDocument(watchedNumeroDocumento);
+        setShowClientDropdown(true);
+      } else {
+        setSelectedClient(null);
+        setClients([]);
+        setShowClientDropdown(false);
+        setClientHasActiveContract(false);
+        setActiveContractInfo(null);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [watchedNumeroDocumento]);
+
+  // Cerrar dropdown al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowClientDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleMembershipChange = (value: string) => {
     const membershipId = parseInt(value, 10) || 0;
     setValue("id_membresia", membershipId, { shouldValidate: true });
+  };
+
+  const handleClientSelect = (client: UIClient) => {
+    setSelectedClient(client);
+    setValue("numero_documento", client.documentNumber, { shouldValidate: true });
+    setShowClientDropdown(false);
+    
+    // Check if client has active contracts
+    checkClientActiveContracts(parseInt(client.id));
+  };
+
+  const checkClientActiveContracts = async (clientId: number) => {
+    setCheckingActiveContract(true);
+    setClientHasActiveContract(false);
+    setActiveContractInfo(null);
+
+    try {
+      const contractCheck = await contractService.checkClientActiveContracts(clientId);
+      
+      if (contractCheck.hasActiveContract) {
+        setClientHasActiveContract(true);
+        setActiveContractInfo(contractCheck.activeContract);
+        
+        toast({
+          title: "Cliente con contrato activo",
+          description: `Este cliente ya tiene un contrato ${contractCheck.contractType?.toLowerCase()}. No se puede crear un nuevo contrato.`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error checking active contracts:', error);
+      toast({
+        title: 'Error',
+        description: 'Error al verificar contratos activos del cliente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCheckingActiveContract(false);
+    }
   };
 
   const onSubmit = async (data: ContractFormValues) => {
@@ -141,11 +264,29 @@ export function NewContractForm({
       return;
     }
 
+    if (!selectedClient) {
+      toast({
+        title: "Error de validación",
+        description: "No se encontró un cliente con ese número de documento.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (clientHasActiveContract) {
+      toast({
+        title: "Error de validación",
+        description: "Este cliente ya tiene un contrato activo. No se puede crear un nuevo contrato.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const contractData: ContractFormData = {
-        id_persona: data.id_persona,
+        id_persona: parseInt(selectedClient.id.toString()),
         id_membresia: data.id_membresia,
         fecha_inicio: data.fecha_inicio,
         membresia_precio: calculatedPrice,
@@ -160,6 +301,11 @@ export function NewContractForm({
       });
 
       reset();
+      setSelectedClient(null);
+      setClients([]);
+      setShowClientDropdown(false);
+      setClientHasActiveContract(false);
+      setActiveContractInfo(null);
       onSuccess();
       onClose();
 
@@ -179,6 +325,11 @@ export function NewContractForm({
 
   const handleClose = () => {
     reset();
+    setSelectedClient(null);
+    setClients([]);
+    setShowClientDropdown(false);
+    setClientHasActiveContract(false);
+    setActiveContractInfo(null);
     onClose();
   };
 
@@ -203,41 +354,97 @@ export function NewContractForm({
           </div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Client Selection */}
+            {/* Document Number Input */}
             <div className="space-y-2">
-              <Label htmlFor="cliente">Cliente *</Label>
-              <Select onValueChange={handleClientChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione un cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.length > 0 ? (
-                    clients.map((client) => (
-                      <SelectItem
+              <Label htmlFor="numero_documento">Número de Documento *</Label>
+              <div className="relative" ref={dropdownRef}>
+                <Input
+                  id="numero_documento"
+                  placeholder="Ingrese el número de documento del cliente"
+                  {...register("numero_documento")}
+                  onFocus={() => setShowClientDropdown(clients.length > 0)}
+                />
+                {searchingClient && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black"></div>
+                  </div>
+                )}
+                
+                {/* Client suggestions dropdown */}
+                {showClientDropdown && clients.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    {clients.map((client) => (
+                      <div
                         key={client.id}
-                        value={client.id.toString()}
+                        className="px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                        onClick={() => handleClientSelect(client)}
                       >
                         <div className="flex flex-col">
-                          <span className="font-medium">{client.name}</span>
-                          <span className="text-sm text-gray-500">
-                            {client.codigo}
-                          </span>
+                          <span className="font-medium text-gray-900">{client.name}</span>
+                          <div className="text-sm text-gray-500 space-y-1">
+                            <p>Doc: {client.documentNumber}</p>
+                            <p>Código: {client.codigo}</p>
+                            {client.email && <p>Email: {client.email}</p>}
+                          </div>
                         </div>
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <div className="px-8 py-6 text-center">
-                      <p className="text-sm text-muted-foreground">
-                        No hay clientes disponibles
-                      </p>
-                    </div>
-                  )}
-                </SelectContent>
-              </Select>
-              {errors.id_persona && (
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {errors.numero_documento && (
                 <p className="text-sm text-red-500">
-                  {errors.id_persona.message}
+                  {errors.numero_documento.message}
                 </p>
+              )}
+              {selectedClient && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-green-600" />
+                    <span className="font-medium text-green-800">
+                      Cliente seleccionado: {selectedClient.name}
+                    </span>
+                  </div>
+                  <p className="text-sm text-green-600 mt-1">
+                    Código: {selectedClient.codigo} | Doc: {selectedClient.documentNumber}
+                  </p>
+                </div>
+              )}
+              
+              {clientHasActiveContract && activeContractInfo && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <span className="font-medium text-red-800">
+                      ⚠️ Cliente con contrato activo
+                    </span>
+                  </div>
+                  <div className="text-sm text-red-600 mt-1 space-y-1">
+                    <p>Código: {activeContractInfo.codigo}</p>
+                    <p>Estado: {activeContractInfo.estado}</p>
+                    <p>Fecha fin: {activeContractInfo.fecha_fin ? new Date(activeContractInfo.fecha_fin).toLocaleDateString() : 'N/A'}</p>
+                    <p className="font-medium mt-2">No se puede crear un nuevo contrato hasta que el actual termine o sea cancelado.</p>
+                  </div>
+                </div>
+              )}
+              
+              {checkingActiveContract && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <span className="text-sm text-blue-800">
+                      Verificando contratos activos...
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {watchedNumeroDocumento && watchedNumeroDocumento.length >= 2 && !selectedClient && !searchingClient && clients.length === 0 && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-sm text-yellow-800">
+                    No se encontró ningún cliente con ese criterio de búsqueda.
+                  </p>
+                </div>
               )}
             </div>
 
@@ -376,7 +583,7 @@ export function NewContractForm({
               </Button>
               <Button
                 type="submit"
-                disabled={isLoading || !isValid}
+                disabled={isLoading || !isValid || clientHasActiveContract}
                 className="bg-black hover:bg-gray-800"
               >
                 {isLoading ? "Creando..." : "Crear Contrato"}

@@ -159,7 +159,7 @@ export function TrainersPage() {
         }
         toast({ 
           title: "¡Éxito!", 
-          description: `Entrenador ${actionText}do correctamente.` 
+          description: `Entrenador ${trainer.estado ? 'desactivado' : 'activado'} correctamente.` 
         });
         fetchTrainers(pagination.page, pagination.limit);
       } catch (error: any) {

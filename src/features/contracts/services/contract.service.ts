@@ -131,6 +131,36 @@ export const contractService = {
     };
   },
 
+  // Check if client has active contracts
+  checkClientActiveContracts: async (clientId: number) => {
+    contractService.checkAuth();
+    const response = await api.get<ContractsResponse>('/contracts', {
+      params: {
+        id_persona: clientId,
+        estado: 'Activo',
+        limit: 1
+      }
+    });
+    
+    // Also check for frozen contracts
+    const frozenResponse = await api.get<ContractsResponse>('/contracts', {
+      params: {
+        id_persona: clientId,
+        estado: 'Congelado',
+        limit: 1
+      }
+    });
+    
+    const hasActiveContract = response.data.data.length > 0;
+    const hasFrozenContract = frozenResponse.data.data.length > 0;
+    
+    return {
+      hasActiveContract: hasActiveContract || hasFrozenContract,
+      activeContract: hasActiveContract ? response.data.data[0] : (hasFrozenContract ? frozenResponse.data.data[0] : null),
+      contractType: hasActiveContract ? 'Activo' : (hasFrozenContract ? 'Congelado' : null)
+    };
+  },
+
   // Get active contracts for a client
   getActiveContractsByClient: async (clientId: number) => {
     contractService.checkAuth();

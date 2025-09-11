@@ -78,7 +78,7 @@ export function TrainersPage() {
         pagina: page,
         limite: limit,
         orden: 'codigo',
-        direccion: 'ASC',
+        direccion: 'DESC',
       };
       if (searchTerm) params.q = searchTerm;
       if (statusFilter !== "all") params.estado = statusFilter === 'Activo';

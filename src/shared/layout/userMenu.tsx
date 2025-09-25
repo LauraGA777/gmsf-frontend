@@ -1,6 +1,6 @@
 import { useAuth } from "../contexts/authContext"
 import { Button } from "@/shared/components/ui/button"
-import { LogOut, User, ChevronRight } from "lucide-react"
+import { LogOut, User, ChevronRight, HelpCircle } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +54,16 @@ export function UserMenu() {
 
   return (
     <div className="flex items-center space-x-4">
+      {/* Botón de ayuda */}
+      <Button 
+        variant="ghost" 
+        size="sm"
+        className="h-10 w-10 rounded-full hover:bg-gray-100"
+        title="Ayuda"
+        onClick={() => window.open('https://drive.google.com/file/d/1pW-8XZzDNx7bKEwlWp2UlfefoZ4kscjr/view?usp=sharing', '_blank')}
+      >
+        <HelpCircle className="h-5 w-5 text-gray-600" />
+      </Button>
       
       {/* Menú de usuario */}
       <DropdownMenu>

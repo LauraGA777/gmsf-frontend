@@ -1,6 +1,6 @@
 import { useLocation } from "react-router-dom"
 import { UserMenu } from "./userMenu"
-import { Menu, Home, Users, UserCog, FileSignature, User, ClipboardCheck, Calendar, BadgeCheck, UserCheck } from "lucide-react"
+import { Menu, Home, Users, UserCog, FileSignature, User, ClipboardCheck, Calendar, UserCheck } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { useEffect, useState } from "react"
 
@@ -20,8 +20,6 @@ export function Header({ toggleSidebar, currentSection }: HeaderProps) {
 
     if (path.includes("/dashboard")) {
       icon = <Home />
-    } else if (path.includes("/roles")) {
-      icon = <BadgeCheck />
     } else if (path.includes("/users")) {
       icon = <Users />
     } else if (path.includes("/trainers")) {
